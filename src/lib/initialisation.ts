@@ -25,6 +25,7 @@ import {
   parcours,
   porte,
   type ChargeReport,
+  type Report,
   type EtatInitialisation,
   type Parcours,
   type Porte,
@@ -69,8 +70,16 @@ export async function marquerModule(branche: string): Promise<void> {
   await journaliser(cibleDuModule(branche), TYPE_MODULE, { poseLe: new Date().toISOString() });
 }
 
-export async function reportsLocaux(): Promise<Set<string>> {
-  return new Set(lireReports(await toutesLesOperations()).keys());
+/**
+ * Les reports de cet appareil, **avec leur date**.
+ *
+ * Elle rendait un `Set` de noms, ce qui jetait `reporteLe` — la seule donnée
+ * qui permette de dire quand une question revient. Aucun appelant ne s'en
+ * servait encore ; la Map est donc rendue telle quelle, et « Mon profil » s'en
+ * sert pour dire « reporté, revient le … ».
+ */
+export async function reportsLocaux(): Promise<Map<string, Report>> {
+  return lireReports(await toutesLesOperations());
 }
 
 export async function etatLocal(): Promise<EtatInitialisation> {

@@ -4,13 +4,51 @@
  * pour la durée de l'onglet.
  */
 import { dechiffrerBinaire, dechiffrerJson, type Blob as BlobChiffre, type ParametresCle } from './crypto';
+import { idParcoursCourant } from './parcours/courant';
+import { manifestePourLeParcours } from './parcours/filtre-du-manifeste';
 import { obtenirCle } from './auth';
+import type { DonneesSchema } from '../features/correction/visuels/types';
 
 export interface FicheResume {
   id: string;
   titre: string;
   ordre: number;
   tags: string[];
+  /**
+   * La racine de contenu d'où vient la fiche : `'dgfip-b'`, `'commun'`, ou
+   * `''` pour l'INSP, dont les fiches sont à la racine de `content/`.
+   *
+   * Un fait du rangement, vérifiable contre le disque — à la différence des
+   * parcours servis, qui en sont DÉDUITS par le registre.
+   */
+  racine?: string;
+  /** La fiche est-elle servie à plus d'un parcours ? Déduit de `parcoursServis`. */
+  partagee?: boolean;
+  /**
+   * Les parcours auxquels cette fiche est servie.
+   *
+   * Écrit par le build depuis `parcoursDuChemin(relatif)`. Au pluriel, parce
+   * qu'une fiche de `content/commun/` en sert trois : élire un parcours aurait
+   * obligé à mentir sur les deux autres. **C'est le champ sur lequel
+   * `filtre-du-manifeste.ts` travaille**, et il est porté par le manifeste
+   * pour que la bibliothèque puisse filtrer AVANT de déchiffrer quoi que ce
+   * soit.
+   *
+   * **Facultatif, et son absence ne veut pas dire « aucun ».** Un manifeste
+   * construit avant que le champ existe n'en porte pas, et refuser alors de
+   * servir la fiche viderait l'écran de qui n'a pas reconstruit. Son absence se
+   * lit donc « on ne sait pas, donc on garde » : mieux vaut une fiche de trop
+   * qu'une bibliothèque vide. C'est la convention des autres champs
+   * facultatifs de ce type (`nbParties`, `aPretest`).
+   *
+   * CES TROIS CHAMPS ÉTAIENT DÉCLARÉS DEUX FOIS. Deux lots les ont ajoutés le
+   * même jour — le 59 pour que la séance trie, `filtre-du-manifeste.ts` pour
+   * que la bibliothèque trie —, et la fusion a gardé les deux déclarations :
+   * six erreurs `ts(2300)`, et `astro check` rouge sur `main` sans que les
+   * deux branches, vertes séparément, aient pu le voir. Les voici fondues en
+   * une, avec ce que chacune des deux disait de plus.
+   */
+  parcoursServis?: string[];
   nbFlashcards: number;
   nbQuiz: number;
   nbMots: number;
@@ -35,6 +73,46 @@ export interface FicheResume {
    * « aucun choix de partie à proposer ».
    */
   nbParties?: number;
+  /*
+     LES TROIS CHAMPS DE PARCOURS ÉTAIENT DÉCLARÉS DEUX FOIS, ET « astro check »
+     LE DISAIT : six erreurs ts(2300).
+
+     « racine », « parcoursServis » et « partagee » sont déjà déclarés plus haut
+     dans cette MÊME interface. Le lot 59 et la branche de B les ont ajoutés
+     chacun de son côté, à des endroits différents : Git n'a donc vu aucun
+     conflit, et les deux branches étaient vertes séparément. Deux branches
+     vertes qui touchent le même type peuvent donner une fusion rouge.
+
+     Les doublons partent. « nbOrganigrammes » reste : lui n'est déclaré
+     qu'une fois, et la page des organigrammes en a besoin pour savoir où
+     chercher sans déchiffrer les 427 fiches.
+  */
+  /**
+   * Combien d'organigrammes consultables la fiche porte — et non lesquels.
+   *
+   * La page des organigrammes a besoin de savoir où aller chercher sans
+   * déchiffrer les 427 fiches ; les données, elles, sont dans la charge utile
+   * de la fiche et ne sont lues qu'à l'ouverture. Absent d'un manifeste
+   * construit avant cette section : son absence se lit « aucun ».
+   */
+  nbOrganigrammes?: number;
+}
+
+/**
+ * Un organigramme consultable, tel que la fiche le porte.
+ *
+ * `source` et `date` ne sont pas facultatifs : un organigramme se consulte
+ * seul, des mois après avoir été écrit, et l'organisation d'une administration
+ * bouge. Le build refuse les deux absences — voir « lib/schema.mjs ».
+ */
+export interface Organigramme {
+  titre: string;
+  donnees: DonneesSchema;
+  alt: string;
+  legende?: string;
+  source: string;
+  /** « 2025-07 » ou « 2025-07-15 » : l'année et le mois au moins. */
+  date: string;
 }
 
 export interface Fascicule {
@@ -162,6 +240,13 @@ export interface Fiche {
    * fiches écrites avant la phase 10b n'en ont pas.
    */
   pretest?: QuestionQuiz[];
+  /**
+   * Les organigrammes consultables de la fiche (« ## Organigrammes »).
+   *
+   * Facultatif : les fiches écrites avant cette section n'en ont pas, et son
+   * absence se lit « aucun », jamais « on ne sait pas ».
+   */
+  organigrammes?: Organigramme[];
   /** Durée, poids et format de la fiche audio, connus avant de la télécharger. */
   podcast: {
     secondes: number | null;
@@ -456,7 +541,30 @@ export function chargerBibliographie(): Promise<Bibliographie> {
   return bibliographie;
 }
 
-export const chargerManifeste = () => charger<Manifeste>('manifeste.json');
+/**
+ * Le manifeste complet, tous parcours confondus.
+ *
+ * Réservé à ce qui doit voir le corpus entier : les essais, et un éventuel
+ * écran qui compterait les fiches d'un autre parcours. Tout le reste passe
+ * par `chargerManifeste`, qui filtre.
+ */
+export const chargerManifesteComplet = () => charger<Manifeste>('manifeste.json');
+
+/**
+ * Le manifeste du parcours ouvert.
+ *
+ * LE FILTRE EST ICI, ET NON DANS LES ÉCRANS. Quatorze fichiers chargent le
+ * manifeste ; un filtre posé écran par écran aurait été oublié par le
+ * quinzième, et une fiche d'un autre concours serait réapparue dans l'arbre
+ * sans que rien ne le signale. Le détail de la règle, et ce que « on ne sait
+ * pas » doit produire, sont dans « parcours/filtre-du-manifeste.ts ».
+ *
+ * Le filtre tourne à chaque appel plutôt qu'une fois : le manifeste brut, lui,
+ * reste en cache. C'est ce qui permet à un changement de parcours de prendre
+ * effet sans vider le cache ni recharger la page.
+ */
+export const chargerManifeste = async (): Promise<Manifeste> =>
+  manifestePourLeParcours(await chargerManifesteComplet(), idParcoursCourant());
 export const chargerFiche = (id: string) => charger<Fiche>(`fiches/${id}.json`);
 
 /**

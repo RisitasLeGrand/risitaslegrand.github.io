@@ -587,7 +587,7 @@ questions:
       Le participe passé employé avec « avoir » s'accorde avec le complément
       d'objet direct lorsque celui-ci précède le verbe.
     source: Annales contrôleur DGFiP 2011
-    categorie: B
+    categorie_origine: B
 ```
 
 | Champ | Rôle |
@@ -598,7 +598,8 @@ questions:
 | `reponse` / `reponses` | la ou les bonnes réponses, par leur texte exact ou par leur index |
 | `explication` | **obligatoire** : c'est la correction montrée en fin d'épreuve |
 | `source` | l'annale d'origine ; affichée seulement si elle ne commence pas par « RevINSP » |
-| `categorie` | `A` ou `B`, les deux niveaux étant fusionnés dans une banque unique |
+| `categorie_origine` | **obligatoire** : `A`, `B` ou `maison`. L'ancien nom `categorie` est refusé par le build, et non toléré en silence — sans quoi une question neuve repartirait sous deux noms concurrents. `maison` existe parce que 153 questions sur 540 ne viennent d'aucune annale : leur écrire `B` fausserait le tirage de DGFiP B au profit de questions que la DGFiP n'a jamais posées |
+| `temporalite` | `nature` (`intemporelle`, `historique`, `actuelle`, `passee-non-historique`, `a-venir`) et ses dates. Les dates sont exigées **par nature** et refusées sur une nature qui ne les comporte pas : une `expire_le` sur une question intemporelle serait un piège à retardement. Une question expirée est retirée du tirage |
 | `incertain` | note affichée en garde lorsque la bonne réponse ne peut pas être garantie |
 
 Deux règles tenues par le build : une réponse doit correspondre **exactement**
@@ -609,6 +610,40 @@ ramenées à une seule — un doublon pourrait sinon tomber deux fois dans la m�
 Les rubriques ne sont pas figées : si des sujets de catégorie A introduisent du
 droit ou des finances publiques, il suffit d'ajouter un fichier, la répartition
 s'ajuste seule.
+
+### Ramener une banque publiée en source
+
+```bash
+npm run qcm:vers-source -- --depuis <annexes/qcm-dgfip.json> --vers content/qcm-dgfip
+```
+
+La récupération du corpus (`npm run recuperer:corpus`) rend les fiches au
+format source, mais dépose la banque de QCM telle quelle, au **format publié**,
+dans `annexes/qcm-dgfip.json`. Tant qu'elle reste sous cette forme,
+`content/qcm-dgfip/` est vide — et par conséquent la banque entière échappe à
+tout contrôle : le schéma ne la lit pas, `npm run check-content` ne la voit
+pas, et aucune correction ne peut y être écrite.
+
+Cet outil fait le chemin inverse. Il ne décide pas qu'il a réussi : **il le
+prouve**. Avant d'écrire une ligne à destination, il convertit, écrit dans un
+dossier temporaire hors du dépôt, recharge avec le chargeur du build —
+`scripts/lib/banque-dgfip.mjs`, pas un second analyseur, qui ne prouverait que
+son accord avec lui-même — et compare champ par champ à la banque publiée. Au
+premier écart, `content/` n'est pas touché et le code de sortie vaut 1.
+
+Ce que cette exigence protège : l'identifiant d'une question est
+`idStable(rubrique | énoncé)`. Un énoncé réécrit à une espace près reçoit un
+identifiant neuf, et l'historique par question conservé dans le navigateur de
+la personne qui révise devient orphelin. `npm run essais:qcm-source` éprouve
+l'aller-retour sur les cas que la banque réelle n'a pas — plusieurs bonnes
+réponses, options au texte identique, renvois « rappel de cours », les cinq
+temporalités — et vérifie par sabotage que la comparaison sait les voir.
+
+Deux refus valent d'être connus. L'outil écrit dans `content/` ou hors du
+dépôt, **jamais ailleurs dans l'arbre de travail** : le dépôt est public, et
+`content/` est le seul dossier qu'il ignore. Et il n'écrase un
+`content/qcm-dgfip/` déjà peuplé qu'avec `--remplacer`, parce que les
+corrections écrites à la main y sont.
 
 ### Le déroulé d'une épreuve
 
@@ -709,6 +744,7 @@ relisant son propre diff. Ce qu'il garde, essai par essai :
 | `essais:typographie` | apostrophes, espaces insécables, accords sans « (s) » |
 | `essais:accessibilite:navigateur` | rôles, noms accessibles, ordre de tabulation |
 | `essais:mobile:navigateur` | 360 px : aucun débordement, cibles atteignables |
+| `essais:cibles-souris:navigateur` | à la souris, aucune cible sous 24 px (WCAG 2.5.8) |
 | `essais:mouvement-reduit` | le réglage d'animations existe, et il est respecté |
 | `essais:themes-navigateur` | les quatorze thèmes s'appliquent pour de vrai |
 | `essais:themes-a-jour` | le catalogue et les feuilles engendrées concordent |
@@ -747,6 +783,40 @@ sans le savoir. `npm run essais:code-de-sortie` le garde par sabotage, y
 compris le cas qui avait trompé : un essai qui écrit sa croix et rend 0 quand
 même. Elle refuse en revanche de tourner sans mot de passe ou sans aperçu,
 parce qu'elle rendrait alors des rouges qui n'appartiennent pas au site.
+
+**Trois états, et non deux : « non mesurable ».** Deux essais ne peuvent rien
+dire sans le corpus réel — `essais:parcours-des-fiches` veut plus de cent
+fiches au manifeste, `essais:niveau:navigateur` la matière « Économie ». Dans
+un conteneur qui ne sert que `content-exemple/`, ils rendaient un rouge
+indistinguable d'un défaut du site, et rien ne disait pourquoi. Ils renoncent
+maintenant en le disant, avec le code de sortie de
+`scripts/lib/non-mesurable.mjs`, et la batterie les compte **à part** :
+
+```
+socle : 24 verts ; 0 rouges ; 2 non mesurables (12 min)
+non mesurables : essais:parcours-des-fiches essais:niveau:navigateur
+  essais:parcours-des-fiches — le corpus réel : plus de cent fiches au manifeste
+  essais:niveau:navigateur — le corpus réel : la matière « Économie »
+```
+
+La convention, en quatre points : **code de sortie 3** (0 reste vert, 1 rouge,
+tout autre code non nul rouge) ; **une ligne de marque obligatoire**,
+`⚠ NON MESURABLE : <raison>`, un code 3 sans elle comptant rouge ; la batterie
+les compte à part **avec leur raison** et ne les fait pas sortir en rouge ;
+et **personne ne recopie la ligne** — `nonMesurable(raison)` l'écrit et sort.
+
+Un refus ne devient jamais un vert : un essai vert affirme quelque chose,
+celui-là n'affirme rien. La batterie rend 0 — rien n'est cassé, et faire rendre
+1 interdirait de pousser depuis tout conteneur sans corpus réel —, mais son
+verdict le dit, et `npm run essais:code-de-sortie` garde la règle par
+sabotage : ramener ce code à 0 ou à 1 fait rougir le contrôle, et un code 3
+sans sa ligne de marque est compté rouge. Une croix l'emporte toujours : un
+essai qui renonce ET affiche une croix a mesuré quelque chose qui cloche.
+
+Pour rendre ces deux essais mesurables dans un conteneur neuf :
+`npm run recuperer:corpus` (voir
+[`docs/cyclades/recuperation-du-corpus.md`](docs/cyclades/recuperation-du-corpus.md)),
+puis reconstruire.
 
 L'exercice d'entraînement cognitif est écrit en **Svelte** (intégration
 `@astrojs/svelte`, installée avec le reste par `npm install`). Pour le tester :

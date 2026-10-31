@@ -17,10 +17,11 @@ import {
   idsPubliesEnDouble,
   frontMatterSchema,
   flashcardSchema,
+  organigrammeSchema,
   quizSchema,
   glossaireSchema,
-  banqueDgfipSchema,
 } from './lib/schema.mjs';
+import { chargerBanqueDgfip } from './lib/banque-dgfip.mjs';
 import { indexerFichesParChemin, resoudreRappels } from './lib/rappels.mjs';
 import { motDeLEpreuve } from './lib/pretest.mjs';
 import { defautsDesParties, titresSansIdentifiant } from './lib/parties.mjs';
@@ -254,68 +255,6 @@ async function chargerGlossaire() {
   return [];
 }
 
-/**
- * Charge la banque « QCM - DGFiP » (content/qcm-dgfip/*.yml, optionnelle).
- *
- * Un fichier par rubrique. Les identifiants sont dérivés du couple
- * rubrique + énoncé : ils restent donc stables d'un build à l'autre, ce dont
- * dépend l'historique par question conservé dans le navigateur.
- */
-async function chargerBanqueDgfip() {
-  const dossier = path.join(dossierContenu, 'qcm-dgfip');
-  if (!existsSync(dossier)) return { rubriques: [], questions: [] };
-
-  const rubriques = [];
-  const questions = [];
-  const vus = new Map();
-
-  const fichiers = (await readdir(dossier))
-    .filter((n) => /\.ya?ml$/i.test(n))
-    .sort();
-
-  for (const nom of fichiers) {
-    const brut = await readFile(path.join(dossier, nom), 'utf8');
-    let donnees;
-    try {
-      donnees = YAML.parse(brut);
-    } catch (e) {
-      echouer(`« content/qcm-dgfip/${nom} » est un YAML invalide : ${e.message}`);
-    }
-    const resultat = banqueDgfipSchema.safeParse(donnees);
-    if (!resultat.success) {
-      echouer(
-        `« content/qcm-dgfip/${nom} » ne respecte pas le format attendu :\n` +
-          resultat.error.issues.map((i) => `  - ${i.path.join('.')} : ${i.message}`).join('\n'),
-      );
-    }
-    const { rubrique, ordre, questions: liste } = resultat.data;
-    const rubriqueId = await idStable(rubrique, 12);
-    if (!rubriques.some((r) => r.id === rubriqueId)) {
-      rubriques.push({ id: rubriqueId, nom: rubrique, ordre, total: 0 });
-    }
-
-    for (const q of liste) {
-      const id = await idStable(`${rubrique}|${q.question}`, 16);
-      // Deux annales reprennent souvent la même question : la garder deux fois
-      // fausserait le tirage, qui la sortirait deux fois dans la même session.
-      const doublon = vus.get(id);
-      if (doublon) {
-        avertissements.push(
-          `Question en double dans « ${rubrique} », ignorée : « ${q.question.slice(0, 60)}… »` +
-            ` (déjà présente via « ${doublon} »)`,
-        );
-        continue;
-      }
-      vus.set(id, nom);
-      questions.push({ id, rubrique, rubriqueId, ...q });
-      rubriques.find((r) => r.id === rubriqueId).total += 1;
-    }
-  }
-
-  rubriques.sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom, 'fr'));
-  return { rubriques, questions };
-}
-
 /** Parse une section YAML (flashcards / quiz) tolérante aux blocs de code. */
 function parserListeYaml(texte, contexte) {
   if (!texte?.trim()) return [];
@@ -352,7 +291,10 @@ async function main() {
   }
 
   const glossaire = await chargerGlossaire();
-  const banqueDgfip = await chargerBanqueDgfip();
+  const banqueDgfip = await chargerBanqueDgfip(path.join(dossierContenu, 'qcm-dgfip'), {
+    echouer,
+    avertir: (m) => avertissements.push(m),
+  });
   const indexGlossaire = construireIndexGlossaire(glossaire, config.glossaire);
 
   const fichiers = await listerFiches(dossierContenu);
@@ -508,6 +450,27 @@ async function main() {
       );
     }
 
+    /*
+       LES ORGANIGRAMMES CONSULTABLES.
+
+       Même forme que les cartes et les questions — une liste YAML dans sa
+       section —, et même refus : un organigramme dont la date ou la source
+       manque arrête la construction. La page « Organigrammes » les affiche
+       hors de tout quiz, et c'est pourquoi ils doivent porter seuls ce que la
+       question portait pour eux.
+    */
+    const organigrammes = [];
+    for (const item of parserListeYaml(sections.organigrammes, `${relatif} (## Organigrammes)`)) {
+      const r = organigrammeSchema.safeParse(item);
+      if (!r.success) {
+        erreurs.push(
+          `${relatif} (## Organigrammes) : ${r.error.issues.map((i) => i.message).join(' ; ')}`,
+        );
+        continue;
+      }
+      organigrammes.push(r.data);
+    }
+
     const texteRecherche = [
       fm.data.titre,
       fm.data.tags.join(' '),
@@ -571,6 +534,7 @@ async function main() {
       quiz,
       pretest,
       texteRecherche,
+      organigrammes,
       motsCours: texteBrut(sections.cours).split(/\s+/).filter(Boolean).length,
       // Fiche audio, si « npm run podcasts » l'a déjà synthétisée.
       podcast: await audioDisponible(ficheId),
@@ -667,6 +631,12 @@ async function main() {
           tags: f.tags,
           nbFlashcards: f.flashcards.length,
           nbQuiz: f.quiz.length,
+          /*
+             Le COMPTE au manifeste, les données dans la fiche : la page des
+             organigrammes sait quoi proposer sans rien déchiffrer, et ne
+             déchiffre que ce qu'on ouvre. Même partage que « nbParties ».
+          */
+          nbOrganigrammes: f.organigrammes.length,
           nbMots: f.motsCours,
           aCours: Boolean(f.coursHtml),
           aFiche: Boolean(f.ficheHtml),
@@ -896,6 +866,7 @@ async function main() {
       flashcards: f.flashcards,
       quiz: f.quiz,
       pretest: f.pretest,
+      organigrammes: f.organigrammes,
       // Le lecteur a besoin de la durée et du poids AVANT de télécharger :
       // c'est ce qui permet d'annoncer « 12 min, 3 Mo » sur le bouton.
       podcast: f.podcast

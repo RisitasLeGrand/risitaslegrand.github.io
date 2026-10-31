@@ -19,6 +19,7 @@ import {
   ajusterNiveau,
   chanceDeReussite,
   clefs,
+  compteDansLeNiveau,
   difficulteVisee,
   utilisable,
 } from '../src/lib/niveau';
@@ -179,6 +180,37 @@ console.log('\nAMORCES');
     true,
   );
 }
+
+/*
+   UNE ÉPREUVE N'ENTRE PAS DANS L'ESTIMATION, ET LA PORTE LE SAIT.
+
+   `compteDansLeNiveau` lit les réglages en base, donc son cas général relève
+   des essais en navigateur — c'est la frontière que l'en-tête de ce module
+   annonce. Celui-ci tient quand même ici, et c'est précisément ce qu'il
+   prouve : la matière d'une épreuve est refusée **avant** tout accès à la
+   base. Sous Node, sans IndexedDB, l'appel ne peut aboutir que par ce
+   court-circuit.
+
+   Ce qu'il ne prouve pas : qu'une matière ordinaire soit, elle, acceptée. Un
+   prédicat qui refuserait tout passerait ici. C'est `essais:parcours` qui
+   garde cette moitié, en vérifiant sur le registre entier qu'aucune matière de
+   connaissances n'est prise pour une épreuve.
+*/
+console.log('\nCE QUI N’ENTRE PAS DANS L’ESTIMATION');
+
+/*
+   L'appel est enveloppé, et pas par prudence décorative : privé du
+   court-circuit, il atteint IndexedDB et LÈVE sous Node. Sans cette enveloppe,
+   un sabotage ferait planter la suite au lieu de la faire rougir — le verdict
+   serait le même (code 1), le message non.
+*/
+let verdict: unknown;
+try {
+  verdict = await compteDansLeNiveau({ matiere: 'Entretien avec le jury', ficheId: 'peu-importe' });
+} catch (erreur) {
+  verdict = `a cherché la base : ${(erreur as Error)?.message ?? erreur}`;
+}
+verifier('la matière d’une épreuve est refusée sans toucher la base', verdict, false);
 
 console.log(`\n${echecs ? `\x1b[31m✖ ${echecs} échec(s)\x1b[0m` : '\x1b[32m✓ tout passe\x1b[0m'}\n`);
 process.exit(echecs ? 1 : 0);

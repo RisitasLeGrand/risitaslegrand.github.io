@@ -203,6 +203,20 @@ export const CHAMP_DATE: Record<string, string | null> = {
   /* La date de DÉBUT de l'épreuve gardée, et non celle où on l'a gardée : un
      effacement par période vise le moment où l'on a travaillé. */
   epreuveDgfipEnCours: 'le',
+  /*
+     PAS DE DÉCOUPAGE PAR PÉRIODE, et c'est l'essai qui me l'a appris.
+
+     J'avais déclaré « le », la date où l'intention a été posée.
+     « essais:effacement » a refusé : « annulationsEnAttente se découpe sur
+     "le", qui doit être en clair » — un magasin scellé ne peut être découpé
+     que sur un champ lisible sans coffre, et celui-ci n'expose que sa clé.
+
+     L'exposer aurait été pire que de renoncer. L'instant d'un geste est une
+     partie de l'information : pour une prise notée chaque matin à la même
+     heure, lire les instants sans mot de passe revient à lire le traitement.
+     C'est la raison même pour laquelle l'identifiant n'est pas un ULID.
+  */
+  annulationsEnAttente: null,
   aides: 'le',
   jours: 'jour',
   seances: 'jour',
@@ -644,6 +658,26 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
     magasins: ['sportExercices', 'sportSeances', 'sportPhases', 'sportBlessures', 'sportProgrammes'],
   },
   {
+    /*
+       UN GROUPE À PART, ET NON RANGÉ AVEC SPORT OU SANTÉ.
+
+       Une intention peut porter sur l'un ou l'autre — supprimer une séance,
+       noter une prise —, donc elle n'appartient à aucun des deux. Et surtout :
+       l'effacer sans l'appliquer ANNULE l'action que la personne a demandée.
+       Effacer « Sport » en emportant une suppression de séance en attente
+       ferait revenir la séance supprimée, ce qui est exactement le contraire
+       de ce qu'on voulait faire. Le dire dans un groupe nommé vaut mieux que
+       de le cacher dans un autre.
+    */
+    id: 'annulations-en-attente',
+    libelle: 'Actions en attente d’annulation',
+    description:
+      'Les actions que vous venez de demander et qui attendent la fin de leur ' +
+      'délai d’annulation. Ce groupe est presque toujours vide : une action y ' +
+      'passe quelques secondes. L’effacer revient à annuler ces actions.',
+    magasins: ['annulationsEnAttente'],
+  },
+  {
     id: 'reglages',
     libelle: 'Réglages et profil',
     description:
@@ -683,6 +717,9 @@ const REFUS_PAR_DEFAUT =
  * où elle décide d'effacer.
  */
 export const RAISONS_DU_REFUS_DE_DECOUPAGE: Record<string, string> = {
+  annulationsEnAttente:
+    'ses dates sont scellées, et ce groupe ne vit que quelques secondes à la fois : ' +
+    'il n’y a pas de période à découper',
   odysseeCreneaux:
     'ses dates sont scellées : aucune n’est lisible sans votre coffre, et le découpage par ' +
     'période demande donc un coffre ouvert',

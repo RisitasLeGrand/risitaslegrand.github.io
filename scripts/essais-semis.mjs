@@ -71,6 +71,33 @@ const SEMIS_DECLARES = [
       'ligne est donc datée et non permanente, et elle tombera le jour où ' +
       'l’essai posera la blessure par cet écran-là.',
   },
+  /*
+     UN TROISIÈME CAS, QUE LA LISTE N'AVAIT PAS PRÉVU — et il faut le nommer
+     plutôt que l'arranger.
+
+     Ce contrôle lit du TEXTE : il cherche « readwrite » dans le fichier. Il ne
+     sait donc pas distinguer « cet essai écrit dans la base de Cyclades » de
+     « cet essai écrit dans une base à lui ». La sonde ci-dessous est du second
+     genre, et le motif l'attrape quand même.
+
+     On la déclare, parce que c'est l'endroit où l'on DIT les choses. On ne
+     réécrit pas la sonde pour qu'elle échappe au motif : un essai contourné
+     n'est plus un essai, et le jour où quelqu'un écrira vraiment dans la base
+     de Cyclades depuis un fichier non déclaré, c'est ce même motif qui le
+     verra.
+  */
+  {
+    fichier: 'essais-dossier-navigateur.mjs',
+    permanent: true,
+    pourquoi:
+      'Il ne sème rien dans la base de Cyclades : sa sonde ouvre une base à ' +
+      'elle, nommée « sonde-poignee », dans un navigateur à elle, pour ' +
+      'savoir si CE navigateur sait relire une poignée de dossier rangée dans ' +
+      'IndexedDB. Mesuré le 26 octobre : il ne sait pas, et la relecture ' +
+      'emporte le navigateur entier. L’essai rend alors « non mesurable » au ' +
+      'lieu de mourir. Écrire est la moitié indispensable de la question ; ' +
+      'sans elle il n’y a rien à relire.',
+  },
   { fichier: 'essais-activite-navigateur.mjs', permanent: true, pourquoi: 'L’XP sur plusieurs semaines suppose des jours passés, inatteignables aujourd’hui.' },
   { fichier: 'essais-indicateurs-navigateur.mjs', permanent: true, pourquoi: 'Idem : un historique d’indicateurs porte sur des jours révolus.' },
   { fichier: 'essais-adaptation-navigateur.mjs', permanent: true, pourquoi: 'L’usage observé porte sur huit semaines passées.' },

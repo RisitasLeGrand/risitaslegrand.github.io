@@ -97,17 +97,55 @@ const FENETRE_DESSAI = 18;
 console.log('\n1. LES HUIT PARAMÈTRES, PROPOSÉS ET NON APPLIQUÉS');
 
 v('huit paramètres', PARAMETRES_DU_SUIVI.length, 8);
+/*
+   SIX SONT APPLIQUÉS DEPUIS LE 25 OCTOBRE, DEUX ATTENDENT — ET CE N'EST PAS
+   « LA MOITIÉ DU TRAVAIL ».
+
+   Ce bloc exigeait « aucun n'est appliqué », et il avait raison tant qu'Alexis
+   n'avait pas répondu. Il a répondu par délégation au pilote, qui a retenu les
+   huit valeurs proposées et autorisé l'application des six premières. Les deux
+   dernières restent fermées pour une raison nommée, et non par prudence
+   générale : leur motivation dit que le repère FIGO n'a pas été relu à sa
+   source.
+
+   L'essai nomme donc les deux clés, une par une. Un contrôle qui se
+   contenterait de compter « six appliqués » resterait vert si on appliquait la
+   8ᵉ et qu'on fermait la 5ᵉ — c'est-à-dire sur l'inverse de la décision.
+*/
+const EN_ATTENTE_DU_FIGO = ['tolerance-de-comparaison-des-dates', 'fenetre-par-defaut'];
+
 v(
-  'aucun n’est appliqué',
-  PARAMETRES_DU_SUIVI.filter((p) => p.applique).map((p) => p.cle),
+  'les deux paramètres en attente sont ceux de la réserve FIGO, nommément',
+  parametresEnAttente().map((p) => p.cle),
+  EN_ATTENTE_DU_FIGO,
+);
+v(
+  'et tous les autres sont appliqués',
+  PARAMETRES_DU_SUIVI.filter((p) => !p.applique && !EN_ATTENTE_DU_FIGO.includes(p.cle)).map(
+    (p) => p.cle,
+  ),
   [],
 );
-v('donc les huit sont en attente', parametresEnAttente().length, 8);
 v(
-  'et aucun ne rend sa valeur',
-  PARAMETRES_DU_SUIVI.map((p) => parametre(p.cle)).filter((x) => x !== null),
-  [],
+  'un paramètre appliqué rend sa valeur par la porte',
+  PARAMETRES_DU_SUIVI.filter((p) => p.applique).map((p) => parametre(p.cle)),
+  [2, 15, 90, 3, 5, 7],
 );
+v(
+  'et un paramètre en attente ne rend toujours rien',
+  EN_ATTENTE_DU_FIGO.map((c) => parametre(c)),
+  [null, null],
+);
+/*
+   LA RÉSERVE EST DANS LE TEXTE, PAS SEULEMENT DANS LE DRAPEAU. Si quelqu'un
+   appliquait l'un des deux, ce constat l'obligerait à retirer d'abord la phrase
+   qui dit que la source n'a pas été lue — donc à regarder la raison avant le
+   drapeau.
+*/
+for (const cle of EN_ATTENTE_DU_FIGO) {
+  const p = PARAMETRES_DU_SUIVI.find((x) => x.cle === cle);
+  v(`${cle} : sa motivation dit pourquoi elle attend`, /FIGO/.test(p?.motivation ?? ''), true);
+}
 v('un paramètre inconnu rend « rien », et ne lève pas', parametre('inexistant'), null);
 v(
   'les clés sont uniques',
@@ -212,25 +250,85 @@ console.log('\n2. LES PORTES PUBLIQUES REFUSENT, ET DISENT QUOI MANQUE');
 
 const HISTORIQUE = suite('2026-01-01', 3);
 
-v('aucune règle n’est applicable', reglesApplicables(), null);
+/*
+   DEUX PORTES CALCULENT, UNE REFUSE ENCORE — ET C'EST LE CŒUR DU LOT.
+
+   Ces constats exigeaient que les trois portes refusent. Deux ne refusent plus,
+   parce que leurs chiffres sont tranchés ; la troisième refuse toujours, parce
+   qu'elle lit `fenetre-par-defaut`. L'essai distingue donc les deux cas au lieu
+   d'attendre un refus partout : c'est la différence entre « on ne sait pas
+   calculer » et « on ne veut pas affirmer sans source ».
+*/
+v('les règles de dérivation sont applicables', reglesApplicables(), {
+  joursPourOuvrir: 2,
+  ecartMinimalEntreJ1: 15,
+  dureeMaximaleFiable: 90,
+});
 
 const cycles = cyclesDeLHistorique(HISTORIQUE);
-v('les cycles sont refusés', 'impossible' in cycles, true);
+v('les cycles se calculent', 'impossible' in cycles, false);
+/*
+   TROIS JOURS, UN CYCLE — et mon premier intitulé disait « trois cycles ».
+   `suite('2026-01-01', 3)` fabrique trois jours de saignement CONSÉCUTIFS,
+   donc un seul J1, donc un seul cycle, en cours. Le module avait raison et mon
+   constat était faux : il annonçait trois et obtenait un. Corrigé en nommant ce
+   que la suite contient, et complété par un historique qui porte vraiment
+   plusieurs cycles — sans quoi le compte ne mesurait rien.
+*/
 v(
-  'et le refus nomme les trois paramètres manquants',
-  'impossible' in cycles ? [...cycles.manquants].sort() : null,
-  ['duree-maximale-fiable', 'ecart-minimal-entre-j1', 'jours-pour-ouvrir'],
+  'trois jours de saignement ne font qu’un cycle, en cours',
+  'impossible' in cycles ? null : cycles.cycles.map((c) => c.complet),
+  [false],
 );
-v('les statistiques sont refusées', 'impossible' in statistiquesDeLHistorique(HISTORIQUE), true);
-v('les fenêtres sont refusées', 'impossible' in fenetresDeLHistorique(HISTORIQUE), true);
 
 /*
-   ET LE REFUS NE DÉPEND PAS DE L'HISTORIQUE : un historique vide refuse de la
-   même façon. Sans cela, un écran pourrait croire que « rien à montrer » veut
-   dire « pas encore de données » alors qu'il veut dire « on ne sait pas
-   calculer ».
+   UN HISTORIQUE À TROIS J1 ESPACÉS : deux cycles complets, et le troisième en
+   cours. C'est la convention du 4.4.1 — un cycle va d'un J1 au J1 suivant —,
+   donc trois J1 ne font jamais trois cycles clos.
 */
-v('un historique vide refuse aussi', 'impossible' in cyclesDeLHistorique([]), true);
+const TROIS_J1 = [
+  ...suite('2026-01-01', 3),
+  ...suite('2026-01-29', 3),
+  ...suite('2026-02-26', 3),
+];
+const surTroisJ1 = cyclesDeLHistorique(TROIS_J1);
+v(
+  'trois premiers jours espacés font deux cycles complets et un en cours',
+  'impossible' in surTroisJ1 ? null : surTroisJ1.cycles.map((c) => c.complet),
+  [true, true, false],
+);
+v(
+  'et les deux cycles clos font vingt-huit jours chacun',
+  'impossible' in surTroisJ1 ? null : surTroisJ1.cycles.map((c) => c.duree),
+  [28, 28, null],
+);
+
+v('les fenêtres se calculent', 'impossible' in fenetresDeLHistorique(HISTORIQUE), false);
+
+/*
+   LA SEULE PORTE ENCORE FERMÉE, ET SON REFUS NE NOMME PLUS QU'UNE CLÉ. Le
+   chiffre compte : si le refus en nommait trois, c'est que les paramètres de
+   dérivation seraient retombés en attente, et l'écran dirait à la personne une
+   raison qui n'est pas la bonne.
+*/
+const resume = statistiquesDeLHistorique(HISTORIQUE);
+v('les statistiques refusent toujours', 'impossible' in resume, true);
+v(
+  'et leur refus ne nomme que la fenêtre d’étude',
+  'impossible' in resume ? [...resume.manquants] : null,
+  ['fenetre-par-defaut'],
+);
+
+/*
+   UN HISTORIQUE VIDE NE REFUSE PLUS : IL REND ZÉRO CYCLE, ce qui n'est pas la
+   même chose. Avant, « rien à montrer » voulait dire « on ne sait pas
+   calculer » ; maintenant cela veut dire « vous n'avez rien noté », et l'écran
+   doit pouvoir distinguer les deux phrases. C'est pourquoi ce constat change
+   de sens au lieu de disparaître.
+*/
+const surRien = cyclesDeLHistorique([]);
+v('un historique vide ne refuse plus', 'impossible' in surRien, false);
+v('il rend zéro cycle', 'impossible' in surRien ? null : surRien.cycles.length, 0);
 
 /*
    AUCUN CALCUL NE LIT UNE VALEUR PROPOSÉE.
@@ -701,10 +799,23 @@ v(
   auMoinsUnApplique && exceptionPosee,
   false,
 );
+/*
+   L'EXCEPTION A ÉTÉ RETIRÉE LE 25 OCTOBRE, ET CE CONSTAT LE DIT MAINTENANT.
+
+   Il vérifiait qu'elle était DATÉE et non permanente — « une dette qu'on
+   compte, pas un choix qu'on assume ». Elle a tenu sa promesse : appliquer un
+   paramètre l'a rendue contradictoire, donc elle est partie, et le module est
+   atteint par `corps/suivi.astro`.
+
+   Ce qui reste à tenir est l'inverse de ce qui était tenu : que l'exception ne
+   REVIENNE pas. La reposer serait déclarer orphelin un module qu'un écran
+   appelle, c'est-à-dire mentir dans l'autre sens.
+*/
+v('l’exception d’orphelin n’est plus déclarée', exceptionPosee, false);
 v(
-  'elle est datée, et non permanente : c’est une dette, pas un choix',
-  /chemin: 'src\/lib\/odyssee\/cycles\.ts',\s*\n\s*depuis: '2026-10-19',/.test(essaiDesOrphelins),
-  true,
+  'et plus aucune date du 19 octobre ne la rattache à ce module',
+  /odyssee\/cycles\.ts/.test(essaiDesOrphelins),
+  false,
 );
 
 /* ══════════════════════════════════════════════════════════════════════════ */
@@ -823,7 +934,8 @@ v(
 /* ══════════════════════════════════════════════════════════════════════════ */
 console.log(
   echecs === 0
-    ? `\n\x1b[32m${PARAMETRES_DU_SUIVI.length} paramètres proposés, aucun appliqué ; ` +
+    ? `\n\x1b[32m${PARAMETRES_DU_SUIVI.filter((p) => p.applique).length} paramètres ` +
+        `appliqués, ${parametresEnAttente().length} en attente du repère FIGO ; ` +
         `l'algorithme mesuré avec des chiffres qui ne sont pas ceux proposés pour leurs ` +
         `paramètres.\x1b[0m\n`
     : `\n\x1b[31m${echecs} en échec.\x1b[0m\n`,

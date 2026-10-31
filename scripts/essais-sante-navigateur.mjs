@@ -692,10 +692,43 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
     );
 
     /*
-       CE QUI EST DÉPOSÉ AU CENTRE. On lit le magasin tel qu'une extension
-       ou un curieux le lirait : seuls l'identifiant — une empreinte — et le
-       genre y sont en clair. La source, la référence, donc le traitement et
-       l'heure, sont dans le bloc chiffré.
+       CE QUI N'ENTRE PAS AU CENTRE, ET POURQUOI C'EST MAINTENANT LA MESURE.
+
+       Ce bloc attendait « un élément déposé au centre, et un seul », puis
+       lisait « centre[0].id ». Il rougissait, et la ligne suivante levait un
+       TypeError sur une propriété de « undefined » : un rouge qui se
+       transformait en panne, de sorte que tout ce qui suivait dans ce bloc
+       n'était plus mesuré du tout.
+
+       La cause n'est pas un défaut de dépôt. C'est une DÉCISION, prise le
+       19 octobre à 12 h 46 — l'option (a) — et inscrite dans
+       « notifications/filtre-cycle.ts » : « rappel-de-prise » est déclaré
+       « exigeUneClasse », aucune molécule ne porte de classe, donc aucun
+       rappel de prise n'entre au centre. Elle est juste : un rappel admis
+       sans connaître la nature de la molécule renseignerait sur ce que la
+       personne prend, et un défaut qui révèle ne se corrige pas après coup.
+
+       L'essai mesurait donc un dépôt que le produit refuse volontairement.
+       Sa demande est remise sur son objet, et elle n'est pas plus faible :
+       elle attrape maintenant exactement la fuite que la décision empêche —
+       le jour où un rappel de prise entrerait au centre sans classe connue,
+       cette assertion rougit.
+
+       Ce que ce bloc ne mesure plus, et qui est mesuré ailleurs, pour que
+       personne ne croie la garantie perdue :
+       — le scellement d'un élément du centre — « seuls id, genre et scelle
+         en clair » — est tenu par « essais:centre:navigateur », sur un dépôt
+         d'une source admise ;
+       — la règle elle-même, avec la classe nulle et la chaîne vide, est
+         tenue par « essais:filtre-cycle » ;
+       — le retrait d'un élément quand on répond est tenu par le même essai du
+         centre. Ici, sans dépôt, il n'y a rien à retirer : le dire valait
+         mieux qu'un vert qui ne prouve rien.
+
+       LE JOUR OÙ UNE MOLÉCULE AURA UNE CLASSE SOURCÉE, ce bloc doit être
+       repris dans l'autre sens : un dépôt attendu pour une classe hors
+       cycle, aucun dépôt pour une classe du cycle. C'est écrit ici pour que
+       la reprise ne s'invente pas.
     */
     /*
        LE DÉPÔT SE LIT DANS LE MAGASIN, et il arrive APRÈS la peinture des
@@ -782,9 +815,30 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
     }
 
     /*
-       RÉPONDRE RETIRE LE RAPPEL. C'est la seconde moitié du recensement,
-       celle qu'on oublie : sans elle, le centre ne décroîtrait jamais, et
-       un compteur qui ne redescend pas finit par ne plus être lu.
+       ET L'ÉCRAN LE DIT, CE QUI EST LE VRAI DÉFAUT QUE CE LOT CORRIGE.
+
+       La décision du 19 octobre l'exige d'elle-même — « la conséquence est à
+       dire à la personne, et non à cacher » —, et la phrase n'existait nulle
+       part : la case « Me le rappeler si je n'ai rien noté » s'offrait, la
+       relance s'affichait sur cet écran, et le centre restait vide sans que
+       rien ne le dise. Une fonction silencieusement absente est pire qu'une
+       fonction refusée, parce qu'on la croit en marche.
+    */
+    const replis = page.locator('#traitements details');
+    const combien = await replis.count();
+    let ditOuCaArrive = false;
+    for (let n = 0; n < combien; n += 1) {
+      const texteDuRepli = (await replis.nth(n).textContent()) ?? '';
+      if (texteDuRepli.includes('centre de notifications')) ditOuCaArrive = true;
+    }
+    vrai(
+      'l’écran dit que la relance ne paraît pas au centre de notifications',
+      ditOuCaArrive,
+    );
+
+    /*
+       RÉPONDRE RETIRE LE RAPPEL DE L'ÉCRAN. Au centre, il n'y avait rien à
+       retirer ; sur l'écran, la ligne doit cesser d'être une relance.
     */
     await ligne.locator('button:has-text("Pas aujourd’hui")').click();
     /*

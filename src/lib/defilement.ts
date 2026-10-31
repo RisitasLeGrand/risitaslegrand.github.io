@@ -194,14 +194,6 @@ export function brancherLeDefilement(): void {
      même raison et à une moindre hauteur près.
   */
   let dernierY = Math.round(window.scrollY);
-  addEventListener(
-    'scroll',
-    () => {
-      dernierY = Math.round(window.scrollY);
-      reporterLEcriture();
-    },
-    { passive: true },
-  );
 
   const noter = () => {
     const p = lirePositions();
@@ -214,12 +206,30 @@ export function brancherLeDefilement(): void {
      Fin de geste : 400 ms après le dernier défilement. Une page tuée sans
      `pagehide` — onglet fermé de force, mémoire reprise par le système —
      garde ainsi la position d'il y a moins d'une demi-seconde.
+
+     TOUT CECI EST DÉCLARÉ AVANT L'ÉCOUTE, ET CE N'EST PAS UN GOÛT DE MISE EN
+     PAGE. Ma première écriture posait l'écoute du défilement d'abord, et
+     « minuteurDEcriture » ensuite, en comptant sur la remontée des
+     déclarations de fonction. Or `let` a une zone morte temporelle : un
+     événement de défilement survenu entre les deux — le navigateur rend la
+     position pendant l'exécution du script, cela arrive — aurait levé une
+     ReferenceError au lieu de noter la position. Rare, et d'autant plus
+     mauvais : on ne l'aurait jamais reproduit.
   */
   let minuteurDEcriture: ReturnType<typeof setTimeout> | undefined;
   function reporterLEcriture(): void {
     clearTimeout(minuteurDEcriture);
     minuteurDEcriture = setTimeout(noter, 400);
   }
+
+  addEventListener(
+    'scroll',
+    () => {
+      dernierY = Math.round(window.scrollY);
+      reporterLEcriture();
+    },
+    { passive: true },
+  );
 
   /* `pagehide` manque à l'appel sur iOS quand on bascule d'application ;
      `visibilitychange` le rattrape, et noter deux fois ne coûte rien. */

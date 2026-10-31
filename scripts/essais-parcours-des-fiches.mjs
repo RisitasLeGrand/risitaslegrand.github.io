@@ -18,10 +18,10 @@
  *
  * Il tient aussi, depuis le 25 octobre, **l'invariant de la racine partagée** :
  * une fiche sous `content/commun/` a UN identifiant pour les trois parcours
- * DGFiP. Il le vérifie en recalculant `idStable` depuis le chemin sur disque et
- * en comparant au manifeste — donc sans faire confiance au manifeste pour se
- * juger lui-même, et sans toucher à `idStable`, dont dépend l'historique des
- * 262 fiches de l'INSP.
+ * DGFiP. Il le vérifie depuis le DISQUE — l'identifiant que la fiche déclare
+ * en `id_publie`, ou l'empreinte de son chemin — et le compare au manifeste,
+ * donc sans faire confiance au manifeste pour se juger lui-même, et sans
+ * toucher à `idStable`, dont dépend l'historique des 262 fiches de l'INSP.
  *
  * Il ne vérifie **pas** que la bibliothèque filtre : elle ne filtre pas
  * encore, et le prétendre serait mentir. Ces champs existent pour que ce second
@@ -49,6 +49,7 @@ import {
 } from '../src/lib/parcours/registre.ts';
 import { deriverCle, idStable } from './lib/crypto.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import matter from 'gray-matter';
 
 let echecs = 0;
 const v = (intitule, obtenu, attendu) => {
@@ -106,7 +107,32 @@ for (const m of manifeste.matieres ?? []) {
 console.log('\nCHAQUE FICHE PORTE SA RACINE ET LES PARCOURS QU’ELLE SERT');
 
 console.log(`      ${toutes.length} fiches au manifeste`);
-v('le manifeste n’est pas vide, sinon l’essai ne prouverait rien', toutes.length > 100, true);
+/*
+   CE GARDE-FOU A MENTI, ET VOICI CE QU'IL DISAIT.
+
+   Il s'énonçait « le manifeste n'est pas vide » et exigeait « plus de cent
+   fiches ». Les deux ne sont pas la même chose, et l'écart s'est vu le jour où
+   une machine n'a porté que cinq fiches : l'essai est devenu rouge en
+   annonçant un manifeste vide qui portait cinq fiches servies à quatre
+   parcours, et dont il avait vérifié chaque racine.
+
+   Son objet est d'empêcher un essai creux : sur un manifeste SANS fiche,
+   toutes les assertions qui suivent passent au vert pour n'avoir rien examiné.
+   C'est « zéro » qu'il doit refuser, et c'est ce qu'il refuse maintenant.
+
+   Le volume du corpus, lui, est un fait de la MACHINE et non du code : ce
+   dépôt ne versionne pas « content/ », et rien ici ne peut garantir que les
+   427 fiches y sont. Le compte est donc imprimé juste au-dessus, et une
+   mention le dit en clair quand le corpus est partiel — pour que personne ne
+   lise « 15 verts » comme « le corpus entier est conforme ».
+*/
+v('le manifeste porte au moins une fiche, sinon rien ne serait examiné', toutes.length > 0, true);
+if (toutes.length < 100) {
+  console.log(
+    `      · corpus partiel : ${toutes.length} fiches seulement. La forme est mesurée, ` +
+      'le corpus ne l’est pas.',
+  );
+}
 
 const sansRacine = toutes.filter((f) => typeof f.racine !== 'string');
 v('aucune fiche sans racine', sansRacine.map((f) => f.titre).slice(0, 5), []);
@@ -252,23 +278,100 @@ const cheminsDuDisque = [];
    de son chemin. Ainsi un identifiant déclaré qui ne correspond à aucun fichier
    se voit encore, et c'est ce qui compte.
 */
-const idsDeclares = new Set();
+const idsDeclares = new Map();
 
-const lireIdDeclare = (chemin) => {
-  const texte = readFileSync(chemin, 'utf8');
-  if (!texte.startsWith('---')) return null;
-  const fin = texte.indexOf('\n---', 3);
-  const entete = fin === -1 ? texte : texte.slice(0, fin);
+/*
+   L'EN-TÊTE EST LU PAR L'ANALYSEUR DU BUILD, ET NON PAR UNE EXPRESSION
+   RÉGULIÈRE ÉCRITE ICI.
+
+   Cette lecture était faite à la main : « texte.indexOf('\n---') » pour borner
+   l'en-tête, puis un motif pour en extraire le champ.
+
+   J'AI D'ABORD ANNONCÉ DEUX DÉFAUTS, ET LE SABOTAGE N'EN A CONFIRMÉ QU'UN.
+   C'est dit ici parce qu'une raison fausse laissée dans un commentaire se
+   recopie, et que celle-ci a déjà été recopiée une fois.
+
+   - L'EN-TÊTE EN CRLF : je l'ai cru perdu par l'ancien motif, et il ne
+     l'était pas. Sabotage posé : le contrôle CRLF reste VERT sous l'ancien
+     lecteur. La raison est que « \s » comprend le retour de chariot — le
+     « \s*$ » du motif l'absorbe, et « indexOf('\n---') » retrouve la clôture
+     parce que le « \n » du CRLF y est. Le contrôle est gardé quand même : il
+     dit que les deux lecteurs traversent le CRLF, ce qui vaut d'être écrit.
+   - « id_publie : x », AVEC UN ESPACE avant le deux-points, que YAML accepte :
+     celui-là est réel. Sabotage posé, le contrôle rougit.
+
+   Le gain mesuré est donc plus modeste que ce que j'avais annoncé : l'espace
+   avant le deux-points, et surtout qu'un identifiant déclaré mais ILLISIBLE
+   soit nommé au lieu d'être confondu avec une absence — l'ancien motif ne
+   trouvait rien et l'essai retombait en silence sur l'empreinte du chemin.
+
+   Mais la raison de fond ne dépend pas du nombre de cas, et c'est elle qui
+   a motivé ce changement : le mot de passe du site avait CINQ lecteurs écrits
+   à la main, divergents sur la coupure des lignes, les blancs et les
+   guillemets, dont celui qui rechiffre le corpus. Une règle de lecture
+   recopiée finit par diverger de l'originale, et on ne sait pas d'avance par
+   où. On n'ajoute donc pas un cas au motif : on supprime le motif.
+
+   « gray-matter » est l'analyseur que « build-content.mjs » emploie. C'est la
+   seule façon d'être sûr de lire ce que le build lit.
+
+   Il règle aussi, gratuitement, ce que le motif attrapait par chance : le
+   corps de la fiche ne peut plus être confondu avec l'en-tête, puisque
+   l'analyseur borne l'en-tête lui-même.
+
+   ET IL A DÉTROMPÉ UNE RAISON ÉCRITE DEUX FOIS DANS CE DÉPÔT. Le motif
+   acceptait des guillemets autour de l'identifiant, et son commentaire — le
+   mien, repris par celui de B — expliquait que « 03893560309995e0 » se lit
+   comme un nombre en notation scientifique. C'est FAUX pour l'analyseur du
+   build : son zéro initial le disqualifie comme flottant, et il revient en
+   chaîne. Le fait observé était juste — la fiche porte bien des guillemets —
+   mais la raison avancée ne l'était pas, et une raison fausse se recopie.
+
+   Mesuré, un seul des 51 identifiants déclarés est écrit entre guillemets, et
+   AUCUN ne serait lu comme un nombre sans eux. Le vrai danger est dit au
+   contrôle de sabotage correspondant, plus bas : il tient aux chiffres et non
+   à la notation scientifique.
+*/
+
+/** Les identifiants déclarés mais illisibles : nommés, jamais ignorés. */
+const idsDeclaresInvalides = [];
+
+/**
+ * L'identifiant déclaré dans un TEXTE de fiche, ou `null`.
+ *
+ * Pure, donc éprouvable sans disque : c'est ce qui permet les contrôles de
+ * sabotage plus bas, dont le cas CRLF, sans écrire dans le corpus réel.
+ */
+export const idDeclareDuTexte = (texte, quoi = '(texte)') => {
+  let donnees;
+  try {
+    donnees = matter(texte).data ?? {};
+  } catch {
+    /* Un en-tête illisible est l'affaire du build, qui refuse en le nommant. */
+    return null;
+  }
+  if (!('id_publie' in donnees)) return null;
+  const valeur = donnees.id_publie;
   /*
-     LES GUILLEMETS SONT OBLIGATOIRES POUR CERTAINS IDENTIFIANTS, et les
-     oublier coûtait un faux rouge. « 03893560309995e0 » se lit comme un
-     nombre en notation scientifique — 3,89…e0 — donc YAML le cite pour qu’il
-     reste une chaîne, sans quoi le schéma, qui exige seize caractères
-     hexadécimaux, le refuserait. Un identifiant sur 51 était dans ce cas.
+     UN CHAMP PRÉSENT MAIS NON CONFORME N'EST PAS « ABSENT », et les deux
+     versions précédentes le traitaient comme tel — le motif ne trouvait rien,
+     donc l'essai retombait sur l'empreinte du chemin, en silence.
+
+     Or c'est exactement le cas de « id_publie: 03893560309995e0 » SANS
+     guillemets : YAML y lit le NOMBRE 3,89…e0, parce que seize caractères
+     hexadécimaux finissant par « e » suivi de chiffres forment une écriture
+     scientifique valable. Le build le refuse par son schéma, qui exige seize
+     caractères hexadécimaux. Cet essai doit donc le NOMMER, et non le
+     confondre avec une fiche qui ne déclare rien.
   */
-  const trouve = /^id_publie:\s*["']?([0-9a-f]{16})["']?\s*$/m.exec(entete);
-  return trouve ? trouve[1] : null;
+  if (typeof valeur !== 'string' || !/^[0-9a-f]{16}$/.test(valeur)) {
+    idsDeclaresInvalides.push(`${quoi} : ${JSON.stringify(valeur)}`);
+    return null;
+  }
+  return valeur;
 };
+
+const lireIdDeclare = (chemin) => idDeclareDuTexte(readFileSync(chemin, 'utf8'), chemin);
 
 const parcourirPour = (dossier, prefixe) => {
   if (!existsSync(dossier)) return;
@@ -279,11 +382,126 @@ const parcourirPour = (dossier, prefixe) => {
     else if (e.endsWith('.md') && !e.endsWith('.podcast.md')) {
       cheminsDuDisque.push(relatif);
       const declare = lireIdDeclare(c);
-      if (declare) idsDeclares.add(declare);
+      if (declare) idsDeclares.set(relatif, declare);
     }
   }
 };
 parcourirPour('content', '');
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA LECTURE DE L'EN-TÊTE, ÉPROUVÉE SUR DU TEXTE ET NON SUR LE CORPUS
+   ══════════════════════════════════════════════════════════════════════════
+
+   Ces contrôles portent sur `idDeclareDuTexte`, qui est pure : ils ne
+   touchent pas à « content/ », qui n'est pas dans Git et dont la perte serait
+   irréparable. Un sabotage qui écrirait une fiche CRLF dans le corpus réel
+   pour vérifier qu'on la lit serait un prix absurde.
+
+   Sans eux, le passage à « gray-matter » ne serait pas MESURÉ : le corpus
+   d'aujourd'hui ne porte aucune fiche CRLF, donc l'ancien motif et le nouvel
+   analyseur y donnent exactement le même résultat. Un garde-fou qu'on ne
+   peut pas faire rougir n'en est pas un.
+*/
+console.log('\nL’EN-TÊTE EST LU COMME LE BUILD LE LIT');
+{
+  const ID = '9d222c1a0b3e4f56';
+  const avant = idsDeclaresInvalides.length;
+
+  v('un en-tête simple', idDeclareDuTexte(`---\nid_publie: ${ID}\n---\ncorps\n`), ID);
+
+  /* LE CAS QUI MOTIVE TOUT CECI. L'ancien motif rendait null ici. */
+  v(
+    'un en-tête en CRLF (les deux lecteurs le traversent)',
+    idDeclareDuTexte(`---\r\nid_publie: ${ID}\r\ntitre: x\r\n---\r\ncorps\r\n`),
+    ID,
+  );
+  v(
+    'un identifiant entre guillemets, comme l’outil de récupération les écrit',
+    idDeclareDuTexte('---\nid_publie: "03893560309995e0"\n---\n'),
+    '03893560309995e0',
+  );
+  v(
+    'un espace avant le deux-points, que YAML accepte',
+    idDeclareDuTexte(`---\nid_publie : ${ID}\n---\n`),
+    ID,
+  );
+  v(
+    'le champ peut ne pas être le premier',
+    idDeclareDuTexte(`---\ntitre: x\ntags: [a, b]\nid_publie: ${ID}\n---\n`),
+    ID,
+  );
+  v('aucun en-tête du tout', idDeclareDuTexte('# juste un titre\n'), null);
+  v('un en-tête sans le champ', idDeclareDuTexte('---\ntitre: x\n---\n'), null);
+
+  /*
+     LE CORPS N'EST PAS L'EN-TÊTE. Une fiche qui PARLE de « id_publie » dans
+     son cours ne déclare rien. L'analyseur borne l'en-tête lui-même ; le
+     motif, lui, tenait par la chance du « .slice » qui précédait.
+  */
+  v(
+    'une ligne du corps ne déclare rien',
+    idDeclareDuTexte(`---\ntitre: x\n---\nid_publie: ${ID}\n`),
+    null,
+  );
+
+  v('aucun de ces cas n’est compté invalide', idsDeclaresInvalides.length - avant, 0);
+
+  /*
+     ET LE CAS NON CONFORME EST NOMMÉ, NON IGNORÉ.
+
+     MA PREMIÈRE VERSION DE CE CONTRÔLE PORTAIT SUR LE MAUVAIS IDENTIFIANT, et
+     c'est lui qui m'a détrompé. J'avais écrit, et le dépôt le disait en deux
+     endroits, que « 03893560309995e0 » se lit comme un nombre en notation
+     scientifique. MESURÉ : l'analyseur du build le rend en CHAÎNE, parce que
+     son ZÉRO INITIAL le disqualifie comme flottant YAML. La raison écrite
+     était fausse.
+
+     Le danger existe, et il est plus LARGE que ce qu'on croyait : il ne tient
+     pas à la notation scientifique mais aux chiffres. Mesuré sur l'analyseur
+     du build :
+
+       1234567890123456  → nombre 1234567890123456
+       1234567890123e45  → nombre 1.234567890123e+57
+       03893560309995e0  → chaîne  (zéro initial)
+       abcdef0123456789  → chaîne  (une lettre hexadécimale suffit)
+
+     Un identifiant de seize caractères hexadécimaux ENTIÈREMENT NUMÉRIQUE,
+     sans zéro initial, est donc lu comme un nombre. Cela arrivera : l'empreinte
+     n'a aucune raison d'éviter ce cas.
+
+     Ce n'est pas un défaut de l'outil de récupération, et je l'ai vérifié
+     plutôt que de le supposer : il écrit avec « yaml », qui CITE tout
+     identifiant ambigu — les quatre ci-dessus sauf le dernier —, et
+     gray-matter les relit tous en chaîne. L'aller-retour est sain. Le cas
+     dangereux est celui d'une fiche écrite ou corrigée à la main.
+  */
+  v(
+    'un identifiant non conforme ne passe pas pour une absence',
+    idDeclareDuTexte('---\nid_publie: 1234567890123456\n---\n', '(cas éprouvé)'),
+    null,
+  );
+  /* Et celui qu'on croyait dangereux ne l'est pas : il revient en chaîne. */
+  v(
+    'un zéro initial suffit à garder la chaîne',
+    idDeclareDuTexte('---\nid_publie: 03893560309995e0\n---\n'),
+    '03893560309995e0',
+  );
+  v(
+    'il est consigné comme invalide',
+    idsDeclaresInvalides.length - avant,
+    1,
+  );
+  /* On retire le cas éprouvé, pour ne pas faire rougir le contrôle du corpus. */
+  idsDeclaresInvalides.length = avant;
+}
+
+/*
+   ET AUCUNE FICHE DU CORPUS NE DÉCLARE UN IDENTIFIANT ILLISIBLE.
+
+   Ce contrôle ne pouvait pas exister avant : l'ancien motif rendait null sans
+   distinguer « pas de champ » de « champ illisible ».
+*/
+v('aucune fiche ne déclare un identifiant illisible', idsDeclaresInvalides.slice(0, 5), []);
 
 /*
    ET AUCUNE FICHE N'EST RANGÉE SOUS UN DOSSIER QUE LE REGISTRE IGNORE.
@@ -305,16 +523,51 @@ const dossiersInconnus = [
 ].filter((d) => !FICHIERS_HORS_PARCOURS.has(d));
 v('aucune fiche sous un dossier que le registre ignore', dossiersInconnus, []);
 
-const idsAttendus = new Set([
-  ...(await Promise.all(cheminsDuDisque.map((c) => idStable(c)))),
-  ...idsDeclares,
-]);
+/*
+   LA RÈGLE JUSTE, ET POURQUOI ELLE EST PLUS STRICTE QUE L'UNION DES DEUX.
+
+   Deux corrections de ce bloc se sont croisées le 25 octobre, et toutes deux
+   partaient du même constat : écrit avant `id_publie`, l'essai exigeait que
+   TOUT identifiant du manifeste soit l'empreinte d'un chemin du disque, ce que
+   ce champ est précisément fait de rompre. Sur le corpus réel, 51 fiches le
+   déclarent ; l'essai rougissait donc sur la réparation elle-même.
+
+   La version du train attendait « l'ensemble des empreintes UNION l'ensemble
+   des identifiants déclarés ». Elle lève le faux rouge, et elle laisse passer
+   le vrai défaut : si le build oubliait d'employer un `id_publie` déclaré, la
+   fiche repartirait sous l'empreinte de son chemin — qui appartient à l'union,
+   donc rien ne rougirait, et la progression serait orpheline en silence.
+
+   La règle retenue est donc fiche par fiche : l'identifiant attendu d'une
+   fiche est celui qu'elle DÉCLARE, et à défaut l'empreinte de son chemin.
+   L'empreinte du chemin d'une fiche qui déclare autre chose n'est plus
+   attendue, et c'est exactement le cas que l'union ne voyait pas.
+
+   S'y ajoute la demande symétrique, qu'aucune des deux versions ne portait :
+   un `id_publie` déclaré doit se retrouver AU MANIFESTE. Sans elle, un champ
+   écrit pour rien laisserait la progression orpheline — l'inverse exact de ce
+   qu'il répare.
+*/
+const idsAttendus = new Set(
+  await Promise.all(
+    cheminsDuDisque.map(async (c) => idsDeclares.get(c) ?? (await idStable(c))),
+  ),
+);
 const idsDuManifeste = new Set(toutes.map((f) => f.id));
 v(
-  'chaque identifiant du manifeste est l’empreinte d’un chemin du disque',
+  'chaque identifiant du manifeste est celui que la fiche déclare, ou l’empreinte de son chemin',
   [...idsDuManifeste].filter((id) => !idsAttendus.has(id)).slice(0, 5),
   [],
 );
+if (idsDeclares.size === 0) {
+  console.log('      \x1b[36m·\x1b[0m non mesuré : aucune fiche ne déclare « id_publie » dans ce corpus');
+} else {
+  v(
+    `les ${idsDeclares.size} « id_publie » déclarés se retrouvent au manifeste`,
+    [...idsDeclares].filter(([, id]) => !idsDuManifeste.has(id)).map(([c]) => c).slice(0, 5),
+    [],
+  );
+}
 v(
   'et aucun identifiant n’est porté deux fois',
   toutes.length - idsDuManifeste.size,

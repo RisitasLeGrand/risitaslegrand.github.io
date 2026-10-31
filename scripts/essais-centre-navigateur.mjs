@@ -36,6 +36,62 @@ import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
+/**
+ * Ouvre le centre, et attend que sa liste soit PEINTE — pas seulement visible.
+ *
+ * ## Le défaut que cet auxiliaire corrige, et il était dans l'essai
+ *
+ * `basculer()` rend le panneau visible, PUIS lit la base et déchiffre, PUIS
+ * peint la liste. Attendre « le panneau n'est plus caché » et lire la liste
+ * aussitôt, c'est la lire pendant ce trou : mesuré, le panneau devient
+ * visible deux millisecondes après le clic.
+ *
+ * L'essai tenait par chance, et il a rougi le 25 octobre dans une batterie
+ * chargée — au 257ᵉ essai sur 316, après quarante minutes de machine
+ * occupée — en annonçant que le panneau ne rangeait pas les revues sous
+ * « Revues en attente ». Rien dans le site n'avait changé : `git log` sur le
+ * composant, sa bibliothèque et cet essai ne rend rien sur les trente et un
+ * commits qui séparaient les deux passages.
+ *
+ * ## Pourquoi « aria-busy » et non « une section est apparue »
+ *
+ * Une section peut être celle du passage PRÉCÉDENT : `dessiner()` commence
+ * par `liste.replaceChildren()`, mais entre deux ouvertures le DOM garde ce
+ * qu'il avait. Attendre une section rendrait vrai avant même que la nouvelle
+ * peinture commence.
+ *
+ * `aria-busy` est une post-condition : le gestionnaire le pose avant son
+ * premier `await` — donc dans le même tour que le clic, ce qui laisse le
+ * temps de le voir — et le retire en DERNIER, dans un `finally`. Son absence
+ * dit « la peinture est finie », y compris quand elle a échoué, ce qui est
+ * exactement la question qu'un essai doit poser avant de lire.
+ *
+ * L'exigence, elle, ne change pas d'un iota : l'essai demande toujours que le
+ * groupe attendu soit là. Il arrête seulement de le demander avant que
+ * quiconque ait pu l'écrire.
+ */
+async function ouvrirLeCentre(B) {
+  await B.page.click('#centre-bouton');
+  await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
+  /*
+     « attached » ET NON « visible », ET C'EST LA MESURE QUI L'A DIT.
+
+     Premier écrit sans `state` : Playwright attend alors que l'élément soit
+     VISIBLE, et il a expiré sur la phase du coffre fermé — « 38 × locator
+     resolved to hidden <div id="centre-liste" class="space-y-3"></div> ». Un
+     `div` vide n'a pas de hauteur, donc il n'est pas visible, et une liste
+     légitimement vide ne le devient jamais.
+
+     Or ce qu'on attend n'est pas une apparition : c'est un ATTRIBUT. La liste
+     est toujours dans le document ; seule la fin de sa peinture est en
+     question. Et la visibilité du panneau, elle, est déjà exigée juste avant.
+  */
+  await B.page.waitForSelector('#centre-liste:not([aria-busy="true"])', {
+    state: 'attached',
+    timeout: 20000,
+  });
+}
+
 const RACINE = 'http://localhost:4321';
 
 const nav = await chromium.launch({
@@ -283,8 +339,7 @@ await ouvrir(B, '/revisions/', '#centre-notifications');
   vrai('la pastille est visible', visible);
   v('elle annonce une question', (await B.page.textContent('#centre-pastille')).trim(), '1');
 
-  await B.page.click('#centre-bouton');
-  await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
+  await ouvrirLeCentre(B);
   const lignes = await B.page.locator('#centre-liste li').count();
   /*
      Deux lignes : la question, et le rappel de sauvegarde que la phase 3
@@ -356,8 +411,7 @@ console.log('\n\x1b[1m5. COFFRE FERMÉ : UNE MENTION FIXE, ET AUCUN NOMBRE (§ 3
     console.log('  \x1b[33m!\x1b[0m le coffre s’est rouvert : la section 5 n’a pas pu être éprouvée');
     echecs += 1;
   } else {
-    await B.page.click('#centre-bouton');
-    await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
+    await ouvrirLeCentre(B);
     vrai(
       'la mention fixe est affichée',
       await B.page.locator('#centre-coffre-ferme').isVisible(),
@@ -424,8 +478,7 @@ console.log('\n\x1b[1m6. LES REVUES MANQUÉES ENTRENT VRAIMENT — PHASE 3\x1b[0
   v('un second passage n’en ajoute aucune', await aSavoir(), premier);
 
   if (premier >= 1) {
-    await B.page.click('#centre-bouton');
-    await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
+    await ouvrirLeCentre(B);
     const panneau = await B.page.textContent('#centre-liste');
     vrai('le panneau les range sous « Revues en attente »', panneau.includes('Revues en attente'));
     /*
@@ -436,6 +489,61 @@ console.log('\n\x1b[1m6. LES REVUES MANQUÉES ENTRENT VRAIMENT — PHASE 3\x1b[0
     v('aucune date brute n’apparaît', /\d{4}-\d{2}-\d{2}/.test(panneau), false);
     await B.page.click('#centre-bouton');
   }
+
+  /*
+     LA CLASSE DE LA MOLÉCULE N'ATTEINT PAS LE DISQUE — et il faut dire
+     précisément ce qui le garantit, parce que ce n'est pas une assertion
+     d'ici. J'ai d'abord écrit celle que j'avais promise, et elle était
+     fausse deux fois ; la corriger apprend plus que l'aurait fait sa
+     version juste.
+
+     Premier défaut : elle lisait `'classeMolecule' in e` sur ce que rend
+     `magasinDuCentre`, qui ne rend PAS les éléments mais
+     `{ champs, genre }`. Je mesurais l'emballage de la sonde et non la
+     chose — l'essai a répondu « obtenu ["champs"] », ce qui était la
+     bonne réponse à ma mauvaise question.
+
+     Second défaut, plus instructif : même bien câblée, elle n'aurait rien
+     prouvé. Le corps de l'élément est SCELLÉ. Les seuls champs en clair
+     sont `id`, `genre` et `scelle`, et la section 2 le vérifie déjà. Une
+     classe rangée dans le corps serait chiffrée, donc invisible à cette
+     sonde : l'assertion aurait été verte quoi qu'il arrive.
+
+     Ce qui garantit vraiment la séparation, de la plus forte à la plus
+     faible :
+
+     1. LE TYPE. `ElementDuCentre` est une interface FERMÉE. Écrire
+        `classeMolecule` dans l'élément que `synchroniser` construit est une
+        erreur de compilation — « Object literal may only specify known
+        properties ». Constaté en lançant `tsc` sur un élément truqué, pas
+        supposé : le sabotage ne tombe pas en rouge, il refuse de se
+        construire, et aucun essai n'a besoin d'y penser.
+     2. LA FORME DU CODE. Le contexte voyage dans une `Map` séparée, jamais
+        dans `attendus` : il n'existe aucun chemin d'affectation entre les
+        deux.
+     3. Les deux issues du filtre, mesurées purement dans
+        `essais:filtre-cycle`, avec leur sabotage.
+
+     CE QUI RESTE À MESURER, et que je laisse écrit faute de pouvoir le
+     faire ici : le chemin « classe connue et hors cycle » n'est pas encore
+     parcouru au navigateur, parce qu'aucun écran ne transmet de classe à ce
+     jour — `sante.astro` appelle avec des références nues, et c'est un
+     autre lot. Le jour où il la transmettra, l'assertion qui aura un sens
+     est une relecture par `elementsDuCentre()`, qui DESCELLE, et non une
+     lecture du disque.
+
+     L'assertion ci-dessous est donc celle qui manquait réellement : la
+     section 2 contrôle les champs en clair AVANT les dépôts de phase 3, et
+     ceux-ci écrivent des éléments qu'elle n'a jamais vus. On le recontrôle
+     après, sur les nouveaux.
+  */
+  const apresLesDepots = await magasinDuCentre(B);
+  vrai('des éléments de phase 3 sont là pour être mesurés', apresLesDepots.length > 1);
+  v(
+    'et eux aussi ne laissent en clair que les trois champs du § 4.1',
+    [...new Set(apresLesDepots.map((e) => JSON.stringify(e.champs)))],
+    [JSON.stringify(['genre', 'id', 'scelle'])],
+  );
 }
 
 console.log('\n\x1b[1m7. TRANCHER UNE QUESTION LA RETIRE — § 1 n° 8, L’AUTRE MOITIÉ\x1b[0m');

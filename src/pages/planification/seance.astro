@@ -127,7 +127,7 @@ import Base from '../../layouts/Base.astro';
         id="note" aria-label="Note de séance"
         rows="16"
         placeholder="Ce que je retiens de la séance du jour…"
-        class="w-full rounded-xl border border-slate-300 bg-white p-4 text-sm leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-indigo-900"
+        class="w-full rounded-xl border border-slate-400 bg-white p-4 text-sm leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-indigo-900"
       ></textarea>
       <p id="compteur-note" class="mt-2 text-xs text-slate-500 dark:text-slate-400"></p>
       <!--
@@ -154,7 +154,7 @@ import Base from '../../layouts/Base.astro';
           <button
             id="enregistrer"
             type="button"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Enregistrer et reprendre plus tard
           </button>
@@ -473,7 +473,7 @@ import Base from '../../layouts/Base.astro';
       case_.type = 'checkbox';
       case_.dataset.fiche = fiche.id;
       case_.checked = dejaCouvertes.has(fiche.id);
-      case_.className = 'h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+      case_.className = 'h-4 w-4 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500';
       case_.addEventListener('change', () => void sauvegarderBientot());
       marque.append(case_, document.createTextNode('Travaillée pendant cette séance'));
 
@@ -699,7 +699,7 @@ import Base from '../../layouts/Base.astro';
         case_.dataset.partieFiche = ficheId;
         case_.dataset.partie = partie.id;
         case_.checked = dejaVues.has(partie.id);
-        case_.className = 'h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+        case_.className = 'h-4 w-4 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500';
         case_.addEventListener('change', () => {
           /*
              Cocher une partie veut dire « j'ai travaillé cette fiche » :
@@ -760,7 +760,7 @@ import Base from '../../layouts/Base.astro';
     zone.value = texte.restitutions[String(passee.id)] ?? '';
     zone.placeholder = 'Ce dont je me souviens, avec mes mots…';
     zone.className =
-      'mt-3 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900';
+      'mt-3 w-full rounded-lg border border-slate-400 bg-white p-3 text-sm leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900';
     zone.addEventListener('input', () => void sauvegarderBientot());
 
     // Les notes de l'époque restent repliées : les ouvrir avant d'avoir écrit

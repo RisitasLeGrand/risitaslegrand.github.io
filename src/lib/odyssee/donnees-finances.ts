@@ -34,6 +34,7 @@ import {
   type Valorisation,
 } from './finances';
 import { controlerLigne, type LigneBudget } from './budget';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 import {
   CLEF_ETAT,
   REGLAGES_PAR_DEFAUT,
@@ -95,7 +96,7 @@ async function ecrire<T extends { id: string }>(
 async function toutLire<T>(magasin: MagasinFinances): Promise<T[]> {
   const cle = exigerLeCoffre();
   const rangees = (await (await db()).getAll(magasin)) as unknown as Record<string, unknown>[];
-  return Promise.all(rangees.map((r) => ouvrir<T>(cle, r)));
+  return lireCeQuiSOuvre(rangees, (r) => ouvrir<T>(cle, r));
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

@@ -37,6 +37,7 @@ import {
 import { signalerEcriture } from './signal-ecriture';
 import type { EntreeRevision } from '../noyau/revisions';
 import type { Operation } from '../noyau/operations';
+import { operationsTransportables } from '../noyau/transportable';
 import {
   annulerLot,
   conflits,
@@ -217,7 +218,23 @@ export async function fabriquerPaquet(
      jour où l'un d'eux le fera, parce que ce jour-là le défaut serait muet —
      un enregistrement qui ne part pas ne se signale pas.
   */
-  const retenues = operations.filter((o) => dansBornes(o) || estSocleEnregistrement(o));
+  /*
+     LE PALIER B-2, AU DÉPART ET NON À L'ÉCRITURE.
+
+     Une opération qui porte l'enregistrement d'un magasin SCELLÉ est illisible
+     partout ailleurs qu'ici : la clé du coffre est propre à l'appareil. Elle
+     reste donc au journal local — l'appareil garde la mémoire de ses propres
+     écritures, dont la compaction et la reprise ont besoin — mais elle ne monte
+     pas dans le paquet.
+
+     Le prédicat est DÉRIVÉ de « MAGASINS_SCELLES », et ne tient aucune liste :
+     un dix-huitième magasin scellé demain sera écarté sans qu'on touche à cette
+     ligne. Il vit dans « noyau/transportable.ts » parce que la sauvegarde est
+     une seconde sortie, et que deux filtres écrits séparément divergeraient.
+  */
+  const retenues = operationsTransportables(
+    operations.filter((o) => dansBornes(o) || estSocleEnregistrement(o)),
+  );
   const retenuesRevisions = revisions.filter(dansBornes);
   const appareil = await lireAppareil();
   const { complete } = await empreinteLocale();

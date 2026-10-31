@@ -112,6 +112,40 @@ const PAR_NOM_DE_PANNE: Readonly<Record<string, string>> = {
 };
 
 /**
+ * La phrase d'un `TypeError` — le trou de G-13, trouvé par un sabotage.
+ *
+ * ## Comment il a été trouvé
+ *
+ * Le lot 0.1 a sabordé la cause nommée du déverrouillage hors ligne pour
+ * vérifier que le filet de l'écran tenait. Il a tenu — et il a affiché
+ * « Le déverrouillage a échoué : **Failed to fetch** ». En anglais, par cette
+ * fonction, qui est précisément celle qui doit l'empêcher.
+ *
+ * ## Pourquoi le discriminant documenté plus haut laissait passer
+ *
+ * Il oppose la `DOMException`, panne de plate-forme à traduire, à l'`Error`
+ * ordinaire, message de domaine écrit pour être lu. Or **un échec de `fetch`
+ * est un `TypeError`** : ni l'un ni l'autre. Il tombait donc dans la seconde
+ * branche, qui rend le message tel quel, et le texte du navigateur passait.
+ *
+ * ## Ce que la phrase dit, et pourquoi elle dit deux choses
+ *
+ * Un `TypeError` qui arrive ici est de deux sortes : un réseau qui n'a pas
+ * répondu, et c'est le cas courant ; ou un défaut de l'application — « x
+ * n'est pas une fonction » —, qui n'est pas un message destiné à quelqu'un.
+ *
+ * On ne peut pas les distinguer sans renifler le texte, ce que ce fichier
+ * refuse depuis le début parce qu'il change avec la langue du navigateur.
+ * La phrase est donc écrite pour être VRAIE dans les deux cas : elle donne
+ * d'abord le geste utile au cas courant, et nomme ensuite l'autre lecture
+ * plutôt que d'envoyer quelqu'un vérifier sa connexion pour un bogue.
+ */
+const PHRASE_RESEAU =
+  'Le réseau n’a pas répondu. Vérifiez la connexion, puis réessayez. Si vous êtes ' +
+  'en ligne, c’est un défaut de l’application : le détail technique est dans la ' +
+  'console du navigateur.';
+
+/**
  * La phrase à montrer pour une erreur.
  *
  * Jamais le texte brut d'une `Error` quand on sait faire mieux — c'est la règle
@@ -139,6 +173,13 @@ export function messageDUneErreur(erreur: unknown): string {
       'raison. Le détail technique est dans la console du navigateur.'
     );
   }
+
+  /*
+     LE `TypeError`, ENTRE LES DEUX BRANCHES. Avant la lecture du message, et
+     c'est tout l'objet : s'il passait après, son texte anglais ressortirait
+     mot pour mot, comme il l'a fait jusqu'au 26 octobre. Voir `PHRASE_RESEAU`.
+  */
+  if (erreur instanceof TypeError) return PHRASE_RESEAU;
 
   const brut = erreur instanceof Error ? erreur.message : String(erreur ?? '');
   const propre = brut.trim();

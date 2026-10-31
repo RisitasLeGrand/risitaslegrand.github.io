@@ -46,6 +46,39 @@ export function nombreDecimal(saisie: string): number | null {
 }
 
 /**
+ * Lit un nombre ENTIER saisi à la main.
+ *
+ * ## Pourquoi il ne suffisait pas de garder `type="number"`
+ *
+ * D4 a fait passer les champs décimaux au texte, parce qu'un clavier français
+ * propose la virgule. Les champs entiers — répétitions, séances par semaine,
+ * intensité d'un symptôme — sont restés en `type="number"`, et c'est légitime :
+ * un pavé numérique n'y propose pas de virgule.
+ *
+ * Mais la MOITIÉ du défaut D4 n'était pas la virgule : c'était que
+ * `Number('')` vaut **zéro**. Un champ entier vide écrit donc un zéro, et
+ * aucun de ces trois-là n'a de zéro innocent — « 0 séance par semaine » est un
+ * programme qui ne se tient pas, et « intensité 0 » est une mesure réelle,
+ * celle de l'absence de douleur. Mesuré le 25 octobre : vider « Séances par
+ * semaine » et enregistrer écrivait bien `parSemaine: 0`, sans un mot.
+ *
+ * Trois champs s'en remettaient à la validation natale du navigateur — ou à
+ * rien du tout, « Séances par semaine » n'étant dans aucun formulaire. Le
+ * commentaire de `seance.astro` disait déjà la fragilité : « le jour où l'on
+ * garderait les répétitions comme on garde déjà la charge, le double appui
+ * aurait écrit deux séries en silence ».
+ *
+ * ## Ce qu'il refuse
+ *
+ * Le vide, l'illisible, et le non-entier. « 3,5 séances par semaine » n'est
+ * pas une saisie à arrondir en silence : c'est une saisie à reprendre.
+ */
+export function nombreEntier(saisie: string): number | null {
+  const valeur = nombreDecimal(saisie);
+  return valeur !== null && Number.isInteger(valeur) ? valeur : null;
+}
+
+/**
  * Le même, mais borné : rend `null` hors des bornes.
  *
  * Les bornes viennent des attributs `data-min` et `data-max` du champ, là où

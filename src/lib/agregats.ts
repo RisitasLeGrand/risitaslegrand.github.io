@@ -7,6 +7,7 @@ import {
   aplatirFiches,
   chargerFiche,
   chargerManifeste,
+  chargerManifesteComplet,
   estMethodologique,
   type FicheAplatie,
   type Manifeste,
@@ -73,9 +74,41 @@ function moyenne(valeurs: number[]): number {
   return valeurs.length ? valeurs.reduce((a, b) => a + b, 0) / valeurs.length : 0;
 }
 
-/** Construit la vue complète « contenu + progression ». */
-export async function construireVue(): Promise<Vue> {
-  const manifeste = await chargerManifeste();
+/**
+ * Jusqu'où la vue regarde : le parcours ouvert, ou tout le corpus.
+ *
+ * `'parcours'` pour ce qui PROPOSE — bibliothèque, révisions dues, recherche.
+ * Montrer une fiche d'un concours qu'Alexis ne passe pas lui ferait perdre son
+ * temps.
+ *
+ * `'tout'` pour ce qui RACONTE — les statistiques de progression. Cacher une
+ * fiche déjà révisée y serait un mensonge : Alexis a révisé l'INSP, et passer
+ * sur DGFiP-A ne doit pas effacer ce travail de son histoire.
+ */
+export type PorteeDeLaVue = 'parcours' | 'tout';
+
+/**
+ * Construit la vue complète « contenu + progression ».
+ *
+ * LA PORTÉE EST UN PARAMÈTRE, ET ELLE NE L'ÉTAIT PAS.
+ *
+ * Cette fonction prenait toujours le manifeste FILTRÉ. Ses quatre appelants
+ * ne veulent pourtant pas la même chose : la bibliothèque, les révisions et
+ * la recherche PROPOSENT, les statistiques RACONTENT. Les statistiques
+ * héritaient donc du filtre par mégarde, et auraient annoncé à Alexis, posé
+ * sur DGFiP-A, qu'il n'a jamais révisé les fiches de l'INSP qu'il a révisées.
+ *
+ * Rien n'aurait planté, et aucun essai ne l'aurait dit : c'est le genre de
+ * mensonge qu'il faut aller chercher. « essais:manifeste-filtre » le tient
+ * désormais, en classant chaque appelant.
+ *
+ * Le défaut est `'parcours'`, qui est le cas des trois quarts des appelants :
+ * un nouvel écran qui propose n'a rien à écrire, et un écran qui raconte doit
+ * le DIRE.
+ */
+export async function construireVue(portee: PorteeDeLaVue = 'parcours'): Promise<Vue> {
+  const manifeste =
+    portee === 'tout' ? await chargerManifesteComplet() : await chargerManifeste();
   // Les fiches écartées des files ne pèsent pas dans les totaux : annoncer
   // « à revoir » des cartes qu'aucune session ne servira serait un décompte
   // qu'on ne peut pas faire descendre.

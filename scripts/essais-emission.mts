@@ -10,11 +10,12 @@
  * jamais qu'il agit, et ici c'est l'agir qui compte, parce qu'un défaut se
  * voit sur l'écran verrouillé d'un téléphone.
  *
- * Six refus à éprouver, et chacun protège d'une chose différente :
+ * Sept refus à éprouver, et chacun protège d'une chose différente :
  * la source non activée (§ 3.4, désactivées par défaut), le cycle
- * (§ 1 n° 3), la permission absente, le plafond du jour (§ 3.3), un autre
- * onglet (§ 3.5), et l'absence de verrou. Plus le libellé lui-même, qui
- * est la seule chose que l'écran verrouillé montre.
+ * (§ 1 n° 3), la permission absente, la page sous les yeux (0.8 du 43), le
+ * plafond du jour (§ 3.3), un autre onglet (§ 3.5), et l'absence de verrou.
+ * Plus le libellé lui-même, qui est la seule chose que l'écran verrouillé
+ * montre.
  */
 
 /* ── Les doublures, posées avant d'importer le module ───────────────── */
@@ -63,6 +64,18 @@ let occupeParUnAutreOnglet = false;
 let tenu = false;
 
 /**
+ * L'état de la page, et son défaut est **« non regardée »**.
+ *
+ * Ce n'est pas une commodité pour faire passer les autres sections : c'est
+ * ce qu'elles mesurent. Chacune éprouve UN refus, et une page sous les yeux
+ * les refuserait toutes pour une raison qui n'est pas la leur — on
+ * mesurerait alors le dernier contrôle écrit, et le jour où un autre
+ * casserait, personne ne le verrait. La section 6 bis, elle, pose les deux
+ * états et c'est son objet.
+ */
+let visibilite: 'visible' | 'hidden' = 'hidden';
+
+/**
  * Les notifications que le *service worker* dit afficher.
  *
  * `refermer` ne peut pas se prouver autrement : il interroge
@@ -92,6 +105,16 @@ let apiVerrous: boolean = true;
 const g = globalThis as Record<string, unknown>;
 g.localStorage = localStorageDouble;
 g.Notification = NotificationDouble;
+/*
+   `document` n'existe pas sous Node, et le module le teste par
+   `typeof document` : sans cette doublure, il croirait tourner dans un
+   *service worker* et ne consulterait jamais la visibilité. L'accesseur est
+   relu à chaque appel, pour que `visibilite` se change entre deux émissions.
+*/
+Object.defineProperty(g, 'document', {
+  get: () => ({ get visibilityState() { return visibilite; } }),
+  configurable: true,
+});
 /*
    `navigator` est un accesseur en lecture seule sous Node : on le
    REDÉFINIT, on ne l'affecte pas. L'affectation jetait « has only a
@@ -171,6 +194,7 @@ const repartir = () => {
   apiVerrous = true;
   auTableau = [];
   serviceWorkerPresent = false;
+  visibilite = 'hidden';
 };
 
 console.log('\n\x1b[1m1. Désactivées par défaut (§ 3.4)\x1b[0m');
@@ -292,18 +316,29 @@ console.log('\n\x1b[1m5. Le libellé ne dit rien (§ 1 n° 2, décision 3)\x1b[0
   const id = 'b'.repeat(32);
   v('émise', await emettre(element('avis-de-fusion', id), JOUR), { quoi: 'emise' });
   v('une seule notification', affichees.length, 1);
-  v('le titre est le libellé neutre', affichees[0].titre, TITRE_NEUTRE);
-  v('le corps aussi', affichees[0].options.body, CORPS_NEUTRE);
+  /*
+     LE RELEVÉ EST PRIS UNE FOIS, ET IL A UN REPLI.
+
+     Ces six contrôles lisaient `affichees[0]` directement. Un sabotage du
+     lot 0.8 — le prédicat de visibilité inversé — a fait refuser l'émission
+     ici, et la section est MORTE sur « Cannot read properties of undefined
+     (reading 'titre') », emportant les quatre sections suivantes avec elle.
+     Une panne n'est pas un rouge : elle ne dit pas ce qui a cassé, et elle
+     cache ce qui allait bien.
+  */
+  const affichee = affichees[0] ?? { titre: '(rien n’a été affiché)', options: {} };
+  v('le titre est le libellé neutre', affichee.titre, TITRE_NEUTRE);
+  v('le corps aussi', affichee.options.body, CORPS_NEUTRE);
   /*
      Le défaut visé : un chiffre, un nom de domaine, une source. On lit le
      texte RÉELLEMENT affiché, pas la constante — c'est ce que l'écran
      verrouillé montre.
   */
-  const texte = `${affichees[0].titre} ${affichees[0].options.body ?? ''}`;
+  const texte = `${affichee.titre} ${affichee.options.body ?? ''}`;
   v('aucun chiffre', /\d/.test(texte), false);
   v('aucun nom de source', /fusion|revue|cycle|santé|sport/i.test(texte), false);
   /* L'étiquette est l'identifiant, pour refermer celle-ci et pas une autre. */
-  v('l’étiquette est l’identifiant de l’élément', affichees[0].options.tag, id);
+  v('l’étiquette est l’identifiant de l’élément', affichee.options.tag, id);
 }
 
 console.log('\n\x1b[1m6. Le plafond du jour (§ 3.3)\x1b[0m');
@@ -328,6 +363,76 @@ console.log('\n\x1b[1m6. Le plafond du jour (§ 3.3)\x1b[0m');
     'le lendemain, ça repasse',
     (await emettre(element('avis-de-fusion'), '2026-10-17')).quoi,
     'emise',
+  );
+}
+
+console.log('\n\x1b[1m6 bis. La page sous les yeux ne s’interrompt pas (0.8 du 43)\x1b[0m');
+{
+  repartir();
+  permission = 'granted';
+  await reglerLaSource('avis-de-fusion', true);
+
+  /* Page regardée : refus nommé, et RIEN d'affiché. */
+  visibilite = 'visible';
+  v(
+    'page regardée : refusée, et la raison est la sienne',
+    await emettre(element('avis-de-fusion', 'c'.repeat(32)), JOUR),
+    { quoi: 'refusee', pourquoi: 'page-regardee' },
+  );
+  v('et aucune notification n’est partie', affichees.length, 0);
+
+  /*
+     ET LE PLAFOND N'A PAS BOUGÉ. C'est l'autre moitié de la règle : une
+     émission retenue parce qu'on regardait l'écran n'est pas une
+     interruption. Si elle comptait, cinq coups d'œil au site le matin
+     feraient taire les cinq vraies notifications de la journée.
+
+     On le mesure par l'effet, et non en relisant le compteur : on cache la
+     page, puis on émet le plafond entier. S'il en restait une consommée,
+     la dernière serait plafonnée.
+  */
+  visibilite = 'hidden';
+  const suite: string[] = [];
+  for (let i = 0; i < PLAFOND_PAR_JOUR; i += 1) {
+    const r = await emettre(element('avis-de-fusion', `d${String(i).padStart(31, '0')}`), JOUR);
+    suite.push(r.quoi === 'emise' ? 'emise' : r.pourquoi);
+  }
+  v(
+    'page cachée : les cinq du jour restent entières',
+    suite,
+    Array(PLAFOND_PAR_JOUR).fill('emise'),
+  );
+  v('et cinq notifications sont bien parties', affichees.length, PLAFOND_PAR_JOUR);
+
+  /*
+     Le refus vient APRÈS la permission et AVANT le plafond, et l'ordre se
+     mesure : sans permission, la raison doit rester « permission », sinon
+     l'écran des notifications dirait « rien ne part parce que vous regardez
+     la page » à quelqu'un qui n'a tout simplement rien accordé.
+  */
+  repartir();
+  permission = 'default';
+  await reglerLaSource('avis-de-fusion', true);
+  visibilite = 'visible';
+  v(
+    'sans permission, la raison reste la permission',
+    await emettre(element('avis-de-fusion'), JOUR),
+    { quoi: 'refusee', pourquoi: 'permission' },
+  );
+
+  /*
+     Et une source MUETTE le reste : la visibilité ne doit pas devenir la
+     seule raison affichée, sans quoi la cacher suffirait à croire qu'une
+     source interdite va parler.
+  */
+  repartir();
+  permission = 'granted';
+  await reglerLaSource('veille-du-rythme', true);
+  visibilite = 'visible';
+  v(
+    'une source muette est refusée pour son silence, pas pour la page',
+    await emettre(element('veille-du-rythme'), JOUR),
+    { quoi: 'refusee', pourquoi: 'source-muette' },
   );
 }
 

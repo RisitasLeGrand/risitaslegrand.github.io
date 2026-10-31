@@ -67,14 +67,38 @@ const nav = await chromium.launch({
  * navigateur refuse l'écriture d'emblée, et c'est ce que l'essai veut voir :
  * l'échec traverse-t-il jusqu'à l'écran.
  */
-const saboterLesEcritures = (nomDErreur: string | null) => `
+const saboterLesEcritures = (nomDErreur: string | null, message?: string) => `
   (() => {
     const refuser = function () {
       throw ${
         nomDErreur === null
           ? "new Error('Cette écriture a été refusée.')"
-          : `new DOMException('Quota dépassé.', '${nomDErreur}')`
+          : `new DOMException('${message ?? 'Quota dépassé.'}', '${nomDErreur}')`
       };
+    };
+    IDBObjectStore.prototype.put = refuser;
+    IDBObjectStore.prototype.delete = refuser;
+    IDBObjectStore.prototype.add = refuser;
+    'posé'
+  })();
+`;
+
+/**
+ * Fait échouer toute écriture par un `TypeError`, comme un `fetch` refusé.
+ *
+ * Un helper à part, et non un quatrième mode du précédent : celui-ci ne
+ * fabrique pas une `DOMException` et n'a ni nom ni code à porter. Les mêler
+ * aurait donné une fonction à trois branches dont deux arguments ne servent
+ * qu'à une, et c'est ainsi qu'on finit par appeler la mauvaise.
+ *
+ * Le message est **celui du navigateur** — « Failed to fetch » —, parce que
+ * c'est lui qui ne doit pas atteindre l'écran. L'inventer en français aurait
+ * vidé le contrôle de son objet.
+ */
+const saboterParUnTypeError = (message: string) => `
+  (() => {
+    const refuser = function () {
+      throw new TypeError(${JSON.stringify(message)});
     };
     IDBObjectStore.prototype.put = refuser;
     IDBObjectStore.prototype.delete = refuser;
@@ -354,6 +378,146 @@ console.log('\nPSYCHÉ, PAR LA MÊME PORTE');
       verifier(quoi, 'coffre resté fermé', true);
     }
   }
+  await ctx.close();
+}
+
+/* ── 6. Une base prise par un autre onglet dit de le fermer (A8) ─────────── */
+
+/*
+   LE POINT A8, ET CE QU'IL DEMANDE DE PROUVER.
+
+   `src/lib/agir.ts` porte deux phrases qui nomment le geste : « Fermez les
+   autres onglets de Cyclades, rechargez la page, puis recommencez » pour
+   `InvalidStateError`, et « c'est qu'un autre onglet porte une version plus
+   neuve » pour `VersionError`. Elles existaient, et RIEN ne vérifiait
+   qu'elles atteignent l'écran.
+
+   C'est la différence entre une table juste et un site qui parle : une
+   entrée peut être parfaite et ne jamais être atteinte — parce que l'appel
+   ne passe pas par `agir`, parce qu'un `catch` l'avale, parce que l'écran
+   n'a pas de région. L'essai casse donc la base avec CES noms-là, et
+   regarde l'écran.
+
+   POURQUOI CES DEUX NOMS SONT LES BONS. Ils ne sont pas inventés pour
+   l'occasion : `src/lib/noyau/instantane.ts` les rencontre pour de vrai —
+   « Base « … » bloquée par un autre onglet » sur `onblocked`, et une base
+   ouverte ailleurs sur une version plus récente. Un essai qui éprouverait un
+   nom que le code ne rencontre jamais mesurerait une politesse, pas une
+   panne.
+
+   ET LE CONTRÔLE EN SENS INVERSE. Une phrase qui parlerait d'onglets à
+   chaque panne serait aussi fausse qu'une phrase absente : on vérifie donc
+   qu'une erreur ORDINAIRE ne la déclenche pas. Sans cela, le vert ci-dessus
+   pourrait venir d'un message passe-partout.
+*/
+console.log('\nUNE BASE PRISE PAR UN AUTRE ONGLET DIT DE LE FERMER');
+for (const cas of [
+  {
+    nom: 'InvalidStateError',
+    message: 'The database connection is closing.',
+    attendu: /Fermez les autres onglets/i,
+    quoi: 'InvalidStateError — l’écran dit de fermer les autres onglets',
+  },
+  {
+    nom: 'VersionError',
+    message: 'The requested version is less than the existing version.',
+    attendu: /version plus neuve|version plus récente/i,
+    quoi: 'VersionError — l’écran parle d’un onglet plus neuf',
+  },
+]) {
+  const { ctx, page } = await ouvrir();
+  await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+  await page.evaluate(saboterLesEcritures(cas.nom, cas.message));
+  await page.locator('#kg').fill('72');
+  await page.locator('#peser').click();
+  await page.waitForTimeout(1500);
+
+  const visible = page.locator('#echec-de-page:visible, [role="alert"]:visible').first();
+  const parue = (await visible.count()) > 0;
+  verifier(`${cas.nom} — l’échec est dit`, parue, true);
+  const dit = (parue ? ((await visible.textContent()) ?? '') : '').replace(/\s+/g, ' ');
+  verifier(cas.quoi, cas.attendu.test(dit), true);
+  /*
+     Et pas par le message du navigateur, qui est en anglais et ne dit aucun
+     geste : c'est la moitié du point qui se perdrait le plus facilement.
+  */
+  verifier(
+    `${cas.nom} — et non par le message anglais du navigateur`,
+    dit.includes(cas.message) || dit.includes(cas.nom),
+    false,
+  );
+  verifier(
+    `${cas.nom} — la zone s’annonce (role="alert")`,
+    parue ? await visible.getAttribute('role') : null,
+    'alert',
+  );
+  await ctx.close();
+}
+
+console.log('\nET LA PHRASE N’EST PAS UN PASSE-PARTOUT');
+{
+  const { ctx, page } = await ouvrir();
+  await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+  await page.evaluate(saboterLesEcritures(null));
+  await page.locator('#kg').fill('73');
+  await page.locator('#peser').click();
+  await page.waitForTimeout(1500);
+  const visible = page.locator('#echec-de-page:visible, [role="alert"]:visible').first();
+  const dit = ((await visible.count()) ? ((await visible.textContent()) ?? '') : '').replace(
+    /\s+/g,
+    ' ',
+  );
+  verifier('une panne ordinaire est dite', dit.trim().length > 10, true);
+  verifier(
+    'mais elle ne parle pas des autres onglets',
+    /autres onglets/i.test(dit),
+    false,
+  );
+  await ctx.close();
+}
+
+/* ── Le `TypeError`, troisième branche de G-13 ────────────────────────────── */
+
+/*
+   POURQUOI CETTE SECTION EXISTE.
+
+   Le discriminant de « messageDUneErreur » opposait deux sortes d'erreurs :
+   la `DOMException`, panne de plate-forme à traduire, et l'`Error` ordinaire,
+   message de domaine écrit pour être lu. Un échec de `fetch` n'est ni l'un ni
+   l'autre : c'est un `TypeError`. Il tombait donc dans la seconde branche, et
+   son texte anglais sortait mot pour mot.
+
+   Trouvé par un sabotage du lot 0.1 — « Le déverrouillage a échoué : Failed
+   to fetch », en anglais, par la fonction même qui doit l'empêcher. La preuve
+   par exécution de la phrase pure est dans `essais:erreurs-dites`, avec un
+   vrai `fetch` refusé ; ce qui se mesure ICI est l'autre moitié : que la
+   phrase traverse jusqu'à l'écran d'une vraie page, par la porte commune.
+*/
+console.log('\nUN TypeError NE MONTRE PAS SON TEXTE ANGLAIS');
+{
+  const BRUT_DU_NAVIGATEUR = 'Failed to fetch';
+  const { ctx, page } = await ouvrir();
+  await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+  await page.evaluate(saboterParUnTypeError(BRUT_DU_NAVIGATEUR));
+  await page.locator('#kg').fill('74');
+  await page.locator('#peser').click();
+  await page.waitForTimeout(1500);
+
+  const visible = page.locator('#echec-de-page:visible, [role="alert"]:visible').first();
+  const parue = (await visible.count()) > 0;
+  verifier('l’échec est dit', parue, true);
+  const dit = (parue ? ((await visible.textContent()) ?? '') : '').replace(/\s+/g, ' ');
+  verifier('et non par le texte anglais du navigateur', dit.includes(BRUT_DU_NAVIGATEUR), false);
+  verifier('la phrase parle de la connexion', /connexion/i.test(dit), true);
+  verifier('et elle dit quoi faire', /réessayez/i.test(dit), true);
+  verifier(
+    'la zone s’annonce (role="alert")',
+    parue ? await visible.getAttribute('role') : null,
+    'alert',
+  );
   await ctx.close();
 }
 

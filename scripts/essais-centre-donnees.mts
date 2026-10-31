@@ -36,7 +36,7 @@
  * vrai magasin et un vrai coffre existent. Jusque-là, la propriété est
  * **lue dans le code**, pas constatée, et la section 6 le dit à l'écran.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   RETENTION_PAR_DEFAUT,
   peutEtreRange,
@@ -221,22 +221,102 @@ console.log('\n\x1b[1m7. Le pont entre les deux registres\x1b[0m');
   );
 }
 
-console.log('\n\x1b[1m8. L’avis de fusion ne cite plus aucun nombre (décision 5)\x1b[0m');
+console.log('\n\x1b[1m8. Une seule porte vers le système (0.8 du 43, décision 5)\x1b[0m');
 {
-  const veille = readFileSync('src/lib/sync/veille.ts', 'utf8');
-  const appel = veille.slice(veille.indexOf('await avertir({'), veille.indexOf('marque: `fusion-'));
-  vrai('l’appel à `avertir` existe', appel.length > 0);
   /*
-     Le défaut visé, mot pour mot : « Reçu : 1 opération ». On cherche donc
-     une interpolation du rapport dans le corps, pas le mot « opération » —
-     un texte fixe qui dirait « des opérations » serait admissible.
+     CE QUE CETTE SECTION MESURE, ET POURQUOI ICI.
+
+     Elle mesurait « l'appel à `avertir` existe dans veille.ts, et son corps
+     n'interpole rien du rapport ». L'appel n'existe plus, et c'est le lot
+     0.8 : il était une SECONDE PORTE vers les notifications du système, à
+     côté de `emettre`, et il contournait tout ce que l'autre tient — le
+     réglage par source, le plafond du jour, le verrou entre onglets, le
+     libellé neutre.
+
+     L'objet de la section ne change pas pour autant : aucun nombre du
+     rapport ne doit pouvoir paraître sur un écran verrouillé. Il se mesure
+     maintenant mieux qu'avant, parce que le libellé est devenu une
+     constante — ce que la section 5 de `essais:emission` éprouve par
+     exécution — et qu'il ne reste donc à garder qu'une chose : qu'aucune
+     autre porte ne s'ouvre. C'est une propriété de tout le dossier `src/`,
+     que personne ne peut vérifier en relisant un fichier, et c'est
+     exactement ce que ce contrôle structurel sait faire.
+  */
+  const veille = readFileSync('src/lib/sync/veille.ts', 'utf8');
+  v('la veille n’appelle plus `avertir` directement', /\bavertir\s*\(/.test(veille), false);
+  vrai(
+    'elle dépose la fusion au centre, qui décide d’interrompre ou non',
+    /signalerUneFusion\(recu\.lot\)/.test(veille),
+  );
+  /*
+     Le défaut visé reste celui de la décision 5, mot pour mot : « Reçu :
+     1 opération ». Le rapport n'est plus lu que pour TROIS champs — deux
+     volumes, qui servent uniquement à décider s'il y a quelque chose à
+     dire, et le numéro de lot, qui n'est pas un volume. Un quatrième champ
+     lu ici serait une donnée de plus qui sort de la fusion, et il faudrait
+     alors se demander où elle va.
   */
   v(
-    'le corps n’interpole rien du rapport reçu',
-    /\$\{\s*recu\./.test(appel),
-    false,
+    'et le rapport n’est lu que pour les deux volumes et le lot',
+    [...new Set([...veille.matchAll(/\brecu\.(\w+)/g)].map((m) => m[1]))].sort(),
+    ['lot', 'recues', 'revisionsRecues'],
   );
-  vrai('et il garde le droit d’annuler, qui n’est pas une donnée', appel.includes('sept jours'));
+
+  /*
+     L'INVARIANT, et c'est lui qui vaut la section : `avertir` n'a qu'un
+     appelant dans tout le site, et c'est `emettre`.
+
+     On ne cherche pas le NOM seul : `lib/boite.ts` exporte aussi un
+     `avertir` — la boîte de dialogue —, et sept écrans l'appellent. Un
+     contrôle sur le nom rougirait sur eux, on l'assouplirait, et il ne
+     garderait plus rien.
+
+     On ne cherche pas la forme d'import non plus, et c'est un SABOTAGE qui
+     l'a appris : la première écriture lisait `import { avertir } from …`, et
+     le sabotage qui remettait la porte dans la veille est resté vert,
+     puisque la veille importe en différé — `await import('./notification')`,
+     et avant ce lot `const [{ avertir }] = await Promise.all([…])`. Un
+     contrôle qu'un sabotage traverse ne garde rien.
+
+     La règle est donc grossière exprès : **aucun fichier ne doit à la fois
+     citer le module et nommer `avertir`**, hormis `emettre`. Elle attrape
+     les deux formes d'import et celles que personne n'a écrites. Elle
+     refuserait un fichier qui n'emprunterait au module que `etatPermission`
+     tout en ayant son propre `avertir` — aucun n'existe aujourd'hui, les
+     quatre qui citent le module ayant été relus un par un. Et si ce cas
+     arrivait, la question qu'il poserait est la bonne : pourquoi ce fichier
+     parle-t-il des deux à la fois ?
+  */
+  const fichiers: string[] = [];
+  const parcourir = (dossier: string): void => {
+    for (const entree of readdirSync(dossier, { withFileTypes: true })) {
+      const chemin = `${dossier}/${entree.name}`;
+      if (entree.isDirectory()) parcourir(chemin);
+      else if (/\.(ts|astro|svelte|js)$/.test(entree.name)) fichiers.push(chemin);
+    }
+  };
+  parcourir('src');
+  const portes = fichiers.filter((f) => {
+    const texte = readFileSync(f, 'utf8');
+    return /['"][^'"]*\/notification['"]/.test(texte) && /\bavertir\b/.test(texte);
+  });
+  v('un seul fichier ouvre la porte du système', portes, [
+    'src/lib/notifications/emission.ts',
+  ]);
+
+  /*
+     ET PAS DE TROISIÈME PORTE PAR LE SERVICE WORKER. `sw.js` sait afficher
+     une notification sur message `cyclades:avis` d'une page ; ce chemin
+     n'aurait pas de réglage, pas de plafond, pas de verrou. Personne ne
+     l'emprunte — mesuré ici, pas supposé — et la branche est signalée au
+     Pilote comme du code mort plutôt que retirée d'un lot qui ne touche pas
+     au service worker.
+  */
+  v(
+    'personne ne poste `cyclades:avis` au service worker',
+    fichiers.filter((f) => readFileSync(f, 'utf8').includes('cyclades:avis')),
+    [],
+  );
 }
 
 console.log('\n\x1b[1m9. Le centre n’est pas sur le menu de garde (§ 3.1)\x1b[0m');

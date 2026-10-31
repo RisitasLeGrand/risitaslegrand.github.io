@@ -49,6 +49,7 @@ import {
   manifeste,
   type EntreesExport,
 } from '../src/lib/odyssee/export-ia';
+import { SCHEMA_REVISIONS } from '../src/lib/sauvegarde/service';
 import { INDICATEURS } from '../src/lib/odyssee/indicateurs';
 import { DOMAINES } from '../src/lib/noyau/domaines';
 import { periodeLibre, synthese } from '../src/lib/odyssee/syntheses';
@@ -384,7 +385,11 @@ const BASE: EntreesExport = {
   genereLe: '2026-09-30T20:00:00.000Z',
   pseudonyme: 'la personne',
   categories: ['indicateurs', 'series', 'qualite'],
-  versionSite: 'schema-revisions-12',
+  /* Dérivé, et non figé : « schema-revisions-12 » était écrit en dur ici, et
+     aurait continué d'exiger 12 le jour où la base en est à 43. Un décor qui
+     recopie une constante la fige, et c'est l'essai qui finit par imposer le
+     mauvais chiffre. */
+  versionSite: `schema-revisions-${SCHEMA_REVISIONS}`,
   vecteur: { bornes: { bureau: 'AAAA' }, compaction: {} },
 };
 

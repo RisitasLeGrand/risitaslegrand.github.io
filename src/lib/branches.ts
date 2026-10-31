@@ -134,6 +134,26 @@ export interface Onglet {
      reste utile pour les noms qui viennent d'ailleurs.
   */
   icone: NomDIcone;
+  /**
+   * Les parcours auxquels cet écran s'adresse. Absent = tous.
+   *
+   * ## Pourquoi ce champ existe, et pourquoi il ne peut pas filtrer au build
+   *
+   * « Organigrammes » ne vaut que pour les concours de la DGFiP : l'offrir à
+   * qui prépare l'INSP serait un lien vers une page vide, c'est-à-dire une
+   * promesse non tenue à chaque page du site.
+   *
+   * Mais le pied de page est rendu à la CONSTRUCTION, et le parcours courant
+   * vit dans « localStorage » — il n'existe que dans le navigateur. Le lien
+   * est donc écrit pour tout le monde, puis **caché côté client** quand le
+   * parcours ouvert ne le sert pas, et réévalué à chaque changement de
+   * parcours. C'est le même compromis que le sélecteur de parcours lui-même.
+   *
+   * Conséquence assumée : le lien existe dans le HTML servi. Ce n'est pas un
+   * secret — le nom d'un écran n'en est pas un —, c'est une question de ne
+   * pas proposer ce qui ne sert à rien.
+   */
+  parcours?: readonly string[];
 }
 
 /**
@@ -219,6 +239,28 @@ export const BRANCHES: Branche[] = [
       { id: 'actualites', nom: 'Actualités', chemin: '/actualites/', icone: 'actualites' },
       { id: 'quiz-cours', nom: 'Quiz du cours', chemin: '/quiz/cours/', icone: 'quiz' },
       { id: 'quiz-dgfip', nom: 'QCM — DGFiP', chemin: '/quiz/dgfip/', icone: 'concours' },
+      /*
+         EN ANNEXE, ET NON EN ONGLET. La barre d'onglets est un budget
+         d'attention : Révisions en porte déjà dix, et un onglet de plus se
+         paierait sur les dix autres pour un écran qu'on consulte, non qu'on
+         pratique. Le pied de page le nomme, et c'est assez pour le trouver.
+      */
+      {
+        id: 'organigrammes',
+        nom: 'Organigrammes',
+        description: 'Les organigrammes de l’administration, datés et sourcés.',
+        chemin: '/organigrammes/',
+        /*
+           L'ÉMOJI DEVIENT UN NOM DU CATALOGUE, et le nom est à revoir d'un mot.
+
+           Cette entrée portait un émoji de boîte à fiches. Le catalogue de
+           A ne nomme aucun « organigramme » ; « ranger » est le sens
+           littéral de l'émoji choisi, donc le plus proche de l'intention.
+           Si A ou B préfère autre chose, c'est un mot à changer ici.
+        */
+        icone: 'ranger',
+        parcours: ['dgfip-b', 'dgfip-a', 'dgfip-ap'],
+      },
     ],
   },
   {

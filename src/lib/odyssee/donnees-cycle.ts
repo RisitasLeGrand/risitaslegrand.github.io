@@ -48,6 +48,7 @@ import { jourLogique } from '../noyau/jour-logique';
 import { exigerLeCoffre } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
 import { cleDuJourDeCycle } from './cycle-confidentialite';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 import {
   controlerReglagesDuCycle,
   controlerSaisie,
@@ -191,7 +192,7 @@ export async function saisiesDesJours(jours: readonly string[]): Promise<SaisieD
     clefs.map((k) => base.get('odysseeCycleJournal', k) as Promise<Record<string, unknown> | undefined>),
   );
   const trouvees = rangees.filter((r): r is Record<string, unknown> => r !== undefined);
-  return await Promise.all(trouvees.map((r) => ouvrir<SaisieDuCycle>(cle, r)));
+  return await lireCeQuiSOuvre(trouvees, (r) => ouvrir<SaisieDuCycle>(cle, r));
 }
 
 /**
@@ -209,7 +210,7 @@ export async function toutesLesSaisies(): Promise<SaisieDuCycle[]> {
     string,
     unknown
   >[];
-  const ouvertes = await Promise.all(rangees.map((r) => ouvrir<SaisieDuCycle>(cle, r)));
+  const ouvertes = await lireCeQuiSOuvre(rangees, (r) => ouvrir<SaisieDuCycle>(cle, r));
   return ouvertes.sort((a, b) => a.jour.localeCompare(b.jour));
 }
 

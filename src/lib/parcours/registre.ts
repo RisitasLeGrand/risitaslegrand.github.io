@@ -43,6 +43,35 @@ export interface ThemePlanification {
   icone: string;
   /** Matières du contenu rattachées à ce thème. */
   matieres: string[];
+  /**
+   * Ce thème est-il une ÉPREUVE à s'entraîner, et non un corps de
+   * connaissances à mesurer ?
+   *
+   * ## Ce que le champ change, et pourquoi il existe
+   *
+   * L'estimation de niveau est une notation de type Elo : elle suppose qu'une
+   * réponse juste ou fausse dise quelque chose de ce qu'on SAIT. Pour un oral
+   * de quarante minutes où l'on expose son parcours et défend ses choix, elle
+   * ne mesure rien — il n'y a pas de bonne réponse à savoir, il y a un exercice
+   * à répéter. Compter ces fiches donnerait une note qui monte et descend sans
+   * rapport avec une connaissance, et c'est pire que pas de note du tout.
+   *
+   * L'INSP avait déjà ce cas, et il était traité à part : « Cas pratique » est
+   * nommée dans `contenu-ecarte.ts` et écartée par `compteDansLeNiveau`. Le
+   * champ généralise ce traitement là où la chose est vraie — dans le thème —
+   * au lieu d'allonger une liste de littéraux à chaque parcours ajouté.
+   *
+   * ## Ce qu'il ne fait pas
+   *
+   * Il n'écarte pas des files de révision : une trame d'entretien se relit, et
+   * c'est le tag `méthodologie` qui gouverne la répétition espacée. Il ne cache
+   * rien et ne barre aucun écran. Il dit seulement : ne notez pas ceci.
+   *
+   * Absent vaut « non » : un thème qui ne le déclare pas est un corps de
+   * connaissances, ce qui est le cas de tous les thèmes de l'INSP, de DGFiP B
+   * et de DGFiP A.
+   */
+  epreuve?: boolean;
 }
 
 /**
@@ -498,6 +527,28 @@ const THEMES_DGFIP_AP: ThemePlanification[] = [
       'Gestion publique (État et collectivités locales)',
       'Gestion des ressources et l’organisation de la DGFiP',
       'Systèmes d’information',
+      /*
+         LA MATIÈRE COMMUNE, ET POURQUOI ELLE EST ICI.
+
+         « Organisation de la DGFiP » est le nom de matière des fiches rangées
+         sous la racine commune, servie aux trois parcours DGFiP. Les thèmes
+         `environnement-dgfip` de B et de A la portent déjà.
+
+         A+ servait cette racine sans porter la matière, et le défaut était
+         silencieux : `fichesDuTheme` rapproche une fiche de son thème par le
+         NOM EXACT de la matière, à la casse près. Une fiche de la racine
+         commune était donc dans l'arbre du parcours A+ sans qu'aucune séance
+         ne la propose jamais — le contenu livré, et personne pour le lire.
+
+         Sa place est l'épreuve professionnelle, parce que l'option de l'arrêté
+         s'intitule « Gestion des ressources et l'organisation de la DGFiP » :
+         l'organisation de la DGFiP y est nommée. La matière commune est
+         rattachée à ce thème, et non ajoutée comme un huitième intitulé
+         d'option, qui aurait fait croire à une option de plus au concours.
+
+         Mesuré par `npm run essais:matiere-commune`.
+      */
+      'Organisation de la DGFiP',
     ],
   },
   {
@@ -525,6 +576,14 @@ const THEMES_DGFIP_AP: ThemePlanification[] = [
     court: 'Oral',
     icone: '🎙️',
     matieres: ['Entretien avec le jury'],
+    /*
+       Une épreuve, et non des connaissances : l'arrêté n'y attache aucun
+       programme, et ce qui s'y joue — un parcours à exposer, des choix à
+       défendre, une connaissance de la maison — ne se note pas en Elo.
+       L'inventaire du 59 le dit au § 4.1 : « rien de ce que le prompt 59 décrit
+       (cours, cartes, quiz) ne prépare un entretien de quarante minutes ».
+    */
+    epreuve: true,
   },
 ];
 
@@ -654,21 +713,41 @@ export const PARCOURS: Parcours[] = [
       origine: 'officiel',
       source:
         'Arrêté du 2 mars 2011 (NOR BCRE1104996A, JORF n° 0055 du 6 mars 2011, ' +
-        'JORFTEXT000023662346), article 1er, version du 22/12/2025 ; annexe abrogée le ' +
-        '06/09/2025 par l’article 2 de l’arrêté du 4 septembre 2025 (NOR ECOE2524347A) — lu ' +
-        'au 14 octobre 2026 ; relevé dans docs/cyclades/programmes-dgfip.md',
-      verifieLe: '2026-10-17',
+        'JORFTEXT000023662346), article 1er, version du 22/12/2025 ; aucun programme annexé ' +
+        'depuis le 24/06/2015, date d’abrogation de l’article 3 qui le renvoyait à l’annexe — ' +
+        'lu au 25 octobre 2026 ; relevé dans docs/cyclades/programmes-dgfip.md',
+      verifieLe: '2026-10-25',
     },
     themes: THEMES_DGFIP_AP,
     rotationParDefaut: ROTATION_DGFIP_AP,
+    /*
+       LA DATE A ÉTÉ FAUSSE ICI, ET DANS LE SENS QUI TROMPE LE PLUS.
+
+       Cet avertissement a d'abord dit que le programme avait été abrogé le
+       6 septembre 2025. L'abrogation de cette date est réelle, mais elle ne
+       portait pas sur un programme : l'annexe ne contenait plus, depuis juin
+       2015, qu'un modèle de dossier de présentation pour un oral qui a lui-même
+       disparu. Le programme, lui, a quitté l'annexe le 24 juin 2015, le jour où
+       l'article 3 qui l'y renvoyait a été abrogé.
+
+       L'écart n'est pas une nuance de calendrier. « Supprimé il y a sept
+       semaines » envoie chercher un support de l'an dernier qui l'aurait
+       contenu ; « absent depuis onze ans » dit qu'il n'y en a aucun à trouver.
+       Vérifié sur les XML DILA : trois versions de l'annexe, et la dernière ne
+       porte ni option ni notion.
+    */
     avertissementDuProgramme:
-      'Le programme annexé de ce concours a été abrogé le 6 septembre 2025 : chercher « le ' +
-      'programme de l’IPFiP » mène à un texte qui n’est plus en vigueur. Les quatre thèmes ' +
-      'ci-dessous viennent du seul article 1er de l’arrêté, dans sa version du 22 décembre ' +
-      '2025, qui délimite encore les épreuves. Ce sont donc des épreuves et des métiers, et ' +
-      'non un programme de connaissances : trois jours de la semaine restent sans proposition, ' +
-      'parce que l’arrêté n’en délimite que quatre. Les deux examens professionnels ouverts aux ' +
-      'inspecteurs n’ont, eux, qu’un oral.',
+      'Ce concours n’a aucun programme annexé depuis le 24 juin 2015 : c’est la date à ' +
+      'laquelle l’article 3, qui renvoyait le programme à l’annexe, a été abrogé et le ' +
+      'programme retiré de celle-ci. L’annexe abrogée en 2025 ne contenait plus qu’un ' +
+      'modèle de dossier de présentation. Et l’épreuve n° 1, la note administrative, n’a ' +
+      'jamais eu de programme dans aucune version : celui de 2011 à 2015 ne portait que sur ' +
+      'les options de l’épreuve n° 2. Chercher « le programme de l’IPFiP » ne mène donc à ' +
+      'aucun texte en vigueur. Les quatre thèmes ci-dessous viennent du seul article 1er de ' +
+      'l’arrêté, dans sa version du 22 décembre 2025, qui délimite encore les épreuves. Ce ' +
+      'sont donc des épreuves et des métiers, et non un programme de connaissances : trois ' +
+      'jours de la semaine restent sans proposition, parce que l’arrêté n’en délimite que ' +
+      'quatre. Les deux examens professionnels ouverts aux inspecteurs n’ont, eux, qu’un oral.',
   },
 ];
 
@@ -745,6 +824,25 @@ export const parcoursDuChemin = (relatif: string): string[] =>
  */
 export const racineEstPartagee = (racine: string): boolean =>
   parcoursServisParLaRacine(racine).length > 1;
+
+/**
+ * Les matières qui relèvent d'une ÉPREUVE, tous parcours confondus.
+ *
+ * Repliées en minuscules, comme `fichesDuTheme` compare les noms de matière :
+ * une matière écrite « Entretien avec le Jury » dans une fiche ne doit pas
+ * échapper à la règle pour une capitale.
+ */
+export const matieresDEpreuve = (): Set<string> =>
+  new Set(
+    PARCOURS.flatMap((p) => p.themes)
+      .filter((t) => t.epreuve === true)
+      .flatMap((t) => t.matieres)
+      .map((m) => m.toLowerCase()),
+  );
+
+/** Cette matière relève-t-elle d'une épreuve à s'entraîner ? */
+export const matiereEstUneEpreuve = (matiere: string): boolean =>
+  matieresDEpreuve().has(matiere.trim().toLowerCase());
 
 /** Le parcours ouvert par défaut, et le seul qui porte du contenu aujourd'hui. */
 export const ID_PARCOURS_PAR_DEFAUT = 'insp';

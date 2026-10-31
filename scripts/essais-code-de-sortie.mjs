@@ -41,6 +41,8 @@ import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import { CODE_NON_MESURABLE, INTITULE_NON_MESURABLE } from './lib/non-mesurable.mjs';
+
 const racine = path.resolve(import.meta.dirname, '..');
 const vert = (t) => `\u001b[32m${t}\u001b[0m`;
 const rouge = (t) => `\u001b[31m${t}\u001b[0m`;
@@ -161,6 +163,97 @@ verifier(
   true,
 );
 verifier('la liste des rouges est nommée', croixAvecZero.texte.includes('rouges : essais:'), true);
+
+/*
+   LE QUATRIÈME CAS : « NON MESURABLE », QUI N'EST NI VERT NI ROUGE.
+
+   Deux essais du dépôt ne peuvent rien dire sans le corpus réel. Ils sortent
+   avec `CODE_NON_MESURABLE` et sans croix, et la batterie les compte dans un
+   troisième seau — voir `scripts/lib/non-mesurable.mjs`.
+
+   Ce qui est gardé ici est la condition qu'Alexis a posée, et elle ne se lit
+   pas dans la source : **un refus ne doit jamais grossir le compte des
+   verts.** On fait donc tourner la batterie avec un faux `npm` qui rend ce
+   code, et on lit ses trois nombres. Le socle de ce dépôt compte vingt-six
+   essais, qui tous passent par le même faux `npm` : les vingt-six doivent
+   donc se retrouver dans « non mesurables », et ZÉRO dans « verts ».
+
+   Si quelqu'un ramenait `CODE_NON_MESURABLE` à zéro, les vingt-six
+   deviendraient verts et la ligne « non mesurables » disparaîtrait : les deux
+   contrôles ci-dessous rougiraient ensemble.
+
+   LE CODE DE SORTIE EST ZÉRO, ET C'EST UN CHOIX. Rien n'est cassé : il n'y a
+   pas de quoi arrêter une poussée, et faire rendre un à la batterie
+   interdirait de pousser depuis tout conteneur sans corpus réel — c'est-à-dire
+   presque toujours. Ce qui compte est que le verdict le DISE, fort, et il le
+   dit : le compte à part, la liste nommée, et la phrase qui rappelle que
+   ceux-là n'ont rien mesuré.
+*/
+/*
+   LE CODE EST IMPORTÉ, ET NON RECOPIÉ — et la première version de ce bloc
+   l'écrivait en dur. Le sabotage l'a dit : ramener `CODE_NON_MESURABLE` à zéro
+   faisait rougir ces contrôles, mais pour la mauvaise raison — le faux « npm »
+   rendait toujours 3, et c'était la batterie qui ne le reconnaissait plus. On
+   éprouvait donc la batterie seule, jamais l'ACCORD entre elle et la constante
+   dont les essais se servent. Importé, le zéro traverse les deux côtés, et le
+   refus redevient vraiment un vert — ce qu'il ne doit jamais être.
+*/
+verifier(
+  'le code du refus n’est ni celui du vert ni celui du rouge',
+  CODE_NON_MESURABLE !== 0 && CODE_NON_MESURABLE !== 1,
+  true,
+);
+
+const RAISON = 'le corpus réel : trois fiches au manifeste servi';
+const nonMesurable = batterieAvec(`${INTITULE_NON_MESURABLE} ${RAISON}`, CODE_NON_MESURABLE);
+verifier('un essai non mesurable : la batterie rend zéro', nonMesurable.code, 0);
+verifier(
+  'et le verdict les compte à part',
+  /socle : 0 verts ; 0 rouges ; \d+ non mesurables/.test(nonMesurable.texte),
+  true,
+);
+verifier(
+  'et il les nomme',
+  nonMesurable.texte.includes('non mesurables : essais:'),
+  true,
+);
+verifier(
+  'et il dit qu’ils n’ont rien mesuré',
+  nonMesurable.texte.includes('n’ont RIEN mesuré'),
+  true,
+);
+/*
+   LA RAISON EST DITE DANS LE RÉCAPITULATIF, et non seulement le nom. Un nom
+   oblige à ouvrir un journal ; une raison se lit sur place.
+*/
+verifier('et le récapitulatif porte la raison', nonMesurable.texte.includes(RAISON), true);
+
+/*
+   UN CODE 3 SANS LA LIGNE DE MARQUE COMPTE ROUGE.
+
+   C'est la pièce qui empêche la convention de devenir une échappatoire : sans
+   elle, un essai qui rendrait 3 par accident — un `process.exit` mal choisi, un
+   outil tiers qui sort à 3 — disparaîtrait du compte en silence, et personne ne
+   verrait qu'il ne mesure plus rien.
+*/
+const troisSansMarque = batterieAvec('  je rends trois sans rien annoncer', CODE_NON_MESURABLE);
+verifier('un code 3 sans la ligne de marque : la batterie rend un', troisSansMarque.code, 1);
+verifier(
+  'et il n’est pas rangé parmi les non mesurables',
+  /; \d+ non mesurables/.test(troisSansMarque.texte),
+  false,
+);
+
+/*
+   ET LA CROIX L'EMPORTE TOUJOURS. Un essai qui renonce ET affiche une croix a
+   mesuré quelque chose qui cloche avant de renoncer : c'est un rouge, et le
+   code 3 ne doit pas lui servir d'échappatoire.
+*/
+const refusAvecCroix = batterieAvec(
+  `✗ quelque chose cloche\n${INTITULE_NON_MESURABLE} et en plus je renonce`,
+  CODE_NON_MESURABLE,
+);
+verifier('un refus AVEC une croix reste un rouge', refusAvecCroix.code, 1);
 
 /*
    LE REFUS AUSSI REND UN. Sans aperçu, la batterie refuse de commencer ; ce

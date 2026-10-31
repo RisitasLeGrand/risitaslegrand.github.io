@@ -67,7 +67,7 @@ import LienReglages from '../../components/LienReglages.astro';
         <label class="mt-3 block text-sm">
           <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
           <input id="mdp-coffre" type="password" autocomplete="current-password"
-            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
         </label>
         <button id="ouvrir-coffre" type="button"
           class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
@@ -242,7 +242,7 @@ import LienReglages from '../../components/LienReglages.astro';
       etiquette.className = 'cible-tactile shrink-0 gap-2 text-sm';
       const case_ = document.createElement('input');
       case_.type = 'checkbox';
-      case_.className = 'size-5 rounded border-slate-300 dark:border-slate-700';
+      case_.className = 'size-5 rounded border-slate-400 dark:border-slate-600';
       case_.checked = reglages[c.id];
       case_.dataset.interrupteur = c.id;
       case_.setAttribute('aria-label', `${c.libelle} — ${c.voit}`);

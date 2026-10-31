@@ -280,7 +280,18 @@ console.log('\nCE QU’UNE ZONE PEUT PORTER');
   faux('deux bonnes réponses : non posable', estPosableSurUneCopie(q(4, [1, 3])));
   faux('aucune bonne réponse : non posable', estPosableSurUneCopie(q(4, [])));
 
-  v('et la raison est dite', raisonDuRetrait(q(5, [2])), 'propositions');
+  /*
+     TROIS MOTIFS, ET NON DEUX. Porter PLUS de propositions qu'une zone n'en
+     tient est le format des sujets d'avant 2023-2024 — 198 questions de la
+     banque réelle sont dans ce cas, et ce sont des annales fidèles. En porter
+     MOINS serait une question incomplète, qui relève de la rédaction. Le
+     motif unique « propositions » confondait les deux, et l'écran disait
+     « n'ont pas quatre propositions », ce qui se lit comme un défaut à
+     corriger dans la banque.
+  */
+  v('l’ancien format est nommé pour ce qu’il est', raisonDuRetrait(q(5, [2])), 'trop-de-propositions');
+  v('six propositions aussi', raisonDuRetrait(q(6, [2])), 'trop-de-propositions');
+  v('une question incomplète est un autre cas', raisonDuRetrait(q(3, [1])), 'pas-assez-de-propositions');
   v('pour chaque cas', raisonDuRetrait(q(4, [1, 3])), 'reponses-multiples');
   v('et rien quand la question convient', raisonDuRetrait(q(4, [0])), null);
 }

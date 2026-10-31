@@ -120,7 +120,34 @@ const ouvrirLePanneau = async () => {
   }
   await page.click('#centre-bouton');
   await page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
-  await page.waitForTimeout(400);
+  /*
+     ET LA LISTE PEINTE, PAS SEULEMENT LE PANNEAU OUVERT.
+
+     `basculer()` démasque le panneau PUIS lit la base et déchiffre : entre les
+     deux, le panneau est ouvert sur une liste vide. Les quatre cents
+     millisecondes qui tenaient ici étaient un pari sur la vitesse de la
+     machine, et le pari se perd sous charge — c'est le défaut qui a fait
+     rougir `essais:centre:navigateur` au 257e essai d'une batterie, et c'est
+     le même ici.
+
+     `aria-busy` est la post-condition : posé par le gestionnaire avant son
+     premier `await`, donc dans le même tour que le clic, et retiré en dernier
+     dans un `finally`. Son absence dit « la peinture est finie », y compris
+     quand elle a échoué — ce qui est exactement la question à poser avant de
+     lire, dans un essai qui mesure justement des pannes.
+
+     `state: 'attached'` : on attend un attribut, pas une apparition. Une
+     liste légitimement vide n'a pas de hauteur, donc n'est jamais « visible »,
+     et c'est le cas de plusieurs mesures de ce fichier.
+
+     Vérifié par A sur son correctif voisin, avec un retard de 500 ms injecté
+     dans `faireLeMenage()` : sans cette attente, deux contrôles de ce fichier
+     tombent.
+  */
+  await page.waitForSelector('#centre-liste:not([aria-busy="true"])', {
+    state: 'attached',
+    timeout: 20000,
+  });
 };
 
 const visible = (selecteur) => page.locator(selecteur).isVisible().catch(() => false);

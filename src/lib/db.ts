@@ -22,6 +22,7 @@ import { signalerEcriture } from './sync/signal-ecriture';
 import type { EntreeRevision } from './noyau/revisions';
 import type { EpreuveEnCours } from './noyau/epreuve-en-cours';
 import { CLE_EPREUVE_EN_COURS } from './noyau/epreuve-en-cours';
+import type { AnnulationEnAttente } from './noyau/annulation-en-attente';
 import type { ReglagesDuCycle, SaisieDuCycle } from './odyssee/cycle';
 import type { SexeEnregistre } from './odyssee/sexe';
 import type {
@@ -697,6 +698,18 @@ interface SchemaRevinsp extends DBSchema {
   qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
   qcmSessions: { key: string; value: SessionDgfip; indexes: { le: string } };
   epreuveDgfipEnCours: { key: string; value: EpreuveEnCours };
+  /*
+     Les intentions d'actions annulables (M6, 0.2). SCELLÉ : le genre d'une
+     intention dirait « une prise de médicament a été notée », et c'est
+     précisément ce que la décision 3 protège. Seul l'identifiant reste en
+     clair, parce qu'une clé primaire ne peut pas être scellée — il est donc
+     opaque, et ne porte ni le genre ni la cible.
+
+     Pas d'index : on lit toujours TOUT le magasin, au démarrage, et il est
+     presque toujours vide. Un index sur l'échéance coûterait plus qu'il ne
+     servirait, et l'échéance est scellée de toute façon.
+  */
+  annulationsEnAttente: { key: string; value: AnnulationEnAttente };
   relationnel: { key: string; value: SessionRelationnelle; indexes: { le: string } };
   vmSeuils: { key: string; value: SeuilVeridical; indexes: { famille: string } };
   vmSessions: { key: string; value: SessionVeridical; indexes: { le: string } };
@@ -931,7 +944,13 @@ interface SchemaRevinsp extends DBSchema {
 
 const NOM_BASE = 'revinsp';
 /*
-   42, ET NON 36 — ET LE SAUT EST VOULU.
+   LE SAUT DES NUMÉROS EST VOULU.
+
+   (Cet en-tête annonçait « 42, et non 36 », puis « c'est 42 » plus bas, alors
+   que la constante vaut 43 depuis que le palier des annulations a été ordonné.
+   Un chiffre recopié en prose se périme sans bruit — c'est le défaut même que
+   la batterie s'est fait reprocher ce soir. La valeur fait foi juste en
+   dessous, et « essais:migrations » tient qu'elle égale le plus haut palier.)
 
    Les numéros sont attribués par branche, et le train d'intégration les tient
    tous : **36 au constructeur**, **37 à 40 à l'agent B**, **41 à l'agent C**,
@@ -944,11 +963,23 @@ const NOM_BASE = 'revinsp';
    son propre « vers(n) », qui compare l'ancienne version à la sienne. Une
    base arrêtée à 35 rejouera dans l'ordre tous les blocs attribués ; une base
    déjà montée à 41 ne rejouera que la 42. La seule chose qui doit être vraie
-   est que la constante VERSION vaille le PLUS GRAND des numéros attribués —
-   c'est 42, et cela reste vrai à mesure que les blocs 36 à 40 entrent dans
-   le train.
+   est que la constante VERSION vaille le PLUS GRAND des numéros attribués.
+   « essais:migrations » le tient, au socle, plutôt que de le confier à la
+   mémoire : tout palier neuf doit être au-dessus de la version publiée, et la
+   version doit égaler le plus haut palier.
 */
-const VERSION = 42;
+
+/**
+ * La version du schéma de la base.
+ *
+ * Exportée depuis le 26 octobre, et pour une raison précise : la sauvegarde
+ * annonçait sa propre version de schéma avec un nombre écrit à la main,
+ * « SCHEMA_REVISIONS = 12 », pendant que la base tournait en 43. Trente et un
+ * versions d'écart, dans le champ dont dépend la lisibilité d'un fichier
+ * restauré. Une valeur recopiée finit toujours par mentir ; celle-ci est
+ * désormais lue ici.
+ */
+export const VERSION = 43;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1010,6 +1041,40 @@ function ouvrirAuSchema(nom: string, version: number) {
        propriété sur laquelle repose le retour arrière — « ouvrir à la version N
        produit exactement le schéma de la version N » — était simplement
        fausse.
+
+       ════════════════════════════════════════════════════════════════════
+       LA RÈGLE DES NUMÉROS, validée par le pilote le 26 octobre.
+
+           Un palier ne se réserve que STRICTEMENT AU-DESSUS de la
+           « VERSION » de main au moment de la fusion.
+
+       Réserver un numéro dans un TROU situé sous la version en vigueur donne
+       un palier que personne d'ancien ne rejouera jamais. « vers(n) » exige
+       « ancienneVersion < n » : une base déjà montée à 42 ne redescend pas
+       chercher un bloc 39. Et une base déjà à la version courante qu'on
+       rouvre à la même version ne déclenche AUCUNE migration. Mesuré :
+
+           base neuve ouverte à 42      migration OUI, ancienne version 0
+           MÊME base rouverte à 42      migration NON
+           la même base ouverte à 43    migration OUI, ancienne version 42
+
+       Le magasin existerait donc chez qui installe le site aujourd'hui, et
+       jamais chez qui l'a déjà ouvert. Sans un mot, et sans un essai rouge :
+       un essai part d'un profil NEUF, qui va de zéro à la version courante
+       et rejoue tous les paliers, y compris ceux qui dorment. La seule base
+       qui révèle le défaut est une base ancienne, et aucun essai n'en a.
+
+       EN PRATIQUE. Un agent écrit dans sa branche le numéro provisoire qui
+       lui a été attribué ; le constructeur le DÉPLACE à la fusion, au-dessus
+       de la « VERSION » de main, et monte « VERSION » d'autant. C'est ce qui
+       a été fait pour la 34, la 35, puis pour la 39 devenue 43.
+
+       « npm run essais:migrations » tient cette règle, au socle, pour qu'elle
+       ne repose pas sur la mémoire : il compare les paliers de l'arbre
+       courant à ceux d'« origin/main », exige que tout palier neuf soit
+       au-dessus de la version publiée, et que « VERSION » soit égale au plus
+       haut palier.
+       ════════════════════════════════════════════════════════════════════
     */
     async upgrade(base, ancienneVersion, nouvelle, transaction) {
       const vers = (n: number) => ancienneVersion < n && (nouvelle ?? VERSION) >= n;
@@ -1822,6 +1887,52 @@ function ouvrirAuSchema(nom: string, version: number) {
       if (vers(38)) {
         base.createObjectStore('odysseeSexe', { keyPath: 'id' });
       }
+      /*
+         LES INTENTIONS D'ACTIONS ANNULABLES, version 43.
+
+         **B l'avait écrite en 39, et c'est moi qui l'ai déplacée en 43**, à la
+         fusion. Le numéro 39 lui était bien attribué — la convention de ce
+         fichier réserve 37 à 40 à l'agent B, 37 et 38 étaient pris, et j'ai
+         balayé les 57 branches distantes : personne d'autre ne revendiquait
+         la 39. Le numéro était libre. Il était seulement INATTEIGNABLE.
+
+         POURQUOI. « vers(n) » vaut « ancienneVersion < n et nouvelle >= n ».
+         La version du schéma était déjà 42 : une base montée à 42 ne rejoue
+         donc jamais un palier 39. Et une base déjà à 42 qu'on rouvre à 42 ne
+         déclenche AUCUNE migration. Mesuré dans le navigateur, et non déduit :
+
+           base neuve ouverte à 42      migration OUI, ancienne version 0
+           MÊME base rouverte à 42      migration NON
+           la même base ouverte à 43    migration OUI, ancienne version 42
+
+         Le magasin aurait donc été créé chez qui installe le site aujourd'hui,
+         et JAMAIS chez qui l'a déjà ouvert — Alexis le premier. La fonction
+         aurait été absente sans un mot, et les essais seraient restés verts :
+         ils partent d'un profil neuf, qui va de 0 à 42 et rejoue tout.
+
+         C'est exactement le travail que la convention du palier 41 confie à
+         l'intégrateur — « c'est au constructeur de les ordonner à la fusion,
+         comme il l'a fait pour la 34 et la 35 ». La 39 et la 40 restent donc
+         libres pour qui en aura besoin SOUS une version future ; ce lot-ci,
+         lui, a besoin d'être au-dessus de 42.
+
+         Rien d'autre n'est touché : ni le magasin, ni sa clé, ni le
+         raisonnement de B ci-dessous, qui est le bon.
+
+         POURQUOI UN MAGASIN, ET NON UNE CLÉ DE « etat ». Parce qu'il faut le
+         SCELLER, et que `etat` ne l'est pas : une intention y écrirait en
+         clair le genre de l'action, donc « une prise a été notée ». Et parce
+         qu'il peut y en avoir plusieurs en même temps — deux écrans, deux
+         actions retardées —, là où `etat` tient une valeur par clé.
+
+         Aucune reprise de données, et rien à reprendre : avant ce lot, une
+         action annulable quittée pendant son délai était simplement perdue.
+         Un magasin vide se lit « aucune action en attente », ce qui est la
+         vérité.
+      */
+      if (vers(43)) {
+        base.createObjectStore('annulationsEnAttente', { keyPath: 'id' });
+      }
       if (vers(41)) {
         /*
          * L'épreuve DGFiP laissée en cours — C3 du prompt 43.
@@ -2540,6 +2651,53 @@ export async function effacerEpreuveEnCours(): Promise<void> {
   await (await db()).delete('epreuveDgfipEnCours', CLE_EPREUVE_EN_COURS);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Les intentions d'actions annulables (M6, 0.2)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Toutes les intentions encore en base.
+ *
+ * Rend ce que le magasin porte, sans contrôler la forme : c'est
+ * `pourquoiNonRejouable` — dans le noyau, donc éprouvable sans base — qui
+ * décide si une intention est rejouable, et l'appelant qui décide quoi en
+ * faire. Un enregistrement abîmé se fabrique ainsi dans un essai pur.
+ */
+export async function lesAnnulationsEnAttente(): Promise<AnnulationEnAttente[]> {
+  return (await db()).getAll('annulationsEnAttente');
+}
+
+/**
+ * Écrit une intention. C'est la PREMIÈRE écriture d'une action annulable, et
+ * elle doit être attendue avant de laisser la personne quitter l'écran.
+ *
+ * **Non journalisée, et délibérément.** Une intention existe pour être
+ * consommée dans les secondes qui suivent ; la journaliser ferait traverser
+ * la synchronisation à un état transitoire, et garderait pour toujours la
+ * trace d'une suppression annulée — c'est-à-dire d'un geste que la personne a
+ * repris. C'est l'action elle-même qui se journalise, quand elle part.
+ */
+export async function ecrireUneAnnulationEnAttente(
+  intention: Omit<AnnulationEnAttente, 'majLe'>,
+): Promise<void> {
+  await (await db()).put('annulationsEnAttente', {
+    ...intention,
+    majLe: new Date().toISOString(),
+  });
+}
+
+/**
+ * Efface une intention, par son identifiant.
+ *
+ * Trois chemins y mènent, et ils ne se confondent pas : l'action partie à
+ * l'échéance, l'annulation, et l'application au démarrage. Dans les trois cas
+ * il ne doit rien rester, et l'essai le lit dans la base plutôt que de croire
+ * cette fonction.
+ */
+export async function effacerUneAnnulationEnAttente(id: string): Promise<void> {
+  await (await db()).delete('annulationsEnAttente', id);
+}
+
 export async function toutesLesSeances(): Promise<Seance[]> {
   const seances = await (await db()).getAll('seances');
   // Les identifiants sont des ULID : leur ordre lexicographique est l'ordre de
@@ -2904,6 +3062,7 @@ export async function ecrireReglagesPlanification(reglages: ReglagesPlanificatio
  */
 export const MAGASINS_PROGRESSION = [
   'etat',
+  'annulationsEnAttente',
   'cartes',
   'fiches',
   'quiz',
@@ -3071,8 +3230,25 @@ export const MAGASINS_PROGRESSION = [
  * qu'il reste hors des sauvegardes NON CHIFFRÉES. Le tenir hors de TOUTES est
  * plus strict, et évite d'avoir à distinguer les deux cas au moment où l'on
  * écrit le fichier.
+ *
+ * ## Et un troisième motif, pour `annulationsEnAttente`
+ *
+ * Une intention n'est ni reconstructible ni un diagnostic : elle entre ici
+ * parce que la sauvegarder serait FAUX. Une intention vaut quelques secondes,
+ * et une sauvegarde se restaure des mois plus tard : on rejouerait alors une
+ * suppression décidée en octobre sur une base de janvier, où la séance visée
+ * peut ne plus être la même — ou ne plus être.
+ *
+ * Et la perte n'en est pas une. Une sauvegarde est un instantané : au moment
+ * où elle a été prise, la séance en attente de suppression était encore là.
+ * La restaurer rend donc un état COHÉRENT, celui d'avant le geste. Emporter
+ * l'intention rendrait, elle, un état incohérent.
  */
-export const MAGASINS_HORS_SAUVEGARDE: readonly string[] = ['centreElements', 'visites'];
+export const MAGASINS_HORS_SAUVEGARDE: readonly string[] = [
+  'centreElements',
+  'visites',
+  'annulationsEnAttente',
+];
 
 /** Ce qu'une sauvegarde emporte vraiment. */
 export const MAGASINS_SAUVEGARDES: readonly string[] = MAGASINS_PROGRESSION.filter(

@@ -202,6 +202,37 @@ export function auDeverrouillage(travail: () => void | Promise<void>, options: O
     }
 
     Promise.resolve()
+      /*
+         LES INTENTIONS D'ANNULATION S'APPLIQUENT AVANT QUE L'ÉCRAN NE LISE.
+
+         C'est ici, et nulle part ailleurs, parce que c'est le seul point par
+         lequel passent les écrans APRÈS l'ouverture de la session et AVANT
+         leur première lecture. Une action quittée pendant son délai de six
+         secondes est donc déjà appliquée quand l'historique, l'export ou la
+         synchronisation regardent — ils ne voient jamais un geste en suspens.
+
+         L'import est différé : le registre tire les chemins d'écriture de
+         Sport et de Santé, et il n'y a presque jamais rien à appliquer.
+
+         L'ÉCHEC NE BLOQUE PAS L'ÉCRAN, ET N'EST PAS AVALÉ NON PLUS. Une
+         intention qui résiste — coffre fermé, base pleine — est LAISSÉE en
+         base par le registre, pour être réessayée au démarrage suivant ; elle
+         n'est jamais effacée sans avoir été appliquée. On ne refuse donc pas
+         d'afficher l'écran pour autant : ce serait punir la personne d'une
+         panne qui ne l'empêche de rien. Ce qui a été laissé est écrit en
+         console, où le diagnostic se lit.
+      */
+      .then(async () => {
+        try {
+          const { appliquerLesIntentionsEnAttente } = await import('./annulation-intentions');
+          const rapport = await appliquerLesIntentionsEnAttente();
+          if (rapport.laissees.length > 0) {
+            console.warn('Intentions d’annulation laissées en base :', rapport.laissees);
+          }
+        } catch (erreur) {
+          console.warn('Les intentions d’annulation n’ont pas pu être appliquées.', erreur);
+        }
+      })
       .then(travail)
       .then(() => {
         nettoyer();

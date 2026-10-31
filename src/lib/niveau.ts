@@ -36,6 +36,7 @@ import {
 } from './db';
 import { db } from './db';
 import { estMethodologique, MATIERE_CAS_PRATIQUE } from './contenu-ecarte';
+import { matiereEstUneEpreuve } from './parcours/registre';
 
 /** Note de départ, pour une personne comme pour un item. */
 export const NOTE_INITIALE = 1200;
@@ -402,6 +403,26 @@ export async function enregistrerReponse(reponse: Reponse, maintenant = new Date
 export async function compteDansLeNiveau(
   reponse: Pick<Reponse, 'matiere' | 'ficheId'>,
 ): Promise<boolean> {
+  /*
+     UNE ÉPREUVE NE SE NOTE PAS, ET AUCUN RÉGLAGE NE LA RÉINTÈGRE.
+
+     « Entretien avec le jury » est la matière d'un oral de quarante minutes :
+     il n'y a pas de bonne réponse à savoir, il y a un exercice à répéter. Une
+     note Elo y monterait et descendrait sans rapport avec une connaissance, ce
+     qui est pire qu'une absence de note — c'est une mesure fausse qui a l'air
+     d'une mesure.
+
+     Pourquoi avant les réglages, et sans réglage : « Cas pratique » en a un
+     (`casPratique`), parce qu'un cas pratique SE corrige — il a un attendu, et
+     quelqu'un peut vouloir le compter. Un entretien n'en a pas. Offrir
+     l'interrupteur serait proposer de mesurer ce qui ne se mesure pas.
+
+     Le thème le déclare, et non une liste ici : c'est dans le registre que la
+     chose est vraie, et un parcours ajouté n'aura aucune ligne à écrire dans ce
+     module.
+  */
+  if (matiereEstUneEpreuve(reponse.matiere)) return false;
+
   const reglages = await lireReglagesContenu();
   if (!reglages.casPratique && reponse.matiere === MATIERE_CAS_PRATIQUE) return false;
   if (reglages.methodologie || !reponse.ficheId) return true;

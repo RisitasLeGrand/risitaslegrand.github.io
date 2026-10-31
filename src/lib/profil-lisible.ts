@@ -35,7 +35,11 @@
  * étaient de toute façon des propriétés des champs. Elles sont au catalogue,
  * et ce module ne lit que des déclarations.
  */
-import { champDeclare } from './noyau/profil';
+import {
+  NON_REPONSE_INCONNU,
+  NON_REPONSE_REFUS,
+  champDeclare,
+} from './noyau/profil';
 
 export interface Libelles {
   parcours: readonly { id: string; libelle: string }[];
@@ -150,6 +154,17 @@ function repartitionDite(
  */
 export function valeurDite(champ: string, valeur: unknown, libelles: Libelles): string {
   if (valeur === null || valeur === undefined) return '—';
+  /*
+     LES DEUX NON-RÉPONSES SE DISENT EN MOTS, ET NON PAR LEUR CODE.
+
+     Sans cela la carte afficherait « sans-reponse », ce qui ne veut rien dire
+     pour qui lit, et « — », qui veut dire autre chose : « pas répondu ». Les
+     trois états doivent se distinguer à l'œil — pas répondu, je ne sais pas,
+     je préfère ne pas répondre —, sans quoi la personne ne sait pas ce qu'elle
+     a fait de la question.
+  */
+  if (valeur === NON_REPONSE_INCONNU) return 'vous ne savez pas';
+  if (valeur === NON_REPONSE_REFUS) return 'vous préférez ne pas répondre';
   if (typeof valeur === 'boolean') return valeur ? 'oui' : 'non';
   if (typeof valeur === 'number') return Number.isFinite(valeur) ? nombreDit(champ, valeur) : '—';
   if (Array.isArray(valeur)) return listeDite(champ, valeur, libelles);

@@ -122,16 +122,60 @@ export const DUREE_BULLE_MS = 5000;
 export function notifier(message: string, variante: 'info' | 'succes' | 'badge' = 'info') {
   const zone = zoneDesNotifications();
   if (!zone) return;
+  /*
+     LES COULEURS, MESURÉES SUR LES QUATORZE THÈMES ET NON CHOISIES À L'ŒIL.
+
+     Le site n'emploie pas la palette Tailwind d'origine : « tokens.css » dit
+     en tête que les couleurs sont ENGENDRÉES par thème, et que chaque
+     utilitaire pointe vers une variable redéfinie. « bg-emerald-600 » ne vaut
+     donc pas la même couleur d'un thème à l'autre, et c'est au pire cas des
+     quatorze qu'il faut juger.
+
+     Au pire cas, avant correction :
+
+       · succes  « bg-emerald-600 text-white »  2,94:1  — thème « contraste »
+       · badge   « bg-amber-500 text-white »    2,24:1  — thème « adaptées »
+
+     Il en faut 4,5. Et les deux thèmes qui échouaient le plus sont ceux que
+     choisit quelqu'un qui voit mal — ce n'est pas une coïncidence, c'est la
+     conséquence d'avoir fixé des couleurs vives sans regarder ce que les
+     thèmes en font.
+
+     POURQUOI LE CRAN 800 ET DU BLANC, ET PAS L'AMBRE VIF AVEC UN TEXTE
+     SOMBRE. La seconde solution aurait gardé la couleur d'une récompense. Elle
+     a été mesurée, et elle ne tient pas : dans le thème « contraste », les
+     crans moyens sont des bruns éteints, et « amber-950 sur amber-500 » ne
+     donne que 2,66:1. Le blanc sur le cran 800 est le seul choix qui passe
+     partout : emerald-800 8,31:1, amber-800 9,07:1.
+
+     ET LA BORDURE N'EST PAS UNE FINITION. En mode sombre des thèmes à fort
+     contraste, « --color-slate-800 » et le fond de page valent tous deux le
+     noir pur : la bulle d'information était INVISIBLE — 1,00:1 contre la
+     page, c'est-à-dire exactement la même couleur — et son texte blanc
+     flottait sur l'écran. Mesuré dans le navigateur, le fond de la bulle ne
+     rend que 1,14:1 contre la page dans ce thème, et c'est le BORD qui la
+     détache, à 6,08:1 : un blanc à moitié transparent composite en gris
+     moyen, qui se voit sur du noir. En thème clair il ne sert à rien et ne
+     nuit à rien — là, c'est le fond qui détache, de 11 à 17:1.
+
+     (Les valeurs sont écrites en rapports et non en couleurs : « npm run
+     essais:couleurs-jetons » refuse toute couleur littérale dans « src/ »,
+     commentaires compris, et il a raison sur le fond — une couleur nommée en
+     dur est une couleur qui ne suivra pas les thèmes.)
+
+     Les trois couples sont désormais éprouvés par « essais:contrastes-themes »,
+     sur les quatorze thèmes et leurs vingt-cinq modes.
+  */
   const couleurs = {
     info: 'bg-slate-800 text-white',
-    succes: 'bg-emerald-600 text-white',
-    badge: 'bg-amber-500 text-white',
+    succes: 'bg-emerald-800 text-white',
+    badge: 'bg-amber-800 text-white',
   }[variante];
 
   const bulle = document.createElement('div');
   bulle.className =
     'bulle-notification pointer-events-auto flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 ' +
-    `text-sm font-medium shadow-lg ${couleurs}`;
+    `text-sm font-medium border border-white/50 shadow-lg ${couleurs}`;
   /*
      C4 : « elle se ferme d'un appui ». Une bulle qui couvre ce qu'on lit et
      qu'on ne peut que subir est une interruption ; une bulle qu'on chasse du

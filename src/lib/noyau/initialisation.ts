@@ -75,6 +75,53 @@ export interface Report {
 }
 
 /**
+ * Combien de temps « Plus tard » met une question de côté.
+ *
+ * ## POURQUOI UN DÉLAI, ET NON UN REPORT DÉFINITIF
+ *
+ * Un report était définitif jusqu'à révocation : la question ne revenait
+ * jamais d'elle-même. Mais **un report qui ne revient jamais est un refus**, et
+ * le refus a déjà son mot — « Je préfère ne pas répondre ». Les confondre fait
+ * disparaître la distinction entre « pas maintenant » et « jamais », qui est
+ * précisément celle que les trois sorties existent pour offrir.
+ *
+ * Sept jours, donc : assez pour que « plus tard » veuille dire quelque chose,
+ * assez peu pour que la question revienne tant qu'on la croit utile.
+ */
+export const JOURS_DE_REPORT = 7;
+
+const MS_PAR_JOUR = 86_400_000;
+
+/**
+ * Ce report met-il encore la question de côté ?
+ *
+ * ## UN REPORT SANS DATE EST UN REPORT EXPIRÉ
+ *
+ * `reporteLe` vaut la chaîne vide pour une opération écrite avant que la date
+ * ne soit journalisée. Rien n'est réécrit pour autant — il n'y a pas de
+ * migration ici : la règle se lit sur ce qui est là, et un report indaté est
+ * indéfiniment vieux. Il revient donc à la première ouverture, ce qui est le
+ * comportement voulu pour un report ancien.
+ *
+ * ## UNE DATE ILLISIBLE AUSSI
+ *
+ * Un `reporteLe` qu'on ne sait pas lire ne doit pas mettre une question de
+ * côté pour toujours : l'échec se range du côté qui repose la question, jamais
+ * du côté qui la fait taire.
+ */
+export function reportEnCours(report: Report | undefined, maintenant: Date): boolean {
+  if (!report) return false;
+  const pose = Date.parse(report.reporteLe);
+  if (!Number.isFinite(pose)) return false;
+  return pose + JOURS_DE_REPORT * MS_PAR_JOUR > maintenant.getTime();
+}
+
+/** La date à laquelle un report cesse, pour le dire à l'écran. */
+export function finDuReport(report: Report): Date {
+  return new Date(Date.parse(report.reporteLe) + JOURS_DE_REPORT * MS_PAR_JOUR);
+}
+
+/**
  * Les champs reportés, le dernier mot par champ.
  *
  * Deux appareils peuvent reporter et dé-reporter le même champ ; la règle est
@@ -186,6 +233,13 @@ export interface OptionsParcours {
   deductions?: readonly Deduction[];
   /** Pour un module : la branche dont on pose les questions. Sinon, le socle. */
   branche?: string;
+  /**
+   * L'instant de référence pour l'échéance des reports.
+   *
+   * Injecté plutôt que lu dans la fonction : un délai qui ne se mesure qu'en
+   * attendant sept jours ne se mesure pas.
+   */
+  maintenant?: Date;
 }
 
 /**
@@ -225,7 +279,9 @@ export function parcours(
       ...(!deja && parChampDeduit.has(declare.champ)
         ? { deduction: parChampDeduit.get(declare.champ)! }
         : {}),
-      reportee: reports.has(declare.champ),
+      /* Reportée tant que les sept jours courent. Passé ce délai, la
+         question revient d'elle-même : voir `reportEnCours`. */
+      reportee: reportEnCours(reports.get(declare.champ), options.maintenant ?? new Date()),
     };
   });
 
@@ -264,6 +320,14 @@ export interface OptionsPorte {
    * ce qu'on sait déjà.
    */
   existante?: boolean;
+  /**
+   * L'instant de référence, transmis à `parcours` pour l'échéance des reports.
+   *
+   * Sans ce passage, `porte` appelait `new Date()` et un essai qui datait ses
+   * reports par rapport à un instant fixe passait **par chance de la date du
+   * jour** : il aurait basculé le huitième jour suivant son écriture.
+   */
+  maintenant?: Date;
 }
 
 /**
@@ -278,7 +342,10 @@ export function porte(operations: readonly Operation[], options: OptionsPorte = 
     return { quoi: 'initialiser', allegee: options.existante === true };
   }
   if (options.branche && !lireModules(operations).has(options.branche)) {
-    const restantes = parcours(operations, { branche: options.branche }).restantes;
+    const restantes = parcours(operations, {
+      branche: options.branche,
+      ...(options.maintenant ? { maintenant: options.maintenant } : {}),
+    }).restantes;
     if (restantes.length) return { quoi: 'module', branche: options.branche };
   }
   return { quoi: 'entrer' };

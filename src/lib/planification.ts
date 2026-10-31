@@ -315,6 +315,29 @@ export function fichesDuTheme(manifeste: Manifeste, themeId: string): FichePropo
     .filter((m) => noms.has(m.nom.toLowerCase()))
     .flatMap((m) =>
       m.fascicules.flatMap((f) =>
+        /*
+           LE NOM DE LA MATIÈRE NE SUFFIT PAS À DÉSIGNER UNE FICHE, ET LE TRI
+           SE FAIT EN AMONT.
+
+           « Organisation de la DGFiP » est déclarée par DGFiP B et par DGFiP A,
+           et c'est voulu : c'est la même matière. Un samedi, la séance de B
+           proposait donc la fiche rangée sous `dgfip-a/`, et celle de A la
+           fiche de `dgfip-b/`.
+
+           J'avais filtré ICI, en écrivant que la séance était le seul écran qui
+           doive trancher. `filtre-du-manifeste.ts` a tranché autrement, et
+           mieux : `chargerManifeste()` rend désormais un manifeste réduit au
+           parcours ouvert, et il RECALCULE ses totaux — ce que mon filtre local
+           ne pouvait pas faire, et qui comptait, puisque `totaux.fiches` est lu
+           par les statistiques et par l'estimation de niveau. Un manifeste
+           filtré qui garderait les totaux d'origine annoncerait « 427 fiches »
+           à qui n'en voit que quatre.
+
+           Les deux écrans qui appellent cette fonction passent par
+           `chargerManifeste()`. Garder un second filtre ici aurait mis la même
+           règle à deux endroits, et le jour où les deux divergeraient, des
+           fiches changeraient de parcours sans que rien ne le dise.
+        */
         f.fiches.map((fiche) => ({
           id: fiche.id,
           titre: fiche.titre,

@@ -17,6 +17,7 @@ import { db } from '../db';
 import { ulid } from '../noyau/ulid';
 import { exigerLeCoffre } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 import {
   controlerCondition,
   controlerMarque,
@@ -93,7 +94,7 @@ async function toutOuvrir<T>(magasin: MagasinDeSante): Promise<T[]> {
     string,
     unknown
   >[];
-  return Promise.all(rangees.map((r) => ouvrir<T>(cle, r)));
+  return lireCeQuiSOuvre(rangees, (r) => ouvrir<T>(cle, r));
 }
 
 async function oublier(magasin: MagasinDeSante, id: string): Promise<void> {

@@ -38,7 +38,16 @@ export interface DonneesTableau {
 }
 
 export interface DonneesSchema {
-  noeuds: { id: string; libelle: string; niveau: number; marqueur?: Marqueur }[];
+  /**
+   * `essentiel` marque les nœuds du SQUELETTE — ce qu'un organigramme garde
+   * dans sa lecture simplifiée. Facultatif : son absence veut dire « ce schéma
+   * n'a qu'une lecture », et la bascule ne s'offre pas.
+   *
+   * Les liens n'en portent pas : un lien suit ses deux bouts, et le déclarer
+   * séparément aurait permis de garder un trait vers une boîte absente, c'est-
+   * à-dire un rattachement inventé. La règle vit dans « organigramme.ts ».
+   */
+  noeuds: { id: string; libelle: string; niveau: number; marqueur?: Marqueur; essentiel?: boolean }[];
   liens?: { de: string; a: string; libelle?: string; marqueur?: Marqueur }[];
 }
 

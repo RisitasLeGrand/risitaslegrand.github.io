@@ -17,6 +17,7 @@
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { semer } from './lib/semer.mjs';
+import { nonMesurable } from './lib/non-mesurable.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -158,6 +159,79 @@ vrai(
   'et le message d’indisponibilité n’est pas affiché',
   await a.page.locator('#dossier-indisponible').isHidden(),
 );
+
+/**
+ * Ce navigateur sait-il RELIRE une poignée de dossier rangée dans IndexedDB ?
+ *
+ * ## Pourquoi cette question est posée avant de mesurer
+ *
+ * Tout ce qui suit repose sur une poignée qui survit : l'écran la range dans
+ * IndexedDB et la relit au retour. Si le navigateur ne sait pas la relire,
+ * l'essai ne mesure pas un défaut de Cyclades — il mesure son propre
+ * navigateur, et il le mesure en MOURANT, ce qui est la pire façon de le dire.
+ *
+ * Mesuré le 26 octobre, sans une ligne de Cyclades dans le tableau : on range
+ * une « FileSystemDirectoryHandle » dans IndexedDB — l'écriture passe —, puis
+ * on la relit, et le NAVIGATEUR ENTIER se déconnecte. Ni erreur de page, ni
+ * erreur de console : la page se ferme, le contexte se ferme, le navigateur
+ * s'en va. Éprouvé sur la racine de l'OPFS et sur un sous-dossier nommé :
+ * les deux l'emportent. Écrire seul ne suffit pas à le déclencher.
+ *
+ * ## Pourquoi la sonde a SON PROPRE navigateur
+ *
+ * Parce qu'elle le tue. La sonde doit pouvoir constater la panne sans
+ * emporter l'essai avec elle : son navigateur est donc à elle, et sa mort est
+ * son résultat.
+ */
+async function poigneeRelueSansMourir() {
+  const sonde = await chromium.launch({
+    executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await (await sonde.newContext()).newPage();
+    await page.goto(`${RACINE}/robots.txt`, { waitUntil: 'load' });
+    await page.evaluate(async () => {
+      const base = await new Promise((ok) => {
+        const r = indexedDB.open('sonde-poignee', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('p');
+        r.onsuccess = () => ok(r.result);
+      });
+      const poignee = await navigator.storage.getDirectory();
+      await new Promise((ok, non) => {
+        const tx = base.transaction('p', 'readwrite');
+        tx.objectStore('p').put(poignee, 'k');
+        tx.oncomplete = ok;
+        tx.onerror = () => non(tx.error);
+      });
+      await new Promise((ok, non) => {
+        const tx = base.transaction('p', 'readonly');
+        const q = tx.objectStore('p').get('k');
+        q.onsuccess = () => ok(q.result);
+        q.onerror = () => non(q.error);
+      });
+    });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (sonde.isConnected()) await sonde.close().catch(() => {});
+  }
+}
+
+if (!(await poigneeRelueSansMourir())) {
+  await nav.close().catch(() => {});
+  nonMesurable(
+    'un navigateur capable de RELIRE une poignée de dossier rangée dans IndexedDB',
+    'celui-ci ne sait pas : on range une « FileSystemDirectoryHandle », l’écriture ' +
+      'passe, et la relecture emporte le navigateur entier — page fermée, contexte ' +
+      'fermé, navigateur déconnecté, sans erreur de page ni de console. Éprouvé hors ' +
+      'de Cyclades, sur la racine de l’OPFS comme sur un sous-dossier nommé',
+    'un navigateur où la relecture d’une poignée tient. Rien à corriger dans ' +
+      'Cyclades : son code ne s’exécute pas jusque-là, et les deux contrôles qui ne ' +
+      'dépendent pas de la poignée viennent de passer',
+  );
+}
 
 await semer(a, ['carte-alpha', 'carte-beta'], Date.parse('2026-05-01T08:00:00Z'));
 await semer(b, ['carte-gamma'], Date.parse('2026-06-01T08:00:00Z'));

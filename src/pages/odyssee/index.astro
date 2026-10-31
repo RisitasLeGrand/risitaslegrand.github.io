@@ -159,14 +159,14 @@ import Base from '../../layouts/Base.astro';
             <span class="block text-slate-700 dark:text-slate-200">Domaine</span>
             <select
               id="focus-domaine"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
             ></select>
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Durée visée</span>
             <select
               id="focus-duree"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
             >
               <option value="900">15 min</option>
               <option value="1500" selected>25 min</option>
@@ -184,7 +184,7 @@ import Base from '../../layouts/Base.astro';
           <button
             id="focus-arreter"
             type="button"
-            class="hidden min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:border-slate-400 dark:border-slate-700"
+            class="hidden min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium transition hover:border-slate-400 dark:border-slate-600"
           >
             Arrêter et enregistrer
           </button>
@@ -279,8 +279,8 @@ import Base from '../../layouts/Base.astro';
         const bouton = document.createElement('button');
         bouton.type = 'button';
         bouton.className =
-          'mt-2 min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
-          'hover:border-indigo-400 dark:border-slate-700';
+          'mt-2 min-h-11 rounded-lg border border-slate-400 px-3 text-sm transition ' +
+          'hover:border-indigo-400 dark:border-slate-600';
         bouton.textContent = 'Tenue aujourd’hui';
         bouton.dataset.tenir = suggestion.cible.id;
         bouton.addEventListener('click', () => void tenirPuisRafraichir(suggestion.cible!.id));
@@ -371,8 +371,8 @@ import Base from '../../layouts/Base.astro';
     /* Le choix du motif, caché tant qu'il n'est pas nécessaire. */
     const choixMotif = document.createElement('select');
     choixMotif.className =
-      'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
-      'dark:border-slate-700 dark:bg-slate-950';
+      'min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm ' +
+      'dark:border-slate-600 dark:bg-slate-950';
     choixMotif.setAttribute('aria-label', 'Pourquoi cela n’a pas eu lieu');
     const vide = document.createElement('option');
     vide.value = '';
@@ -390,8 +390,8 @@ import Base from '../../layouts/Base.astro';
     precision.type = 'text';
     precision.placeholder = 'En deux mots, si vous voulez';
     precision.className =
-      'mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
-      'dark:border-slate-700 dark:bg-slate-950';
+      'mt-2 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm ' +
+      'dark:border-slate-600 dark:bg-slate-950';
 
     const valider = document.createElement('button');
     valider.type = 'button';
@@ -414,8 +414,8 @@ import Base from '../../layouts/Base.astro';
       bouton.type = 'button';
       bouton.dataset.reponse = valeur;
       bouton.className =
-        'min-h-11 rounded-lg border border-slate-300 px-4 text-sm transition ' +
-        'hover:border-indigo-400 dark:border-slate-700';
+        'min-h-11 rounded-lg border border-slate-400 px-4 text-sm transition ' +
+        'hover:border-indigo-400 dark:border-slate-600';
       bouton.textContent = libelle;
       bouton.addEventListener('click', () => {
         if (valeur === 'fait') {

@@ -51,6 +51,7 @@ import {
   deposer,
   elementsDuCentre,
   oublier,
+  type ContexteDeDepot,
   type Depot,
 } from './donnees';
 import { idDeLElement, type ElementDuCentre, type GenreDElement } from './modele';
@@ -164,6 +165,36 @@ export interface Intention {
   refSource: string;
   genre: GenreDElement;
   regroupement: string | null;
+  /**
+   * LA CLASSE DE LA MOLÉCULE, QUAND LE SIGNAL EN VISE UNE — ET ELLE NE SERA
+   * PAS ÉCRITE.
+   *
+   * ## Le chaînon qui manquait
+   *
+   * `donnees.ts` sait déjà recevoir une classe (`ContexteDeDepot`) et
+   * `deposer` la passe déjà au filtre. Mais `synchroniser` appelait
+   * `deposer(element)` sans contexte, et `Intention` n'avait rien à lui
+   * donner : le filtre voyait donc toujours une classe inconnue. Or
+   * `rappel-de-prise` est déclaré `exigeUneClasse`, et l'ignorance exclut.
+   * Résultat : aucun rappel de prise n'entrait au centre, et aucune panne
+   * nulle part — une règle s'appliquait, correctement, sur une donnée que
+   * personne ne lui transmettait.
+   *
+   * ## Pourquoi elle reste hors du magasin
+   *
+   * La classe d'une molécule est du CONTENU, et des plus sensibles :
+   * `ContexteDeDepot` est documenté « jamais stocké », et le § 2.3 veut un
+   * élément sans contenu. Elle voyage donc en mémoire, du producteur au
+   * filtre, et s'arrête là. L'élément construit plus bas ne la reprend pas,
+   * et ce n'est pas une discipline de relecture : `essais:centre:navigateur`
+   * vérifie qu'un élément déposé ne porte aucune classe, avec un sabotage
+   * qui mord si quelqu'un l'y remet un jour.
+   *
+   * Absente ou `null`, rien ne change pour les sources qui n'en ont pas :
+   * elles n'en avaient pas avant, et le filtre ne l'exige que là où il est
+   * déclaré.
+   */
+  classeMolecule?: string | null;
 }
 
 /**
@@ -198,8 +229,25 @@ export async function synchroniser(
   const presents = new Map((await elementsDuCentre()).map((e) => [e.id, e]));
 
   const attendus = new Map<string, ElementDuCentre>();
+  /*
+     LE CONTEXTE VOYAGE À PART, ET C'EST DÉLIBÉRÉ À DEUX TITRES.
+
+     D'abord parce qu'il ne doit pas entrer dans l'élément : le ranger dans
+     une carte séparée rend l'oubli impossible plutôt qu'improbable — il n'y
+     a aucun chemin par lequel la classe atteigne `attendus`.
+
+     Ensuite parce que A travaille en ce moment sur cette même boucle, pour y
+     relever les verdicts d'écart de `deposer`. Nos deux changements se
+     composent — le sien relève le verdict, le mien fait que le verdict
+     change — et séparer le contexte me permet de ne toucher qu'une ligne de
+     la sienne au lieu d'en refondre la structure.
+  */
+  const contextes = new Map<string, ContexteDeDepot>();
   for (const intention of attendues) {
     const id = await idDeLElement(source, intention.refSource);
+    if (intention.classeMolecule != null) {
+      contextes.set(id, { classeMolecule: intention.classeMolecule });
+    }
     const dejaLa = presents.get(id);
     attendus.set(id, {
       id,
@@ -221,7 +269,7 @@ export async function synchroniser(
   let deposes = 0;
   const ecartes: { refSource: string; pourquoi: string }[] = [];
   for (const element of attendus.values()) {
-    const resultat: Depot = await deposer(element);
+    const resultat: Depot = await deposer(element, contextes.get(element.id) ?? {});
     if (resultat.quoi === 'depose') deposes += 1;
     /*
        L'ÉCART EST RELEVÉ, et non jeté. C'est ici que le verdict de `deposer`
@@ -648,11 +696,51 @@ export const SOURCE_RAPPEL_DE_PRISE = 'rappel-de-prise';
  * un élément **neuf**. Recenser à chaque chargement de l'écran ne réémet
  * donc rien.
  */
-export const recenserLesOublis = (refs: readonly string[]): Promise<Recensement> =>
-  synchroniser(
-    SOURCE_RAPPEL_DE_PRISE,
-    refs.map((refSource) => ({ refSource, genre: 'a-savoir' as const, regroupement: null })),
-  );
+export interface OubliARappeler {
+  /** La référence toute faite, telle que `odyssee/rappels.ts` la calcule. */
+  refSource: string;
+  /**
+   * La classe de la molécule, quand elle est connue.
+   *
+   * Une CHAÎNE, et non un type de Santé : le centre ne doit pas savoir ce
+   * qu'est une molécule, et le commentaire ci-dessus le dit depuis le début.
+   * Une classe est un mot que le filtre compare à sa liste ; il ne l'ouvre
+   * pas davantage qu'il n'ouvre une référence.
+   */
+  classeMolecule?: string | null;
+}
+
+/**
+ * LE PRODUCTEUR PUR DES OUBLIS — ce qu'une intention porte, et ce qu'elle ne
+ * porte pas.
+ *
+ * Séparé de `recenserLesOublis` pour la raison que ce module donne partout
+ * ailleurs : un producteur pur se contrôle sans base, sans coffre et sans
+ * horloge. Avant ce lot il n'y en avait pas pour les oublis, et le seul essai
+ * qui en parlait vérifiait que `recenserLesOublis` était « une fonction » —
+ * ce qui est vrai de n'importe quoi et ne prouve rien.
+ *
+ * Accepte une chaîne nue autant qu'un objet. Ce n'est pas de la complaisance :
+ * `sante.astro` appelle aujourd'hui avec des chaînes, cet écran ne m'appartient
+ * pas dans ce lot, et casser son appel pour une classe qu'il ne sait pas encore
+ * fournir ferait tomber un écran de santé en échange de rien.
+ */
+export const intentionsDOubli = (
+  refs: readonly (string | OubliARappeler)[],
+): Intention[] =>
+  refs.map((brut) => {
+    const oubli: OubliARappeler = typeof brut === 'string' ? { refSource: brut } : brut;
+    return {
+      refSource: oubli.refSource,
+      genre: 'a-savoir' as const,
+      regroupement: null,
+      classeMolecule: oubli.classeMolecule ?? null,
+    };
+  });
+
+export const recenserLesOublis = (
+  refs: readonly (string | OubliARappeler)[],
+): Promise<Recensement> => synchroniser(SOURCE_RAPPEL_DE_PRISE, intentionsDOubli(refs));
 
 /**
  * La source du § 2.2 qu'on ne peut pas brancher, et pourquoi.

@@ -124,11 +124,11 @@ export interface Bilan {
 }
 
 const BOUTON =
-  'min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition ' +
-  'hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
+  'min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium transition ' +
+  'hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800';
 const OPTION =
-  'w-full rounded-lg border border-slate-300 px-3 py-2 text-left text-sm transition ' +
-  'hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
+  'w-full rounded-lg border border-slate-400 px-3 py-2 text-left text-sm transition ' +
+  'hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800';
 
 /**
  * Déroule la session dans `hote` et rend le bilan une fois tous les items vus.

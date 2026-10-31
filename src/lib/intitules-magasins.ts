@@ -53,6 +53,20 @@ export const INTITULES_DES_MAGASINS: Readonly<Record<string, string>> = {
   /* ── Réglages ─────────────────────────────────────────────────────────── */
   etat: 'Réglages et préférences',
 
+  /*
+     Ajouté à la fusion, et non par A : le magasin vient de « b-0.2-annulation »,
+     intégré une heure plus tôt, et la table d'A a été écrite sans lui. C'est
+     exactement le premier des trois défauts qu'elle se donne pour mission
+     d'attraper — « un magasin ajouté sans étiquette » —, et elle l'a attrapé
+     chez moi.
+
+     L'étiquette dit ce que la personne y reconnaîtra : une action lancée dont
+     le délai d'annulation court encore. Elle ne dit pas « intentions », qui
+     est le mot du code, ni le genre des actions en attente — l'écran du
+     stockage se lit sans rien révéler de ce qu'on y a fait.
+  */
+  annulationsEnAttente: 'Actions en cours d’annulation',
+
   /* ── Révisions ────────────────────────────────────────────────────────── */
   cartes: 'Flashcards et leurs échéances',
   fiches: 'Fiches lues et leur avancement',

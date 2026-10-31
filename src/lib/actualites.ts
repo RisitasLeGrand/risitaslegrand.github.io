@@ -169,7 +169,18 @@ export const DOMAINES: Record<Domaine, { libelle: string; classe: string; pastil
   international: {
     libelle: 'International',
     classe: 'text-cyan-700 dark:text-cyan-300',
-    pastille: 'bg-cyan-600',
+    /*
+       LA SEULE PASTILLE À VARIANTE SOMBRE, PARCE QU'ELLE EST LA SEULE À EN
+       AVOIR BESOIN.
+
+       Sur une carte sombre, « bg-cyan-600 » ne rendait que 2,995:1 dans le
+       thème République — sous le plancher de 3:1 des éléments non textuels, de
+       cinq millièmes. Les quatre autres pastilles tiennent sur les quatorze
+       thèmes. Mesuré par « essais:contrastes-themes », qui ne connaissait pas
+       ces couples avant : ils venaient de « npm run contrastes », dont le
+       thème clair ne mesurait plus rien et qui est retiré.
+    */
+    pastille: 'bg-cyan-600 dark:bg-cyan-500',
   },
 };
 

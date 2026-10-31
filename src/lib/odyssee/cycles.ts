@@ -77,7 +77,39 @@ export interface ParametreDuSuivi {
 }
 
 /**
- * Les huit chiffres qu'Alexis doit trancher.
+ * Les huit chiffres qu'Alexis devait trancher — six le sont, deux attendent.
+ *
+ * ## Ce qui a été tranché le 25 octobre, et par qui
+ *
+ * Alexis a délégué ses décisions au pilote, qui a retenu les huit valeurs
+ * telles qu'elles étaient proposées — `2 j, 15 j, 90 j, 3 cycles, 5 j, 7 j,
+ * 1 j, 12 mois` — et autorisé l'application des SIX PREMIÈRES. Les deux
+ * dernières restent `applique: false` jusqu'à la re-vérification FIGO à la
+ * source, et ce n'est pas une réserve de principe :
+ *
+ * - `tolerance-de-comparaison-des-dates` n'a rien à comparer tant qu'aucun
+ *   repère publié n'est dans Cyclades ;
+ * - `fenetre-par-defaut` porte l'avertissement du 4.4.2 : la fenêtre et la
+ *   mesure que le FIGO 2018 retient pour la régularité **n'ont pas été lues**,
+ *   et si elles diffèrent, ce sont celles de la source qui s'appliquent.
+ *
+ * ## Un écart relevé avant d'appliquer, et corrigé par le pilote
+ *
+ * Sa première formulation disait « les valeurs 6 et 7 attendent la
+ * re-vérification FIGO ». Les motivations disent 7 et 8 : le mot FIGO
+ * n'apparaît que chez `tolerance-de-comparaison-des-dates` et
+ * `fenetre-par-defaut`, et le 6ᵉ — `delai-du-constat-de-retard` — ne porte
+ * aucune réserve. Appliquer la phrase au mot aurait retenu un chiffre prêt et
+ * appliqué un chiffre que son propre texte déclare non vérifié. Le pilote a
+ * confirmé 1 à 6.
+ *
+ * ## Ce que cela ouvre, et ce que cela laisse fermé
+ *
+ * `cyclesDeLHistorique` et `fenetresDeLHistorique` calculent désormais.
+ * `statistiquesDeLHistorique` REFUSE TOUJOURS, parce qu'elle lit
+ * `fenetre-par-defaut` : la médiane et les statistiques restent fermées
+ * jusqu'au FIGO, et c'est exactement l'effet voulu — une médiane sur une
+ * fenêtre non vérifiée serait un chiffre affirmé sans source.
  *
  * Chacun est motivé, et chaque motivation dit **ce qui change si on prend
  * autrement** — c'est ce qui permet de répondre sans relire le code.
@@ -101,7 +133,7 @@ export const PARAMETRES_DU_SUIVI: readonly ParametreDuSuivi[] = [
       'un saignement isolé ouvrirait un cycle et fausserait toutes les durées ; à trois, des ' +
       'règles de deux jours ne seraient jamais comptées et l’écran dirait « aucun cycle » à ' +
       'quelqu’un qui en a.',
-    applique: false,
+    applique: true,
   },
   {
     cle: 'ecart-minimal-entre-j1',
@@ -113,7 +145,7 @@ export const PARAMETRES_DU_SUIVI: readonly ParametreDuSuivi[] = [
       'la durée par deux. Quinze jours est la moitié d’un cycle de trente : en dessous, deux ' +
       'débuts sont plus probablement un seul épisode interrompu. Plus bas, les durées se ' +
       'morcellent ; plus haut, deux cycles réellement courts se confondent en un.',
-    applique: false,
+    applique: true,
   },
   {
     cle: 'duree-maximale-fiable',
@@ -126,7 +158,7 @@ export const PARAMETRES_DU_SUIVI: readonly ParametreDuSuivi[] = [
       'passer les cycles longs réels — ils existent, et les écarter serait effacer la personne ' +
       'au profit d’une jolie statistique — tout en écartant les trous d’usage. Le cycle reste ' +
       'affiché ; il n’entre pas dans les statistiques, et l’écran dit pourquoi.',
-    applique: false,
+    applique: true,
   },
   {
     cle: 'cycles-avant-une-mediane',
@@ -141,7 +173,7 @@ export const PARAMETRES_DU_SUIVI: readonly ParametreDuSuivi[] = [
       'avant que l’écran montre quoi que ce soit — ce qui est long. Plus haut, l’écran reste ' +
       'muet une demi-année ; plus bas, il affirme. En dessous du seuil, l’écran dit « données ' +
       'insuffisantes » ET ce qui manque, comme le prompt le demande.',
-    applique: false,
+    applique: true,
   },
   {
     cle: 'largeur-fenetre-avant',
@@ -156,7 +188,7 @@ export const PARAMETRES_DU_SUIVI: readonly ParametreDuSuivi[] = [
       'plus rien. Plus large, elle mord sur « le reste du cycle » et les deux cessent de se ' +
       'distinguer ; plus étroite, elle manque les jours que la personne décrit. Cette fenêtre ' +
       'est **passée** : elle se calcule sur un J1 qui a eu lieu, jamais sur un J1 attendu.',
-    applique: false,
+    applique: true,
   },
   {
     cle: 'delai-du-constat-de-retard',
@@ -171,7 +203,7 @@ export const PARAMETRES_DU_SUIVI: readonly ParametreDuSuivi[] = [
       'variation banale et inquiète ; plus haut, il ne paraît plus quand il servirait. Le ' +
       'constat reste un **fait affiché**, sans signal codé : décision 11, tant qu’aucune source ' +
       'n’est atteignable.',
-    applique: false,
+    applique: true,
   },
   {
     cle: 'tolerance-de-comparaison-des-dates',
@@ -731,7 +763,15 @@ const refus = (clefs: readonly string[]): Refus => ({
   manquants: clefs.filter((c) => parametre(c) === null),
 });
 
-/** Les cycles, ou un refus motivé. **Refuse aujourd'hui.** */
+/**
+ * Les cycles, ou un refus motivé. **Calcule depuis le 25 octobre.**
+ *
+ * Elle a refusé tant que les trois paramètres de dérivation n'étaient pas
+ * tranchés. Ils le sont — 2 jours, 15 jours, 90 jours —, donc elle rend des
+ * cycles. Le refus n'est pas retiré pour autant : il reste le comportement si
+ * un paramètre repassait à `applique: false`, et c'est le seul état qui ne
+ * mente pas.
+ */
 export function cyclesDeLHistorique(
   saisies: readonly SaisieDuCycle[],
 ): { cycles: Cycle[] } | Refus {
@@ -764,7 +804,19 @@ export function fenetreDEtude(
   return { du: debut.toISOString().slice(0, 10), au };
 }
 
-/** Les statistiques, ou un refus motivé. **Refuse aujourd'hui.** */
+/**
+ * Les statistiques, ou un refus motivé. **REFUSE TOUJOURS, et pour un seul
+ * chiffre.**
+ *
+ * Six des huit paramètres sont appliqués depuis le 25 octobre, mais cette
+ * porte lit aussi `fenetre-par-defaut`, qui reste en attente : le 4.4.2
+ * avertit que la fenêtre et la mesure que le FIGO 2018 retient pour la
+ * régularité n'ont pas été lues. Une médiane calculée sur une fenêtre non
+ * vérifiée serait un chiffre affirmé sans source, sur un écran de santé.
+ *
+ * C'est donc la dernière porte fermée du module, et son `manquants` ne nomme
+ * plus qu'une clé. L'écran peut le dire tel quel.
+ */
 export function statistiquesDeLHistorique(
   saisies: readonly SaisieDuCycle[],
   exclusions: readonly ExclusionDeCycle[] = [],
@@ -787,7 +839,15 @@ export function statistiquesDeLHistorique(
   };
 }
 
-/** Les fenêtres passées, ou un refus motivé. **Refuse aujourd'hui.** */
+/**
+ * Les fenêtres passées, ou un refus motivé. **Calcule depuis le 25 octobre.**
+ *
+ * Elle demande les trois paramètres de dérivation et `largeur-fenetre-avant`,
+ * tous tranchés. Les libellés que le 4.5 impose s'affichent donc enfin sur des
+ * fenêtres réelles — et l'interdit de la décision 12 reste entier : aucune
+ * fenêtre fertile, aucune ovulation prédite, ce que `LIBELLES_DES_FENETRES`
+ * tient de son côté.
+ */
 export function fenetresDeLHistorique(
   saisies: readonly SaisieDuCycle[],
 ): { fenetres: Fenetre[] } | Refus {

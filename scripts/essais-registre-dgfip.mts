@@ -216,14 +216,40 @@ if (ap) {
   */
   v('sa rotation ne propose que quatre jours', ap.rotationParDefaut.length, 4);
   v('sa source nomme l’article 1er et sa version', /article 1er, version du 22\/12\/2025/.test(ap.referentiel.source ?? ''), true);
-  v('et l’abrogation de l’annexe, datée', /annexe abrogée le 06\/09\/2025/.test(ap.referentiel.source ?? ''), true);
+  v(
+    'et l’absence de programme, datée du 24/06/2015',
+    /aucun programme annexé depuis le 24\/06\/2015/.test(ap.referentiel.source ?? ''),
+    true,
+  );
   v('le document dit la même abrogation', /abrogé les dispositions suivantes/.test(SOURCE), true);
   /*
      L'AVERTISSEMENT EST LA PIÈCE QUI REND CE PARCOURS HONNÊTE. Sans lui, des
      thèmes tirés de l'article 1er passeraient pour un programme. Il doit donc
-     dire l'abrogation ET d'où viennent les thèmes.
+     dire l'absence de programme ET d'où viennent les thèmes.
+
+     LES TROIS CONTRÔLES QUI SUIVENT TIENNENT UNE DATE QUI A ÉTÉ FAUSSE.
+
+     L'avertissement a dit « abrogé le 6 septembre 2025 ». C'était la date d'une
+     abrogation réelle, mais qui ne portait pas sur un programme. Un contrôle sur
+     /abrog/i passait au vert devant cette erreur, parce qu'il ne mesurait qu'un
+     mot. Ils nomment donc désormais le fait : la date de 2015, ce que l'annexe
+     de 2025 contenait encore, et l'épreuve n° 1 qui n'a jamais eu de programme.
   */
-  v('son avertissement dit l’abrogation', /abrog/i.test(ap.avertissementDuProgramme ?? ''), true);
+  v(
+    'son avertissement date l’absence de programme de 2015',
+    /aucun programme annexé depuis le 24 juin 2015/.test(ap.avertissementDuProgramme ?? ''),
+    true,
+  );
+  v(
+    'et dit ce que l’annexe de 2025 contenait encore',
+    /modèle de dossier de présentation/.test(ap.avertissementDuProgramme ?? ''),
+    true,
+  );
+  v(
+    'et que l’épreuve n° 1 n’en a jamais eu',
+    /épreuve n° 1.*jamais eu de programme/s.test(ap.avertissementDuProgramme ?? ''),
+    true,
+  );
   v(
     'et d’où viennent ses thèmes',
     /article 1er/.test(ap.avertissementDuProgramme ?? ''),

@@ -57,6 +57,7 @@
  */
 import { db } from './db';
 import { coffreOuvert, cleDuCoffre } from './coffre';
+import { lireCeQuiSOuvre } from './noyau/lecture-tolerante';
 
 const MAGASIN = 'visites';
 
@@ -182,10 +183,14 @@ export async function visitesComptees(): Promise<Visite[]> {
      entière tombait, et avec elle la page qui l'affiche, pour un compteur de
      diagnostic. On écarte ce qu'on ne sait pas lire, et le reste s'affiche.
   */
-  const lues = await Promise.all(
-    rangees.map((r) => ouvrir<Visite>(cle, r).catch(() => null)),
-  );
-  const visites = lues.filter((v): v is Visite => v !== null);
+  /*
+     (Cette lecture tolérait déjà les entrées illisibles, par un « catch » qui
+     rendait « null ». Elle passe à la règle partagée de
+     « noyau/lecture-tolerante », avec les quatorze autres : même tolérance,
+     mais une seule écriture de la règle. C'est ce fichier qui avait raison
+     le premier, et c'est son raisonnement ci-dessus qui a été généralisé.)
+  */
+  const visites = await lireCeQuiSOuvre(rangees, (r) => ouvrir<Visite>(cle, r));
   return visites.sort((a, b) => b.compte - a.compte || a.route.localeCompare(b.route));
 }
 

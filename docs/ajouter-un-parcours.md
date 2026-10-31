@@ -88,6 +88,39 @@ ne le recopiez pas ici, il bougera. Trois choses à savoir avant de commencer :
   matière ni de concours.
 - **Le glossaire est commun** — un seul `content/glossaire.yml`, sans surcharge
   par parcours à ce jour.
+- **Une fiche appartient aux parcours de sa racine.** `content/dgfip-b/` sert
+  DGFiP B ; `content/commun/` sert les trois parcours DGFiP ; la racine de
+  `content/` sert l'INSP. Le build écrit ces parcours dans le manifeste
+  (`parcoursServis` et `racine`), et `chargerManifeste()` rend un manifeste
+  **déjà réduit au parcours ouvert**, totaux recalculés
+  (`src/lib/parcours/filtre-du-manifeste.ts`). C'est ce qui permet à deux
+  parcours de déclarer la **même matière** sans se voler leurs fiches —
+  « Organisation de la DGFiP » est déclarée par DGFiP B et par DGFiP A,
+  délibérément, parce que c'est la même matière.
+
+  **Le tri est en amont, et une seule fois.** J'avais d'abord filtré dans
+  `fichesDuTheme`, en écrivant que la séance était le seul écran qui doive
+  trancher. C'était faux sur un point : `totaux.fiches` est lu par les
+  statistiques et par l'estimation de niveau, et un manifeste filtré qui
+  garderait les totaux d'origine annoncerait « 427 fiches » à qui n'en voit que
+  quatre. Un filtre local ne pouvait pas les recalculer. Le prédicat local a
+  donc été retiré : la même règle gardée à deux endroits, c'est la divergence
+  garantie le jour où l'une des deux change.
+
+  **Ce qui propose est filtré ; ce qui raconte voit tout.** C'est la ligne de
+  partage arrêtée le 25 octobre. Proposent : la séance, les révisions dues,
+  l'épreuve blanche, la bibliothèque, la recherche, le niveau — tous par
+  `chargerManifeste()`. Racontent ou conservent : l'historique, les
+  statistiques, l'export, la sauvegarde, la restauration, la synchronisation —
+  un historique de révision ne change pas de parcours parce qu'on change
+  d'onglet, et une sauvegarde qui n'emporterait que le parcours ouvert serait
+  une sauvegarde incomplète sans le dire. Ces écrans passent par
+  `chargerManifesteComplet()`.
+- **Un thème peut être une épreuve, et non des connaissances** (`epreuve: true`).
+  Ses matières n'entrent alors pas dans l'estimation de niveau : une note de
+  type Elo ne mesure rien sur un oral de quarante minutes où l'on expose son
+  parcours. Un seul thème le déclare à ce jour, l'entretien avec le jury de
+  DGFiP A+.
 
 **Le mot de passe et la clé de déchiffrement sont les mêmes pour tous les
 parcours.** Il n'y en a qu'un, et il ouvre tout.

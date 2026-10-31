@@ -197,6 +197,111 @@ v('les trois portes gardées sont nommées', PORTES_GARDEES, [
   'notification',
 ]);
 
+/* ───────────────────────────────────────────────────────────────────────────
+   LA CLASSE DE LA MOLÉCULE, MAINTENANT QU'ELLE PEUT ARRIVER
+
+   `exigeUneClasse` existait depuis le 19 octobre, mais rien ne transmettait de
+   classe : la branche « admis » du filtre n'était donc jamais parcourue, et
+   personne ne pouvait dire si elle fonctionnait. Le lot `b-intention-classe`
+   ouvre le chemin ; ces assertions mesurent les deux issues, pas une seule.
+   ───────────────────────────────────────────────────────────────────────────*/
+const oubli = (classeMolecule?: string | null) => ({ source: 'rappel-de-prise', refSource: 'prise:matin', classeMolecule });
+
+v('une classe connue et hors cycle est admise', suitLaSensibiliteDuCycle(oubli('antalgique')), false);
+v('une classe absente est écartée', suitLaSensibiliteDuCycle({ source: 'rappel-de-prise', refSource: 'prise:matin' }), true);
+v('une classe nulle est écartée', suitLaSensibiliteDuCycle(oubli(null)), true);
+/*
+   LA CHAÎNE VIDE EST UNE IGNORANCE, pas une classe hors cycle. Le filtre la
+   traite comme telle parce qu'il teste `!signal.classeMolecule` ; l'assertion
+   fixe ce choix, qui sinon dépendrait du hasard d'une écriture future.
+*/
+v('une classe vide est écartée comme une ignorance', suitLaSensibiliteDuCycle(oubli('')), true);
+for (const classe of CLASSES_DU_CYCLE) {
+  v(`une classe du cycle est écartée — ${classe}`, suitLaSensibiliteDuCycle(oubli(classe)), true);
+}
+/*
+   L'ORDRE DES DEUX RÈGLES, et il compte : l'ignorance exclut AVANT que la
+   liste des classes du cycle soit consultée. Une classe inconnue n'est pas une
+   classe hors cycle, et inverser les deux contrôles admettrait tout ce qu'on
+   ne connaît pas — l'exact contraire de l'option (a).
+*/
+v(
+  'et `admis` ne laisse passer que celle qui est connue et hors cycle',
+  admis([oubli(), oubli(null), oubli('contraceptif'), oubli('hormone-sexuelle'), oubli('antalgique')]).map(
+    (s) => s.classeMolecule,
+  ),
+  ['antalgique'],
+);
+
+/* ───────────────────────────────────────────────────────────────────────────
+   D2 RESTE INTACTE — la non-régression, et elle se mesure.
+
+   Mon lot n'AJOUTE qu'un champ facultatif. La garantie à tenir est donc
+   qu'aucune source ne passe d'admise à écartée : les signes d'urgence liés aux
+   règles doivent rester accessibles à tout profil, et un filtre qui se
+   resserrerait au passage les emporterait sans que rien ne le dise.
+
+   On le vérifie source par source plutôt qu'en gros : toute source déclarée
+   qui ne suit pas le cycle et qui n'exige pas de classe reste admise SANS
+   classe, comme avant. Une seule source exige une classe aujourd'hui, et
+   l'assertion la nomme — si une deuxième apparaissait sans décision, cette
+   ligne tomberait.
+   ───────────────────────────────────────────────────────────────────────────*/
+v(
+  'une seule source exige une classe, et c’est le rappel de prise',
+  SOURCES_DECLAREES.filter((s) => s.exigeUneClasse).map((s) => s.id),
+  ['rappel-de-prise'],
+);
+v(
+  'toutes les autres sources hors cycle restent admises sans classe',
+  SOURCES_DECLAREES.filter((s) => !s.suitLeCycle && !s.exigeUneClasse)
+    .filter((s) => suitLaSensibiliteDuCycle({ source: s.id }))
+    .map((s) => s.id),
+  [],
+);
+
+/* ───────────────────────────────────────────────────────────────────────────
+   LE SABOTAGE, ET CE QU'IL PROUVE EXACTEMENT
+
+   `suitLaSensibiliteDuCycle` lit une table privée du module : on ne peut pas
+   lui injecter une déclaration truquée sans réécrire le module, ce qui
+   prouverait seulement que ma copie se comporte comme ma copie.
+
+   Le sabotage porte donc là où il mord vraiment, en deux temps.
+
+   1. On relit la DÉCLARATION dans le fichier source. Si quelqu'un retire
+      `exigeUneClasse: true` de la ligne du rappel de prise, cette assertion
+      tombe — avant même que le comportement change, et avec le nom du coupable.
+   2. On reconstruit les deux lignes de décision, une fois avec le drapeau et
+      une fois sans, et on montre que le verdict DIFFÈRE. C'est ce qui établit
+      que les assertions ci-dessus reposent bien sur ce champ et non sur un
+      autre refus qui les rendrait vraies par accident — le vert à vide que ce
+      filtre, par construction, rend si facile : tout y est écarté par défaut.
+   ───────────────────────────────────────────────────────────────────────────*/
+const SOURCE_DU_FILTRE = readFileSync(new URL('../src/lib/notifications/filtre-cycle.ts', import.meta.url), 'utf8');
+const LIGNE_DU_RAPPEL = SOURCE_DU_FILTRE.split('\n').find((l) => l.includes("id: 'rappel-de-prise'")) ?? '';
+v('la déclaration du rappel de prise exige bien une classe', /exigeUneClasse:\s*true/.test(LIGNE_DU_RAPPEL), true);
+
+const verdict = (exigeUneClasse: boolean, classeMolecule?: string | null) => {
+  if (exigeUneClasse && !classeMolecule) return 'ecarte';
+  if (classeMolecule && CLASSES_DU_CYCLE.includes(classeMolecule)) return 'ecarte';
+  return 'admis';
+};
+v('sabotage — sans le drapeau, un rappel sans classe passerait', verdict(false, null), 'admis');
+v('sabotage — avec le drapeau, il est écarté', verdict(true, null), 'ecarte');
+v('et le drapeau ne change rien à une classe du cycle, qui tombe de toute façon', [verdict(false, 'contraceptif'), verdict(true, 'contraceptif')], ['ecarte', 'ecarte']);
+/*
+   Le miroir doit dire la même chose que le vrai filtre, sinon il ne prouve
+   rien du vrai filtre. On le confronte sur les cinq cas qui précèdent.
+*/
+v(
+  'et le miroir du sabotage s’accorde avec le vrai filtre',
+  [null, '', 'antalgique', 'contraceptif', 'hormone-sexuelle'].map((c) => verdict(true, c)),
+  [null, '', 'antalgique', 'contraceptif', 'hormone-sexuelle'].map((c) =>
+    suitLaSensibiliteDuCycle(oubli(c)) ? 'ecarte' : 'admis',
+  ),
+);
+
 console.log(
   echecs === 0 ? '\n\x1b[32mTous les essais passent.\x1b[0m\n' : `\n\x1b[31m${echecs} échec(s).\x1b[0m\n`,
 );

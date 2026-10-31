@@ -181,6 +181,51 @@ body {
   @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
 }
 
+/* --- La taille de corps choisie par la personne, sur iOS ------------------ */
+/*
+   iOS porte un réglage de taille de texte qui vaut pour tout l'appareil, et
+   les applications natives le suivent. Un site ne le suit que s'il le
+   demande, et Cyclades ne le demandait pas : quelqu'un qui a grossi son texte
+   dans ses réglages retrouvait ici la taille d'un site ordinaire. Pour une
+   application de révision qu'on lit des heures, c'est le réglage le plus
+   utile du téléphone, et il était ignoré.
+
+   `font: -apple-system-body` est le mot-clé par lequel WebKit livre cette
+   taille.
+
+   LA SECONDE LIGNE N'EST PAS UNE PRÉCAUTION. Le raccourci `font` remplace
+   aussi la FAMILLE : sans elle, tout iOS perdrait Public Sans pour la police
+   du système. On ne garde du mot-clé que ce qu'on est venu chercher, la
+   taille.
+
+   CE QUE D-038 OBLIGE À DIRE. Le document « d-038-taille-du-texte » a
+   construit, mesuré puis ÉCARTÉ l'option C, « remonter la racine » : tout
+   grossit, marges comprises, pour +8,5 % de hauteur et deux fois moins de
+   texte gagné que l'option B retenue. Or cette règle-ci est mécaniquement
+   cette option C.
+
+   Ce n'est pourtant pas la même décision, et la différence est tout entière
+   dans qui décide. L'option C grossissait le texte de tout le monde, de
+   6,25 %, sans que personne l'ait demandé. Ici la taille vient du réglage que
+   la personne a posé elle-même : celle qui agrandit son texte sur iOS veut
+   que tout grossisse, et c'est ce que font toutes les applications natives.
+   Le coût mesuré par D-038 reste vrai ; c'est sa contrepartie qui change.
+
+   CE QU'AUCUN ESSAI D'ICI NE PEUT MESURER. Le mot-clé appartient à WebKit :
+   le moteur des essais ne le reconnaît pas, `@supports` y est faux, et la
+   règle ne s'applique pas. « essais:taille-de-corps-systeme » commence donc
+   par PROUVER cette impossibilité — `CSS.supports` rend faux — puis constate
+   ce qui est constatable : que la règle est bien dans la feuille publiée, que
+   la famille est rendue juste après, et que la racine n'a pas bougé pour tous
+   les autres navigateurs.
+*/
+@supports (font: -apple-system-body) {
+  :root {
+    font: -apple-system-body;
+    font-family: var(--font-sans);
+  }
+}
+
 /* --- Police de complément ------------------------------------------------ */
 /* Spectral, à utiliser avec parcimonie : citations, exergues, mentions. */
 .police-complement {
@@ -245,6 +290,63 @@ body {
    Un contrôle le vérifie dans « essais:mobile » : un lien de phrase qui
    porterait cette classe passe au rouge.
 */
+/*
+   LE TÉMOIN DE SYNCHRONISATION : UNE FORME PAR ÉTAT (E2 du prompt 43).
+
+   Mesuré le 25 octobre : les trois états étaient le MÊME point de 8 px et ne
+   différaient que par la teinte — emerald, indigo, amber. Deux objections, et
+   chacune suffit :
+
+   - vert contre orange est le couple que la deutéranopie confond, et c'est
+     « tout va bien » contre « la dernière synchronisation a échoué » ;
+   - mesurés sur le fond clair, emerald-500 donnait 2,54:1 et amber-500
+     2,15:1, sous le 3:1 que WCAG 1.4.11 demande à une marque porteuse de sens.
+
+   Le `sr-only` disait déjà l'état en toutes lettres : le lecteur d'écran était
+   servi, l'œil non.
+
+   TROIS SILHOUETTES, qui se distinguent en noir et blanc comme en couleur :
+   le disque veille, l'ANNEAU échange, le TRIANGLE alerte. Un anneau plutôt
+   qu'un disque plus clair, parce qu'une différence de clarté est ce qui
+   disparaît le premier au soleil ou sur un écran mal réglé.
+
+   LES TEINTES SONT DES JETONS DE RÔLE, et non trois hexadécimaux : `--etat-
+   succes`, `--etat-action` et `--etat-alerte` sont déjà garantis à 4,5:1 sur
+   le fond dans les quatorze thèmes et leurs vingt-cinq modes, par
+   `essais:contrastes-themes`. Trois couleurs écrites ici auraient demandé leur
+   propre table, à tenir à jour à chaque thème ajouté.
+
+   Dix pixels et non huit : à huit, un triangle n'est plus un triangle.
+*/
+.pastille-sync {
+  display: block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background-color: var(--etat-texte-faible);
+}
+
+.pastille-sync[data-etat='en-veille'] {
+  background-color: var(--etat-succes);
+}
+
+/* L'anneau : le fond se retire, et c'est la bordure qui dessine. */
+.pastille-sync[data-etat='en-cours'] {
+  background-color: transparent;
+  border: 2px solid var(--etat-action);
+}
+
+/*
+   Le triangle, par découpe plutôt que par la ruse des bordures : la ruse
+   impose la couleur dans une propriété de bordure, et l'on ne peut plus la
+   tenir d'un jeton sans réécrire les quatre côtés.
+*/
+.pastille-sync[data-etat='echec'] {
+  background-color: var(--etat-alerte);
+  border-radius: 0;
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
 .cible-tactile {
   @apply inline-flex items-center;
 }
@@ -285,6 +387,46 @@ body {
 .cible-tactile-pleine.hidden,
 .cible-minimale.hidden {
   display: none;
+}
+
+/* ── LE PLANCHER DE VINGT-QUATRE PIXELS VAUT POUR TOUT POINTEUR ──────────
+   (E8 du prompt 43)
+
+   Les trois classes ci-dessus ne posaient AUCUNE dimension hors de
+   « pointer: coarse ». À la souris, une cible valait donc exactement ce que
+   son contenu lui donnait — et WCAG 2.5.8 (AA) ne parle pas de l'organe de
+   pointage : il demande 24 × 24 px, avec quatre exemptions dont aucune ne
+   couvre un bouton d'en-tête ou un lien de liste.
+
+   MESURÉ LE 25 OCTOBRE, pointeur fin, corpus réel : 64 cibles sous 24 px sur
+   « /parametres/ » seul, 29 sur l'accueil. Le bouton du centre de notifications
+   faisait 20 × 24, la flèche de retour 18 × 18, et les liens de liste
+   214 × 23 — un pixel de trop peu, répété des dizaines de fois. Aucun essai ne
+   le voyait : « essais:mobile:navigateur » déclare « hasTouch: true », donc il
+   ne mesure que l'autre côté de la médaille.
+
+   POURQUOI ICI, ET PAS DANS SOIXANTE-QUATRE GABARITS. C'est la raison déjà
+   écrite plus bas pour les contrôles de formulaire : les reprendre écran par
+   écran aurait produit soixante-quatre correctifs identiques dont le
+   soixante-cinquième écran se serait passé. Trois classes, trois règles.
+
+   ET POURQUOI AVANT LA REQUÊTE DE MÉDIA : à spécificité égale, la dernière
+   déclarée gagne. Les 44 px du confort tactile doivent l'emporter sur ces
+   24 px, donc ils viennent après. Posé dans l'autre ordre, un téléphone
+   serait retombé à 24.
+
+   La largeur n'est imposée qu'aux cibles PLEINES, comme sous « coarse » : la
+   largeur d'un lien de texte vient de son texte, et l'étirer fabriquerait des
+   zones cliquables qui mordent sur le vide. Les liens de liste, eux, sont déjà
+   larges — c'est leur hauteur qui manquait. */
+.cible-tactile,
+.cible-tactile-pleine,
+.cible-minimale {
+  min-height: 1.5rem;
+}
+
+.cible-tactile-pleine {
+  min-width: 1.5rem;
 }
 
 @media (pointer: coarse) {
@@ -347,6 +489,46 @@ body {
   summary {
     min-height: 2.75rem;
     align-content: center;
+  }
+
+  /* Les trois dixièmes de seconde du double appui, rendus aux commandes — et
+     à elles seules.
+
+     Un navigateur tactile attend environ 300 ms après un appui, au cas où un
+     second viendrait former un double appui : le geste qui grossit la page.
+     Sur un bouton, cette attente est une lenteur sans contrepartie — on
+     appuie, et il ne se passe rien pendant un tiers de seconde.
+     `touch-action: manipulation` dit « ici, pas de double appui » et rend ce
+     délai.
+
+     POURQUOI PAS SUR `body`, QUI AURAIT ÉTÉ UNE LIGNE AU LIEU DE DOUZE.
+
+     Parce que le double appui sur un paragraphe est **la façon dont on
+     grossit un texte** sur un téléphone. Le poser sur la page entière
+     retirerait un geste d'accessibilité pour gagner trois dixièmes sur des
+     boutons : le site deviendrait plus vif et moins lisible, ce qui n'est pas
+     l'échange qu'on cherche. La règle tient donc une liste, et
+     « essais:touch-action » mesure les deux moitiés — les commandes l'ont, le
+     texte et la racine ne l'ont pas.
+
+     CE QUE `manipulation` NE RETIRE PAS. Il vaut `pan-x pan-y pinch-zoom` :
+     le défilement et le pincement restent entiers. C'est `none` qui les
+     tuerait, et l'essai vérifie qu'aucun élément de ces écrans ne le calcule.
+
+     Les étiquettes n'y sont pas : dans ce dépôt ce sont des mots posés à côté
+     d'un champ, et aucune ne porte de cible tactile. C'est le champ qui est
+     la commande. */
+  button,
+  [role='button'],
+  a[href],
+  input,
+  select,
+  textarea,
+  summary,
+  .cible-tactile,
+  .cible-tactile-pleine,
+  .cible-minimale {
+    touch-action: manipulation;
   }
 
   /* Seize pixels dans les champs de saisie.
@@ -1293,8 +1475,26 @@ button:not(:disabled):active,
     --laterale: 15rem;
   }
 
+  /*
+     LE RAIL : la barre repliée (M15 bis, prompt 43).
+
+     `--laterale` est la SEULE source de cette largeur. Elle était écrite deux
+     fois — `w-60` en classe sur le `nav`, et cette variable pour le décalage
+     du contenu —, deux nombres qui disent la même chose et qui divergeront le
+     jour où l'un change. Le rail en aurait fait un troisième.
+
+     3 rem, et non moins : l'icône fait 20 px, et il faut de quoi la viser.
+     Sous `pointer: fine` uniquement — la médiarequête le garantit —, donc
+     c'est le plancher de 24 px de WCAG 2.5.8 qui s'applique, non les 44 px du
+     doigt. Mesuré par `essais:cibles-souris:navigateur`.
+  */
+  :root[data-laterale='rail'] {
+    --laterale: 3rem;
+  }
+
   .barre-laterale {
     display: flex;
+    width: var(--laterale);
   }
 
   /* Ce que la latérale remplace : le ruban horizontal et son sélecteur. */
@@ -1305,6 +1505,56 @@ button:not(:disabled):active,
   /* Le contenu se décale d'autant, sinon la latérale le recouvre. */
   .decale-laterale {
     padding-left: var(--laterale);
+  }
+
+  /*
+     En rail, les libellés sortent — et c'est exactement pourquoi chaque lien
+     porte son `aria-label` EN PERMANENCE : le nom accessible venait du texte
+     de ce `<span>`, et le masquer aurait effacé les douze noms d'un coup.
+     Douze icônes anonymes valent moins qu'une barre qu'on ne replie pas.
+  */
+  :root[data-laterale='rail'] .libelle-laterale {
+    display: none;
+  }
+
+  :root[data-laterale='rail'] .barre-laterale {
+    padding-inline: 0;
+    align-items: center;
+  }
+
+  :root[data-laterale='rail'] .barre-laterale a,
+  :root[data-laterale='rail'] .barre-laterale button {
+    justify-content: center;
+    padding-inline: 0;
+    width: 100%;
+  }
+
+  /*
+     Le filet entre les deux groupes ne paraît QU'EN RAIL, et il est
+     décoratif : déplié, les deux intertitres — le nom de la branche et « Cet
+     espace » — font déjà la séparation. Repliés, ils disparaissent avec les
+     libellés, et le filet prend leur relais À L'ŒIL. Pour le lecteur
+     d'écran, ce sont les deux `role="group"` nommés qui tiennent le
+     groupement, dans les deux états : un filet ne se lit pas.
+  */
+  .separateur-laterale {
+    display: none;
+  }
+
+  :root[data-laterale='rail'] .separateur-laterale {
+    display: block;
+    width: 1.25rem;
+    margin: 0.5rem auto;
+    border: 0;
+    border-top: 1px solid var(--etat-bordure-forte);
+  }
+
+  /* La flèche du repli désigne le geste : vers la gauche pour ranger la
+     barre, vers la droite pour la rouvrir. Une rotation, et non une seconde
+     icône : le catalogue n'a pas de flèche droite, et il n'appartient pas à
+     ce lot d'en ajouter une. */
+  :root[data-laterale='rail'] #replier-laterale svg {
+    transform: rotate(180deg);
   }
 }
 
@@ -1624,6 +1874,71 @@ button:not(:disabled):active,
   /* Le bandeau est posé sur « --etat-texte-fort » et écrit en
      « --etat-fond-eleve » : son survol se teinte de sa propre couleur de
      texte, et suit donc le thème sans rien connaître de lui. */
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+/* Le bandeau de publication (B5 du 43)
+   ---------------------------------------------------------------------------
+   Même grammaire visuelle que le bandeau d'annulation, et même place : en bas,
+   au-dessus de la barre de navigation, là où le pouce est.
+
+   Son `z-index` est **inférieur** à celui de l'annulation (60), et c'est un
+   choix : si les deux coïncident, l'annulation gagne. Elle est à la fois plus
+   urgente — six secondes pour revenir sur une suppression — et plus fugace.
+   Celui-ci peut attendre son départ, et il attend. */
+.bandeau-publication {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* 3,5 rem : la barre du bas. Au-dessus de 640 px elle n'existe plus. */
+  bottom: 3.5rem;
+  z-index: 55;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 auto;
+  max-width: 32rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-xl);
+  background: var(--etat-texte-fort);
+  color: var(--etat-fond-eleve);
+  box-shadow: 0 10px 25px -10px color-mix(in srgb, var(--etat-ombre) 45%, transparent);
+  animation: boite-monte var(--duree-moyenne) var(--courbe-entree);
+}
+
+@media (min-width: 640px) {
+  .bandeau-publication {
+    bottom: 1rem;
+  }
+}
+
+/* `flex-wrap` plus haut, et une base de 100 % ici : à 360 px, la phrase et
+   les deux boutons ne tiennent pas sur une ligne, et les comprimer donnerait
+   des cibles de quelques pixels. Le texte prend donc sa ligne, les boutons la
+   suivante. */
+.bandeau-publication-texte {
+  flex: 1 1 100%;
+  min-width: 0;
+  font-size: 0.875rem;
+}
+
+.bandeau-publication-bouton {
+  flex: none;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.bandeau-publication-bouton:hover {
+  /* Posé sur « --etat-texte-fort » et écrit en « --etat-fond-eleve » : son
+     survol se teinte de sa propre couleur de texte, et suit donc le thème
+     sans rien connaître de lui. */
   background: color-mix(in srgb, currentColor 15%, transparent);
 }
 

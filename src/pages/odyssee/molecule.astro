@@ -41,11 +41,15 @@ import {
   LIBELLE_LIEN,
   MENTION_DONNEE_MORTE,
 } from '../../lib/odyssee/bibliotheque-externe';
+/*
+   Le script client réimporte ce dont il a besoin ; le frontmatter ne garde que
+   ce que le GABARIT affiche. « direLaLimite » et « limitesDe » n'étaient lus
+   ni ici ni dans le gabarit — reliquats d'un correctif qui a déplacé leur
+   usage dans le script —, et « AUCUNE_LIMITE » les rejoint maintenant que le
+   paragraphe des limites part vide.
+*/
 import {
   AUCUNE_DOSE_HUMAINE,
-  AUCUNE_LIMITE,
-  direLaLimite,
-  limitesDe,
   BANDEAU_SANS_FICHE,
   LIBELLE_DOSES,
   NON_DOCUMENTE,
@@ -162,7 +166,21 @@ import {
       </summary>
 
       <h3 class="mt-3 etiquette text-slate-500 dark:text-slate-400">Limites à ne pas dépasser</h3>
-      <p id="limites" class="mt-1 text-sm text-slate-700 dark:text-slate-200">{AUCUNE_LIMITE}</p>
+      <!--
+        IL PART VIDE, ET C'EST UNE CORRECTION DE FOND.
+
+        Il portait « Aucune limite de sécurité établie par une autorité »
+        rendu côté serveur. Or la page est servie pour une molécule INCONNUE
+        — c'est l'adresse, lue par le client, qui dit laquelle. Elle affirmait
+        donc l'absence de limite avant d'avoir regardé, et cette affirmation
+        est FAUSSE pour la N-acétylcystéine, qui en a une.
+
+        Conséquence pour les essais, et elle vaut d'être dite : un contrôle
+        qui cherchait cette phrase passait au vert sans que le code client ait
+        tourné, puisqu'elle était déjà dans le HTML. Vide, le paragraphe ne
+        dit plus rien que le client n'ait écrit.
+      -->
+      <p id="limites" class="mt-1 text-sm text-slate-700 dark:text-slate-200"></p>
 
       <h3 class="mt-4 etiquette text-slate-500 dark:text-slate-400">Doses étudiées</h3>
       <p id="doses" class="mt-1 text-sm text-slate-700 dark:text-slate-200">{AUCUNE_DOSE_HUMAINE}</p>
@@ -181,19 +199,19 @@ import {
       <form id="form-ressenti" class="mt-3 grid gap-2 sm:grid-cols-2">
         <label class="text-sm">
           <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Jour du ressenti</span>
-          <input id="r-jour" type="date" class="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          <input id="r-jour" type="date" class="min-h-11 w-full rounded-lg border border-slate-400 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
         </label>
         <label class="text-sm">
           <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Ce que je ressens (facultatif)</span>
-          <input id="r-ressenti" type="text" class="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          <input id="r-ressenti" type="text" class="min-h-11 w-full rounded-lg border border-slate-400 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
         </label>
         <label class="text-sm">
           <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Effet que je tiens pour indésirable (facultatif)</span>
-          <input id="r-indesirable" type="text" class="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          <input id="r-indesirable" type="text" class="min-h-11 w-full rounded-lg border border-slate-400 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
         </label>
         <label class="text-sm">
           <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Tolérance, dans mes mots (facultatif)</span>
-          <input id="r-tolerance" type="text" class="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          <input id="r-tolerance" type="text" class="min-h-11 w-full rounded-lg border border-slate-400 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
         </label>
         <button
           id="r-noter"
@@ -243,7 +261,7 @@ import {
         <button
           id="copier-nom"
           type="button"
-          class="cible-tactile rounded-lg border border-slate-300 px-3 text-sm font-medium dark:border-slate-700"
+          class="cible-tactile rounded-lg border border-slate-400 px-3 text-sm font-medium dark:border-slate-600"
         >
           Copier le nom
         </button>

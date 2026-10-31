@@ -16,6 +16,8 @@
  *     protégerait une série que rien ne protège.
  */
 import {
+  matiereEstUneEpreuve,
+  matieresDEpreuve,
   ID_PARCOURS_PAR_DEFAUT,
   PARCOURS,
   parcours,
@@ -499,6 +501,82 @@ verifier(
   'une phrase antérieure vide ne compte pas davantage',
   lienCours({ lien_cours: '  ' }, ID_PARCOURS_PAR_DEFAUT),
   undefined,
+);
+
+/*
+   CE BLOC A DISPARU, ET C'EST VOULU.
+
+   Il gardait `ficheServieAuParcours`, que j'avais écrit pour que la séance
+   ne propose pas la fiche d'un autre parcours. `filtre-du-manifeste.ts` a
+   tranché autrement et mieux : le tri se fait sur le manifeste entier, dans
+   `chargerManifeste()`, totaux recalculés. Le prédicat local est retiré, et
+   ses assertions avec lui — `essais:filtre-parcours` garde la règle là où
+   elle vit maintenant, y compris le cas d'un manifeste ancien qui ne porte
+   pas les champs et dont les fiches sont GARDÉES.
+
+   Deux assertions pour la même règle à deux endroits, c'est la divergence
+   garantie le jour où l'une des deux change.
+*/
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LES MATIÈRES QUI SONT DES ÉPREUVES, ET NON DES CONNAISSANCES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   L'estimation de niveau est une notation de type Elo : elle suppose qu'une
+   réponse dise quelque chose de ce qu'on sait. L'entretien avec le jury de A+
+   n'a pas d'attendu à savoir — l'arrêté n'y attache aucun programme. Une note
+   qui monte et descend là-dessus n'est pas une absence de mesure, c'est une
+   mesure fausse qui a l'air d'une mesure.
+
+   Ce qui est gardé ici est la DISCRIMINATION, dans les deux sens : le thème
+   déclaré est reconnu, et aucun autre ne l'est. Un prédicat qui rendrait
+   toujours vrai écarterait tout le contenu du site de l'estimation, en
+   silence ; c'est le défaut le plus coûteux que ce champ puisse produire, et
+   la seconde moitié de ce bloc est là pour lui.
+*/
+console.log('\nLES MATIÈRES QUI SONT DES ÉPREUVES');
+
+verifier(
+  'l’entretien avec le jury de A+ est une épreuve',
+  matiereEstUneEpreuve('Entretien avec le jury'),
+  true,
+);
+verifier(
+  'et une capitale de travers n’y change rien',
+  matiereEstUneEpreuve('  entretien avec le JURY  '),
+  true,
+);
+
+/*
+   TOUTES les autres matières déclarées, et non un échantillon : c'est le seul
+   contrôle qui rougisse si quelqu'un marquait `epreuve: true` sur un thème de
+   connaissances — l'option métier de A+, par exemple, qui porte six matières
+   bien réelles.
+*/
+const matieresDeConnaissance = PARCOURS.flatMap((p) => p.themes)
+  .filter((t) => t.epreuve !== true)
+  .flatMap((t) => t.matieres);
+verifier(
+  'aucune matière d’un thème de connaissances n’est prise pour une épreuve',
+  matieresDeConnaissance.filter((m) => matiereEstUneEpreuve(m)),
+  [],
+);
+verifier(
+  'et il y a bien des matières de connaissances à distinguer',
+  matieresDeConnaissance.length > 20,
+  true,
+);
+
+/*
+   Le compte, pour que l'ajout d'un thème d'épreuve soit un geste conscient :
+   la liste des matières écartées de l'estimation n'est pas un détail, et elle
+   ne doit pas grossir par inadvertance.
+*/
+verifier(
+  'une seule matière est écartée de l’estimation à ce jour',
+  [...matieresDEpreuve()].sort(),
+  ['entretien avec le jury'],
 );
 
 console.log(

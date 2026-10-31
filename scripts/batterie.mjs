@@ -2,10 +2,24 @@
 /**
  * La batterie complète, ou le socle seul : les essais dans l'ordre, et un verdict.
  *
- *   npm run batterie   # les 235
- *   npm run socle      # les seize transversaux, onze minutes
+ *   npm run batterie   # tout ce qui commence par « essais » — 329 au 26 octobre
+ *   npm run socle      # les 40 transversaux, 18 minutes mesurées le 26 octobre
  *
- *   npm run batterie
+ * CES DEUX NOMBRES SE PÉRIMENT, ET ILS SE SONT PÉRIMÉS DEUX FOIS. Cette ligne
+ * annonçait « les 235 » et « les seize transversaux, onze minutes » alors que
+ * la batterie en découvrait 315 et que le socle en comptait 31 ; corrigée le
+ * 25 octobre à 316 et 32, elle était de nouveau fausse le 26 — 328 et 39 —
+ * parce que sept essais transversaux se sont ajoutés entre-temps. Un en-tête
+ * qui chiffre ce qu'il ne compte pas mentira donc encore : le vrai compte est
+ * imprimé par la commande elle-même au début de chaque passage, c'est lui qui
+ * fait foi, et c'est là qu'il faut le lire. Les chiffres ci-dessus portent
+ * leur date pour qu'on sache ce qu'ils valent.
+ *
+ * La durée, elle, est de nouveau écrite — mais MESURÉE, et datée : dix-huit
+ * minutes le 26 octobre, pour trente-neuf essais, dont quatre de navigateur
+ * qui prennent à eux seuls dix minutes. « Onze minutes » avait traîné depuis
+ * l'époque des seize essais, et mieux vaut pas de chiffre qu'un chiffre faux :
+ * si celui-ci perd sa date, qu'on l'efface plutôt que de le croire.
  *
  * ## Pourquoi cette commande existe
  *
@@ -45,6 +59,11 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
+import {
+  CODE_NON_MESURABLE,
+  estNonMesurable,
+  raisonNonMesurable,
+} from './lib/non-mesurable.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const ADRESSE = process.env.RACINE ?? 'http://localhost:4321';
@@ -71,7 +90,28 @@ const SOCLE = [
   ['essais:structure', 'un titre de niveau 1 par écran, un titre d’onglet unique'],
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
-  ['essais:typographie', 'apostrophes, espaces insécables, accords sans « (s) »'],
+  /*
+     LA DESCRIPTION DISAIT TROIS CHOSES, L'ESSAI N'EN MESURE QU'UNE.
+
+     Elle annonçait « apostrophes, espaces insécables, accords sans "(s)" ».
+     L'essai éprouve la seule fonction « insecables », sur onze cas, et ne
+     regarde aucune page : ni les apostrophes, ni les accords. Le balayage des
+     accords n'existe pas — c'est ainsi que quatre phrases de
+     « progression.astro » ont porté des « (s) » sous un socle vert.
+
+     Une description qui promet un contrôle absent est pire qu'une ligne
+     manquante : on relit le socle pour savoir ce qui est gardé.
+  */
+  ['essais:typographie', 'la fonction « insecables » : ce qu’elle pose, et ce qu’elle laisse tranquille — URL, anglais, code cité'],
+  /*
+     0.1 DU 43 — le seul essai qui garde la copie de secours des paramètres
+     publics, et le seul qui passe par `deverrouiller` sans réseau.
+     `essais:hors-ligne-usage`, son voisin, déverrouille EN LIGNE puis coupe :
+     il garde l'autre chemin, celui d'`obtenirCle`. Le défaut que celui-ci a
+     trouvé laissait le bouton du verrou mort pour toujours, sans message —
+     c'est-à-dire un site inutilisable hors ligne et sans recours.
+  */
+  ['essais:hors-ligne-a-froid', 'déverrouiller en mode avion, sans session, puis lire une donnée'],
   /*
      Deux garanties que n'importe quelle retouche du rendu Markdown peut
      défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses
@@ -103,6 +143,27 @@ const SOCLE = [
   */
   ['essais:pictogrammes', 'aucun émoji dans « src/ », et les marques passent'],
   /*
+     Le palier de migration endormi. Une branche a posé un magasin au palier
+     39 quand la version valait 42 : le numéro était libre, et pourtant
+     inatteignable — « vers(n) » exige « ancienneVersion < n », et une base
+     déjà à 42 ne rejoue rien. Le magasin aurait existé chez les nouveaux
+     venus et JAMAIS chez les anciens, sans un mot. Et aucun essai n'aurait
+     rougi : tous partent d'un profil neuf, qui va de zéro à la version
+     courante et rejoue donc tout. La seule base qui révèle le défaut est une
+     base ancienne, et aucun essai n'en a.
+  */
+  ['essais:migrations', 'aucun palier de migration ne dort sous la version publiée'],
+  /*
+     Le palier B-2. La clé du coffre est propre à l’appareil — le sel est tiré
+     au sort à la première pose —, donc une entrée scellée partie d’ici est
+     illisible en face. Dix-sept magasins étaient à la fois scellés et
+     journalisés : leurs opérations partaient et arrivaient illisibles, rendant
+     du même coup illisibles les données LOCALES de celui qui reçoit. Le refus
+     est posé au seul point d’étranglement, et cette garde tient qu’il y reste
+     tant que la clé n’est pas partagée.
+  */
+  ['essais:palier-scelles', 'aucun magasin scellé ne part tant que la clé n’est pas partagée'],
+  /*
      La table « Peser chaque rubrique » affichait soixante-quinze noms
      techniques, dans un écran dont le but est de décider quoi garder. Les
      étiquettes françaises se défont de trois façons : un magasin ajouté sans
@@ -121,10 +182,45 @@ const SOCLE = [
   ['essais:contraste-impose', 'le contraste renforcé relève bien les teintes faibles'],
   ['essais:accessibilite:navigateur', 'rôles, noms accessibles, ordre de tabulation'],
   ['essais:mobile:navigateur', '360 px : aucun débordement, cibles atteignables'],
+  /*
+     L'AUTRE CÔTÉ DE LA MÉDAILLE, et il manquait.
+
+     L'essai ci-dessus déclare « hasTouch » : sans cela, « pointer: coarse »
+     est faux et les planchers du site ne s'appliquent pas. C'est juste, et
+     c'est la moitié du sujet — il ne mesure donc QUE le pointeur grossier.
+     Celui-ci mesure à la souris, où WCAG 2.5.8 demande toujours 24 px, et où
+     64 cibles passaient dessous sur un seul écran. Le laisser hors du socle
+     répéterait l'omission qu'il corrige.
+  */
+  ['essais:cibles-souris:navigateur', 'à la souris, aucune cible sous 24 px'],
   ['essais:mouvement-reduit', 'le réglage d’animations existe, et il est respecté'],
+  /*
+     LE DÉFILEMENT ET LES GRAPHIQUES, au socle depuis le 26 octobre.
+
+     Les deux existaient et ne tournaient qu'à la batterie complète. Ils y
+     entrent parce qu'ils gardent chacun une règle qu'une retouche défait sans
+     bruit, et qu'ils ne coûtent rien : pas de navigateur, deux secondes.
+
+     - `essais:defilement` tient l'invariant qu'AUCUN écran ne contourne le
+       module : c'est la forme qu'on recopie en ajoutant un écran, et le
+       relevé balaie les `.astro`, les `.ts` ET les `.svelte` — l'extension
+       qui avait piégé le lot des voiles de dialogue.
+     - `essais:graphiques` mesure les teintes des deux histogrammes sur leur
+       fond, et vérifie que l'écran emploie BIEN celles qu'il mesure : une
+       mesure sur une table que le code n'utilise plus ne mesure rien.
+
+     Éprouvés avant de les inscrire, et pas seulement lus : cinq sabotages,
+     cinq rouges nommés — un septième défilement « smooth » hors du module,
+     la règle amputée du réglage de l'application, le trait d'objectif cessant
+     d'être pointillé, une tranche changeant de teinte sans que la table
+     bouge, et la ligne d'objectif poussée sous 3:1.
+  */
+  ['essais:defilement', 'aucun écran ne contourne le module de défilement'],
+  ['essais:graphiques', 'les deux histogrammes : ligne tracée, tableau, 3:1'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
   ['essais:themes-a-jour', 'le catalogue et les feuilles engendrées concordent'],
   ['essais:contrastes-themes', 'WCAG AA dans chaque thème'],
+  ['essais:bulles:navigateur', 'les bulles : leurs classes existent, et elles se voient'],
   ['essais:couleurs-jetons', 'aucune couleur littérale hors des jetons'],
   ['essais:theme-menus', 'aucun menu hors palette, et refus de juger à vide'],
   ['essais:coffre-ferme', 'coffre fermé, rien de sensible n’apparaît'],
@@ -195,6 +291,39 @@ const SOCLE = [
      du site. Celui-ci coûte une seconde et ne demande pas d'aperçu.
   */
   ['essais:chemin-du-navigateur', 'le navigateur se trouve, et son absence refuse au lieu de se taire'],
+  /*
+     M5c entre au socle parce qu'il a trouvé un VRAI défaut du site le 25
+     octobre — la position de défilement était lue à `pagehide`, après que
+     le navigateur l'avait rabattue — et parce que sa tolérance de 80 px
+     avait caché cinq pertes sur six listes. Un essai qui attrape cela n'a
+     rien à faire hors du socle, d'autant que `lib/defilement.ts` est
+     chargé par la mise en page de TOUTES les pages.
+  */
+  ['essais:defilement-rendu', 'la position de défilement est rendue, exactement, sur chaque liste'],
+  /*
+     L'aller-retour de la banque QCM vers sa source YAML, demandé au socle
+     par le pilote avec la branche qui le livre. Il garde la seule chose
+     qu'on ne peut pas reconstituer : 540 questions dont 387 viennent
+     d'annales réelles. Un aller-retour qui perdrait un champ en silence ne
+     se verrait qu'à la publication suivante.
+  */
+  ['essais:qcm-source', 'la banque QCM revient à sa source YAML sans perdre un champ'],
+  /*
+     Demandé au socle par le pilote, avec la raison : le module des saisies
+     n'était couvert par aucun essai du socle, et c'est ce qui a permis de
+     pousser une branche rouge. « essais:lu-par » nomme les sept champs que
+     l'aiguillage des saisies dessert ; « saisies.ts » fait maintenant 602
+     lignes et deux écrans en dépendent.
+  */
+  ['essais:lu-par', 'l’aiguillage des saisies dessert bien les sept champs qu’il nomme'],
+  /*
+     Le quinzième écran. Deux agents ont posé le même filtre à deux endroits
+     opposés le même jour ; le placement de B l'a emporté, et l'argument de C
+     reste vrai de l'autre côté — un écran qui RACONTE et qui prendrait le
+     manifeste filtré mentirait sans rien casser. Cette garde classe chaque
+     appelant et refuse celui qu'on ajouterait sans le classer.
+  */
+  ['essais:manifeste-filtre', 'qui voit le corpus entier, et qui ne voit que son parcours'],
 ];
 
 /**
@@ -298,7 +427,7 @@ if (!sert) {
 /* ── Le laboratoire ────────────────────────────────────────────────────── */
 
 /*
-   CINQ ESSAIS NE PEUVENT PAS TOURNER DANS L'ARBRE DE TRAVAIL, ET C'EST VOULU.
+   HUIT ESSAIS NE PEUVENT PAS TOURNER DANS L'ARBRE DE TRAVAIL, ET C'EST VOULU.
 
    Ils bâtissent eux-mêmes un « content/ » depuis « content-exemple/ », avec un
    mot de passe factice, servent sur le port 4322, puis effacent tout. Ils
@@ -306,6 +435,10 @@ if (!sert) {
    existent déjà — c'est-à-dire toujours, dans le répertoire où le travail se
    fait. La batterie les comptait rouges, et la règle « aucun rouge avant de
    fusionner » devenait inapplicable.
+
+   Le compte, lui, se lit dans le `Set` et non dans cette phrase : il disait
+   « cinq » pour sept, le temps que deux essais s'ajoutent sans que personne
+   recompte. Il est tenu à jour, et c'est tout ce qu'on peut en promettre.
 
    Les déplacer eux n'était pas la réponse : déplacer le « content/ » réel pour
    leur faire de la place, non plus, puisqu'ils le suppriment en fin de course
@@ -336,7 +469,7 @@ const EN_LABORATOIRE = new Set([
      questions existe, et aucune n'est servie dans le conteneur de travail :
      « Commencer » y est désactivé, donc aucune épreuve ne peut être
      commencée ni gardée. Celui-ci se bâtit une banque synthétique de quatre
-     questions, et tombe donc sous la même garde que les cinq autres.
+     questions, et tombe donc sous la même garde que les autres.
   */
   'essais:epreuve-gardee:navigateur',
   /*
@@ -346,6 +479,14 @@ const EN_LABORATOIRE = new Set([
      laboratoire et se tairait sur sa garde.
   */
   'essais:recuperation-corpus',
+  /*
+     Les trois parcours DGFiP n'ont AUCUN contenu, et n'en auront pas avant des
+     mois : mesurer une séance qui propose vraiment quelque chose demande donc
+     de planter des fiches sous `dgfip-b/`, `dgfip-a/`, `dgfip-ap/` et
+     `commun/`. Il les plante, construit, puis efface — même garde que les
+     autres, pour la même raison.
+  */
+  'essais:parcours-planifiables:navigateur',
   /*
      La correction détaillée à l'écran se vérifie sur un décor dont on connaît
      le contenu : quatre questions corrigées de la même façon, et une question
@@ -487,7 +628,18 @@ for (const nom of noms) {
   const texte = lireFichier(fichier, 'utf8');
   const croix = lignesDEchec(texte).length > 0;
   const panne = PANNE.test(texte);
-  verdicts[nom] = { code: null, croix: croix || panne, repris: true };
+  verdicts[nom] = {
+    code: null,
+    croix: croix || panne,
+    /*
+       Le code de sortie est perdu, mais la LIGNE DE MARQUE est dans le journal :
+       un refus se reconnaît donc même ici, et il ne redevient pas un rouge
+       muet du seul fait qu'on relit un journal.
+    */
+    marque: estNonMesurable(texte),
+    raison: raisonNonMesurable(texte),
+    repris: true,
+  };
   reprisSansCode.push(nom);
 }
 
@@ -510,6 +662,21 @@ if (dejaJuges > 0) {
 console.log('');
 
 const rouges = [];
+/*
+   LE TROISIÈME SEAU, et pourquoi il n'est ni l'un ni l'autre.
+
+   Deux essais du dépôt ne peuvent rien dire sans le corpus réel — plus de cent
+   fiches au manifeste pour l'un, la matière « Économie » pour l'autre. Dans un
+   conteneur qui ne sert que le contenu d'exemple, ils rendaient un rouge
+   indistinguable d'un défaut du site.
+
+   Les compter verts aurait acheté un nombre flatteur contre une garantie
+   perdue : un essai vert AFFIRME quelque chose, et celui-là n'affirme rien.
+   Ils se comptent donc à part, et le verdict porte les trois nombres. Voir
+   « scripts/lib/non-mesurable.mjs », qui tient le code de sortie des deux
+   côtés pour qu'il ne puisse pas diverger.
+*/
+const nonMesurables = [];
 let verts = 0;
 const debut = Date.now();
 
@@ -519,7 +686,10 @@ for (const [index, nom] of noms.entries()) {
   /* Déjà jugé : on reprend le verdict, on ne relance pas. */
   const connu = verdicts[nom];
   if (connu) {
-    if (connu.croix || (connu.code !== null && connu.code !== 0)) {
+    if (!connu.croix && connu.marque && (connu.code === CODE_NON_MESURABLE || connu.code === null)) {
+      nonMesurables.push({ nom, raison: connu.raison ?? '' });
+      console.log(`  \x1b[33m⚠\x1b[0m ${compteur} ${nom} (non mesurable, repris)`);
+    } else if (connu.croix || (connu.code !== null && connu.code !== 0)) {
       rouges.push(nom);
       console.log(`  \x1b[31m✗\x1b[0m ${compteur} ${nom} (repris du journal)`);
     } else {
@@ -575,7 +745,12 @@ for (const [index, nom] of noms.entries()) {
     if (erreur.signal) sortie += `\n[batterie] interrompu après ${DELAI_MS} ms (${erreur.signal})`;
   }
   writeFileSync(join(journal, `${nom.replace(/[:/]/g, '-')}.log`), sortie);
-  verdicts[nom] = { code, croix: lignesDEchec(sortie).length > 0 };
+  verdicts[nom] = {
+    code,
+    croix: lignesDEchec(sortie).length > 0,
+    marque: estNonMesurable(sortie),
+    raison: raisonNonMesurable(sortie),
+  };
   writeFileSync(cheminDesVerdicts, JSON.stringify(verdicts, null, 1));
 
   /*
@@ -590,7 +765,22 @@ for (const [index, nom] of noms.entries()) {
   */
   const croix = lignesDEchec(sortie).length > 0;
   const secondes = ((Date.now() - depart) / 1000).toFixed(0);
-  if (code === 0 && !croix) {
+  /*
+     TROIS CONDITIONS, ET LA MARQUE EN EST UNE.
+
+     Un code 3 SANS la ligne de marque compte rouge : sans cette exigence, un
+     essai qui rendrait 3 par accident — un `process.exit` mal choisi, un outil
+     tiers — disparaîtrait du compte en silence, et c'est exactement ce que
+     cette convention existe pour empêcher.
+
+     Et la croix l'emporte toujours : un essai qui renonce ET affiche une croix
+     a mesuré quelque chose qui cloche avant de renoncer.
+  */
+  if (code === CODE_NON_MESURABLE && !croix && estNonMesurable(sortie)) {
+    nonMesurables.push({ nom, raison: raisonNonMesurable(sortie) });
+    console.log(`  \x1b[33m⚠\x1b[0m ${compteur} ${nom} (non mesurable, ${secondes} s)`);
+    console.log(`        ${raisonNonMesurable(sortie).slice(0, 150)}`);
+  } else if (code === 0 && !croix) {
     verts += 1;
     console.log(`  \x1b[32m✓\x1b[0m ${compteur} ${nom} (${secondes} s)`);
   } else {
@@ -605,8 +795,26 @@ for (const [index, nom] of noms.entries()) {
 const minutes = ((Date.now() - debut) / 60_000).toFixed(0);
 console.log(
   `\n${SOCLE_SEUL ? 'socle' : 'batterie complète'} : ${verts} verts ; ` +
-    `${rouges.length} rouges (${minutes} min)`,
+    `${rouges.length} rouges` +
+    (nonMesurables.length ? ` ; ${nonMesurables.length} non mesurables` : '') +
+    ` (${minutes} min)`,
 );
+if (nonMesurables.length > 0) {
+  console.log(
+    `non mesurables : ${nonMesurables.map(({ nom }) => nom).join(' ')}`,
+  );
+  /*
+     Avec leur RAISON, et non seulement leur nom : un nom oblige à ouvrir un
+     journal, une raison se lit sur place et dit s'il y a quelque chose à faire.
+  */
+  for (const { nom, raison } of nonMesurables) {
+    console.log(`  ${nom} — ${raison || 'raison non annoncée'}`);
+  }
+  console.log(
+    'Ceux-là n’ont RIEN mesuré : ils ne sont ni verts ni rouges, et le compte des\n' +
+      'verts ne les porte pas.',
+  );
+}
 if (rouges.length > 0) {
   console.log(`rouges : ${rouges.join(' ')}`);
   console.log(

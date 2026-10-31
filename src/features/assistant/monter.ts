@@ -64,8 +64,8 @@ export function boutonAssistant(
   const bouton = document.createElement('button');
   bouton.type = 'button';
   bouton.className =
-    'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ' +
-    'transition hover:border-indigo-400 hover:text-indigo-700 dark:border-slate-700 ' +
+    'rounded-lg border border-slate-400 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ' +
+    'transition hover:border-indigo-400 hover:text-indigo-700 dark:border-slate-600 ' +
     'dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-600 dark:hover:text-indigo-300';
   bouton.textContent = libelle;
   bouton.addEventListener('click', () => ouvrirAssistant(options));

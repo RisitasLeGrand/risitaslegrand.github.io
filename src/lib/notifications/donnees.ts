@@ -43,6 +43,7 @@ import { ouvrir, sceller } from '../noyau/coffre';
 import { suitLaSensibiliteDuCycle } from './filtre-cycle';
 import { emettre } from './emission';
 import { jourLogique } from '../noyau/jour-logique';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 import {
   RETENTION_PAR_DEFAUT,
   compteDansLaPastille,
@@ -100,7 +101,7 @@ export const pastille = async (): Promise<number> => (await comptesDuCentre()).a
 export async function elementsDuCentre(): Promise<ElementDuCentre[]> {
   const cle = exigerLeCoffre();
   const rangees = (await (await db()).getAll(MAGASIN)) as unknown as Record<string, unknown>[];
-  return Promise.all(rangees.map((r) => ouvrir<ElementDuCentre>(cle, r)));
+  return lireCeQuiSOuvre(rangees, (r) => ouvrir<ElementDuCentre>(cle, r));
 }
 
 /**

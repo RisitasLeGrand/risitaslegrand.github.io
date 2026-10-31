@@ -110,6 +110,21 @@ const schema = z
           libelle: texteCourt,
           niveau: z.number().int().min(0),
           marqueur: marqueur.optional(),
+          /*
+             LE SQUELETTE D'UN ORGANIGRAMME, DÉCLARÉ NŒUD PAR NŒUD.
+
+             Un organigramme d'administration a deux lectures utiles : le
+             squelette — ce que toutes les directions partagent — et le détail.
+             Les écrire en DEUX visuels les aurait laissés dériver, et personne
+             n'aurait vu le jour où ils cessent de dire la même chose. Un nœud
+             marqué appartient donc au squelette, et le rendu tire les deux
+             dessins d'une seule déclaration.
+
+             Les liens n'ont pas ce champ : un lien ne survit au squelette que
+             si ses DEUX bouts y sont, sans quoi le dessin porterait un trait
+             vers une boîte absente.
+          */
+          essentiel: z.boolean().optional(),
         }),
       )
       .min(2, 'un schéma a besoin d’au moins deux nœuds'),

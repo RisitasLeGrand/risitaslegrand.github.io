@@ -27,7 +27,7 @@ import { chromium } from 'playwright-core';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
-import { repondreALaBoite, repondreAuChamp } from './lib/boite-essais.mjs';
+import { BOITE, attendreLaBoite, repondreALaBoite, repondreAuChamp } from './lib/boite-essais.mjs';
 import { BRANCHES } from '../src/lib/branches.ts';
 
 const MDP = motDePasseEssais();
@@ -319,6 +319,165 @@ console.log('\nUN CHAMP DE BRANCHE SE RENSEIGNE DEPUIS LE PROFIL (B5)');
     'et le repli compte les réponses données',
     (await page.textContent('[data-compte="revisions"]')).trim(),
     '1 réponse',
+  );
+}
+
+console.log('\nC2 — UNE RÉPARTITION SE CORRIGE SANS ÉCRIRE DE JSON');
+
+{
+  /*
+     CE QUE CE CONTRÔLE EMPÊCHE DE REVENIR.
+
+     « Mon profil » n'avait qu'un champ texte pour toutes les natures : pour
+     donner ses dates d'épreuves, il fallait taper « {"insp": "2027-03-15"} »
+     à la main, et l'aide affichée parlait de domaines — « Forme attendue :
+     {"cognition": 10} » — jusque devant ce champ-là, où elle était fausse.
+
+     Le contrôle ne vérifie donc pas qu'un calendrier existe : il vérifie
+     qu'AUCUN champ de texte libre ne reste dans la boîte. C'est ce qui rend
+     l'absence de JSON vraie plutôt que déclarée — une aide retirée sans que
+     le champ change aurait laissé le piège intact, en le taisant.
+  */
+  const carte = page.locator('[data-carte="datesEpreuves"]');
+  vrai('la carte des dates d’épreuves est dans le bloc Révisions', await carte.isVisible());
+  await carte.locator('button', { hasText: 'Renseigner' }).first().click();
+  await attendreLaBoite(page);
+
+  const dansLaBoite = (sel) => page.locator(`${BOITE}[open] ${sel}`);
+  const calendriers = await dansLaBoite('input[type="date"]').count();
+  vrai('la boîte offre un calendrier par parcours', calendriers >= 2);
+  v('et aucun champ de texte libre', await dansLaBoite('input[type="text"]').count(), 0);
+  v('ni de zone de texte', await dansLaBoite('textarea').count(), 0);
+
+  const texteBoite = (await page.locator(`${BOITE}[open]`).textContent()).replace(/\s+/g, ' ');
+  vrai('rien ne parle de « forme attendue »', !/forme attendue/i.test(texteBoite));
+  vrai('ni d’accolade à recopier', !texteBoite.includes('{'));
+
+  /* Et elle écrit vraiment : une saisie qui n'enregistre pas ne vaut pas
+     mieux qu'un champ JSON. */
+  await dansLaBoite('input[type="date"]').first().fill('2027-03-15');
+  await repondreALaBoite(page, 'Enregistrer');
+  await page.waitForFunction(
+    () => document.querySelector('[data-valeur="datesEpreuves"]')?.textContent?.includes('2027'),
+    undefined,
+    { timeout: 15000 },
+  );
+  vrai(
+    'la date choisie est enregistrée',
+    (await page.textContent('[data-valeur="datesEpreuves"]')).includes('2027'),
+  );
+}
+
+console.log('\nF6 — TROIS SORTIES, DU MÊME POIDS QUE LA RÉPONSE');
+
+{
+  /*
+     L'ÉGALITÉ SE MESURE SUR UNE SEULE CLASSE, PAS SUR DES PROPRIÉTÉS.
+
+     Comparer fond, bordure et graisse une à une laisse passer tout ce qu'on
+     n'a pas pensé à comparer. Une seule mise en forme partagée rend l'égalité
+     VRAIE plutôt que déclarée — c'est la leçon du même contrôle sur l'accueil,
+     où un soulignement au survol avait rendu deux boutons « égaux » au repos
+     sans qu'ils le soient.
+
+     Et « Annuler » n'entre pas dans le compte : il n'est pas une façon de ne
+     pas répondre, il abandonne la boîte. La boîte le veut à gauche et sous le
+     focus, et ces règles-là protègent autre chose.
+  */
+  const carte = page.locator('[data-carte="naissanceMois"]');
+  await carte.locator('button', { hasText: 'Renseigner' }).first().click();
+  await attendreLaBoite(page);
+
+  const sorties = page.locator(`${BOITE}[open] [data-sortie]`);
+  v('les trois sorties sont offertes', await sorties.count(), 3);
+  v(
+    'et dans cet ordre',
+    await sorties.evaluateAll((els) => els.map((e) => e.dataset.sortie)),
+    ['inconnu', 'sans-reponse', 'plus-tard'],
+  );
+
+  /*
+     LE PLANCHER TACTILE NE SE MESURE PAS ICI, ET LE DÉPÔT L'AVAIT DÉJÀ APPRIS.
+
+     J'avais ajouté « les quatre tiennent 44 px ». C'était rouge, et à tort :
+     le plancher vit sous « @media (pointer: coarse) », et le mesurer à la
+     souris fait rougir un bouton conforme — la même erreur est consignée au
+     compte rendu du lot D. « essais:mobile:navigateur », dans le socle, est
+     l'essai qui le mesure comme il faut.
+
+     Ce qui se mesure ici est la seule chose dont F6 répond : une classe
+     partagée. Quatre boutons qui portent la même rendent l'égalité VRAIE
+     plutôt que déclarée, et aucun écart de propriété ne peut s'y glisser.
+  */
+  const classes = await page.evaluate((sel) => {
+    const boite = document.querySelector(sel);
+    const action = boite.querySelector('button[value="oui"]');
+    const sorties = [...boite.querySelectorAll('[data-sortie]')];
+    return [action, ...sorties].map((b) => b.className);
+  }, `${BOITE}[open]`);
+  v('la réponse et les trois sorties sont bien quatre', classes.length, 4);
+  v(
+    'et elles partagent une seule mise en forme',
+    new Set(classes).size,
+    1,
+  );
+
+  /* RIEN N'EST PRÉCOCHÉ : aucun bouton n'est marqué comme retenu. */
+  v(
+    'aucune sortie n’est présélectionnée',
+    await page.locator(`${BOITE}[open] [data-sortie][aria-pressed="true"]`).count(),
+    0,
+  );
+
+  /*
+     « PLUS TARD » D'ABORD, LE REFUS ENSUITE, SUR LE MÊME CHAMP.
+
+     Les deux sorties se mesurent à la suite parce que leur DIFFÉRENCE est ce
+     qui compte : un report laisse le champ vide et ramène la question ; un
+     refus écrit une valeur et la ferme. Les éprouver sur deux champs
+     différents aurait demandé d'en deviner un second qui offre encore
+     « Renseigner », et ce pari a déjà échoué une fois ici.
+  */
+  await page.locator(`${BOITE}[open] [data-sortie="plus-tard"]`).click();
+  await page.waitForFunction(
+    () => document.querySelector('[data-reporte="naissanceMois"]') !== null,
+    undefined,
+    { timeout: 15000 },
+  );
+  v(
+    'reporté, le champ reste vide',
+    (await page.textContent('[data-valeur="naissanceMois"]')).trim(),
+    '—',
+  );
+  const dit = (await page.textContent('[data-reporte="naissanceMois"]')).replace(/\s+/g, ' ');
+  vrai('et la carte dit qu’il est reporté', dit.includes('Reporté'));
+  vrai('en disant quand la question revient', /revient le \d/.test(dit));
+
+  /* UN REFUS, LUI, ÉCRIT UNE VALEUR, ET LA CARTE LA DIT EN MOTS. */
+  await page.locator('[data-carte="naissanceMois"] button', { hasText: 'Renseigner' })
+    .first()
+    .click();
+  await attendreLaBoite(page);
+  await page.locator(`${BOITE}[open] [data-sortie="sans-reponse"]`).click();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-valeur="naissanceMois"]')
+        ?.textContent?.includes('préférez'),
+    undefined,
+    { timeout: 15000 },
+  );
+  v(
+    'un refus se dit en mots sur la carte',
+    (await page.textContent('[data-valeur="naissanceMois"]')).trim(),
+    'vous préférez ne pas répondre',
+  );
+  /* Et la mention du report s'efface, puisque le champ porte une valeur : les
+     deux états ne se superposent pas. */
+  v(
+    'et la mention du report s’efface',
+    await page.locator('[data-reporte="naissanceMois"]').count(),
+    0,
   );
 }
 
