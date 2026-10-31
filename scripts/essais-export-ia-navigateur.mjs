@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreLeCompte } from './lib/post-condition.mjs';
 import { repondreALaBoite } from './lib/boite-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -181,7 +182,21 @@ await page.waitForSelector('#categories input[type="checkbox"]', { timeout: 4000
      constate donc son absence, puis l'effet.
   */
   await page.click('#categories input[data-categorie="profil"]');
-  await page.waitForTimeout(400);
+  /*
+     LE COMPLÉMENT POSITIF ÉTAIT DÉJÀ DANS LE CONSTAT SUIVANT. Le commentaire
+     ci-dessus a raison sur le fond — attendre une boîte qui ne vient pas
+     coûterait la borne entière — mais sa conclusion était trop courte : ce
+     qu'on peut attendre, c'est l'EFFET du clic, que l'assertion d'après lit
+     déjà. La case cochée dit que le geste est passé ; l'absence de boîte se
+     constate alors sans parier sur quatre cents millisecondes.
+  */
+  await page
+    .waitForFunction(
+      (sel) => document.querySelector(sel)?.checked === true,
+      '#categories input[data-categorie="profil"]',
+      { timeout: 20000 },
+    )
+    .catch(() => {});
   faux(
     'une catégorie non sensible n’ouvre aucune boîte',
     await page.locator('dialog.boite[open]').isVisible().catch(() => false),
@@ -332,8 +347,20 @@ console.log('\nLA VARIANTE FICHIER UNIQUE');
 {
   const captures = [];
   page.on('download', (d) => captures.push(d.suggestedFilename()));
+  /* Le téléchargement est un ÉVÉNEMENT : on l'arme AVANT le clic, parce
+     qu'armé après il manquerait un fichier déjà arrivé. */
+  const arrive = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
   await page.click('#telecharger-unique');
-  await page.waitForTimeout(800);
+  await arrive;
+  /*
+     DEUX FAITS, DEUX POST-CONDITIONS, et j'ai d'abord oublié le second : les
+     800 ms couvraient le téléchargement ET l'inscription au journal, qui
+     s'écrit dans la page après coup. N'attendre que l'événement laissait le
+     journal à une entrée au lieu de deux — un rouge que l'assertion a dit
+     tout de suite, et qui est exactement le défaut que ce chantier traque :
+     une attente unique devant deux arrivées indépendantes.
+  */
+  await attendreLeCompte(page, '#journal > div', 2);
   v('un seul fichier est téléchargé', captures.length, 1);
   v('et il porte le nom attendu', captures[0], 'export-cyclades.md');
   const entrees = await page.$$eval('#journal > div', (els) => els.length);
