@@ -239,6 +239,35 @@ const SOCLE = [
      le faire rougir.
   */
   ['essais:pcct', 'le moteur de PCCT : tirage, calcul, rythme, mémoire prospective'],
+  /*
+     L'ÉCRAN DE PCCT, au socle avec son moteur (prompt 64, L2).
+
+     Il coûte un navigateur, et c'est assumé : 31 secondes mesurées, pour 46
+     contrôles — dont trois qui ne se mesurent QUE là, et qu'une retouche de
+     mise en page défait sans bruit. Les cibles de ses vingt-cinq touches sous
+     pointeur grossier ; l'animation du nombre, éteinte par les DEUX réglages de
+     mouvement réduit, celui du système et celui de l'application ; et les deux
+     régions `aria-live`, qui doivent rester deux — les deux tâches rendent un
+     verdict en même temps, et une région unique verrait le second effacer le
+     premier.
+
+     Ce qui relève du moteur n'y est pas repris : le rythme, l'attribution d'une
+     frappe, les réponses possibles du pavé et leur remélange s'éprouvent en
+     millisecondes dans `essais:pcct`, et les mesurer deux fois coûterait une
+     bâtisse pour la même certitude.
+
+     Éprouvé par neuf sabotages avant d'y entrer. Cinq ont mordu du premier
+     coup. Quatre ont d'abord rendu ZÉRO rouge, ou un rouge sans message, et
+     c'est ce qu'ils ont appris qui a corrigé le banc : un témoin de mouvement
+     réduit qui mesurait un élément injecté, donc hors du style porté du
+     composant ; une garde de 44 px que la feuille du socle rendait invraie,
+     la hauteur venant de `global.css` pour tout `button` sous « coarse » ; une
+     attente de disparition non rattrapée, qui tuait l'essai au lieu de rougir ;
+     et une garde d'horloge qui ne couvrait pas ce que j'avais écrit. Un vert ne
+     prouve rien tant qu'un sabotage ne sait pas le faire rougir, et un rouge ne
+     vaut que s'il se nomme.
+  */
+  ['essais:pcct:navigateur', 'l’écran de PCCT : pavé au doigt, régions vocales, mouvement réduit'],
   ['essais:defilement', 'aucun écran ne contourne le module de défilement'],
   ['essais:graphiques', 'les deux histogrammes : ligne tracée, tableau, 3:1'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
