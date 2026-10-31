@@ -727,6 +727,63 @@ lui aussi, et il **désignait donc l'exclusion là où le défaut était dans le
 dépôt**. Un garde-fou qui rougit pour la mauvaise cause coûte le temps qu'il
 prétend économiser ; il ne parle plus que de son propre fichier.
 
+## 6. Deux leçons du lot « boîte » et « mobile »
+
+### Une attente peut garder une COURSE, et non une lecture
+
+Le relevé ne retient que les temporisations suivies d'une **lecture**, et
+j'ai cru pouvoir en retirer une au motif que ce qui la suivait était un
+`goto`. C'est faux, et un passage à vitesse normale l'a dit en une ligne :
+`net::ERR_ABORTED`.
+
+Fermer la feuille de confirmation passe par `calqueFerme`, qui appelle
+`history.back()` pour ranger l'entrée empilée à l'ouverture (M5). C'est une
+**navigation asynchrone**. Un `goto` lancé aussitôt la concurrence, et l'un
+des deux est abandonné.
+
+Attendre le détachement du dialogue n'aurait pas suffi non plus :
+`calqueFerme` est appelé **avant** `boite.remove()`, donc le détachement
+précède le rangement. C'est le troisième piège — attendre une chose et en
+lire une autre — avec une navigation à la place de la lecture.
+
+La post-condition exacte est la marque rangée : `calques.ts` pose
+`cycladesCalque` dans `history.state`, et le retour la retire.
+
+**À retenir pour les lots suivants.** Avant de retirer une temporisation
+qu'aucune lecture ne suit, se demander ce qui la suit *vraiment* : une
+navigation, une fermeture d'onglet, un `goBack`, l'ouverture d'un autre
+écran. Le critère « suivie d'une lecture » sert à TROUVER les sites, pas à
+décider qu'un site est inoffensif.
+
+### Le bridage cache les courses ; seule la vitesse pleine les montre
+
+Le même défaut est passé **vert à ×6 et à ×12**, et rouge à ×1. Bridé, le
+`goto` partait après la fin de la navigation d'historique ; à vitesse pleine
+il la perd.
+
+Un lot se mesure donc dans les deux sens, et c'est contre-intuitif : **bridé**
+pour les attentes trop courtes, et **plusieurs fois à vitesse pleine** pour
+les courses que la lenteur sérialise. Trois passages à ×1 ont suffi ici ; un
+seul, par chance, aurait validé le défaut.
+
+### Une marque qui manque au site, et qui rendrait exactes quinze attentes
+
+Quatre passages de `essais-mobile-navigateur.mjs` portaient le même couple :
+900 ms après le clic sur le verrou, puis 300 ou 400 ms de plus. Le premier a
+une marque exacte — `signalerDeverrouillage` écrit `data-verrou="ouvert"` sur
+`<html>`, et c'est ce que les écrans guettent pour charger leur contenu
+déchiffré.
+
+Le second n'en a aucune. « Le contenu déchiffré de cet écran est peint » n'est
+signalé par personne : chaque écran peint dans son propre rappel de
+`auDeverrouillage`, et aucun ne le dit. Faute de marque, on sonde la stabilité
+de ce que la mesure lit — attente bornée par relecture, non durée pariée.
+
+**Ce serait exact si chaque écran posait un compteur à la fin de son rappel**,
+comme `parametres.astro` le fait avec `data-monte`. C'est une quinzaine
+d'écrans, donc une proposition au pilote et non une initiative : elle
+toucherait des fichiers qui ne sont pas de ce chantier.
+
 ## Ce qui reste hors d'atteinte ici
 
 `essais:fiches-audio` réclame `ffmpeg`. Il a été installé dans le conteneur
