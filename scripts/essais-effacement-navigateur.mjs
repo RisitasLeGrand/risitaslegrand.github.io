@@ -11,7 +11,7 @@
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { repondreALaBoite, repondreALaRedemande } from './lib/boite-essais.mjs';
-import { devientVisible } from './lib/post-condition.mjs';
+import { attendreEnBase, devientVisible, travailFini } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -270,7 +270,14 @@ v(
   true,
 );
 await repondreALaBoite(page, 'Je ne le trouve pas', { delai: 30000 });
-await page.waitForTimeout(2500);
+/*
+   Cet écran annonce « Sauvegarde en cours… » AVANT de travailler : attendre un
+   simple changement de texte rendrait la main sur l'annonce. `travailFini`
+   attend le verdict — non vide et ne disant plus « en cours » —, et il ne
+   présume ni du refus ni de la réussite, ce qui est exactement ce qu'il faut
+   ici puisque le refus est l'objet du contrôle.
+*/
+v('l’écran rend son verdict', Boolean(await travailFini(page, '#message-effacement')), true);
 v('un « je ne le trouve pas » n’efface rien', await compter('nback'), 20);
 v('et la session de 2025 est toujours là', await compter('relationnel'), 1);
 const refusDit = (await page.locator('#message-effacement').textContent()) ?? '';
@@ -288,7 +295,13 @@ v(
 );
 await repondreALaBoite(page, 'Je l’ai retrouvé', { delai: 30000 });
 
-await page.waitForTimeout(4000);
+/*
+   Ce que les constats lisent est la BASE, mais l'écran dit quand il a fini, et
+   c'est plus exact qu'un sondage : il rend la main une fois l'effacement
+   écrit. Le compte attendu dépend de la période effacée, donc on s'arrête au
+   verdict de l'écran plutôt que de décrire un état final en base.
+*/
+v('l’écran rend son verdict', Boolean(await travailFini(page, '#message-effacement')), true);
 v('les dix sessions de 2025 sont parties', await compter('nback'), 10);
 v('la session relationnelle de 2025 aussi', await compter('relationnel'), 0);
 v('le seuil Veridical est intact', await compter('vmSeuils'), 1);
@@ -332,7 +345,9 @@ await page.click('#effacer-sans');
    ne nommait pas la cause.
 */
 await repondreALaRedemande(page, MDP);
-await page.waitForTimeout(3000);
+/* Le magasin passe de dix sessions à zéro : c'est une vraie transition,
+   donc une post-condition honnête. */
+await attendreEnBase(page, 'nback', (tout) => tout.length === 0);
 v('le domaine est vide : n-back', await compter('nback'), 0);
 v('les seuils aussi', await compter('vmSeuils'), 0);
 v('et la carte d’un autre domaine est toujours là', await compter('cartes'), 1);
@@ -443,9 +458,13 @@ await page.click('#traitements details button[type="submit"]');
 await page.waitForSelector('#creneaux-du-jour li', { timeout: 20000 });
 
 await page.click('#creneaux-du-jour li button:has-text("Pris")');
-// Le bandeau d'annulation retarde l'écriture de six secondes.
-await page.waitForTimeout(8000);
-
+/*
+   LE BANDEAU D'ANNULATION RETARDE L'ÉCRITURE DE SIX SECONDES, et huit
+   secondes étaient le pari qui les couvrait. Mais ce délai n'est pas ce qu'on
+   veut mesurer : ce qu'on veut, c'est l'écriture. On l'attend donc là où elle
+   arrive, et le pari sur la durée du bandeau disparaît avec.
+*/
+await attendreEnBase(page, 'odysseeCreneaux', (tout) => tout.length >= 1);
 v('un créneau est scellé en base', await compter('odysseeCreneaux'), 1);
 /*
    Et il n'expose AUCUNE date en clair : c'est la condition qui rend le
@@ -520,7 +539,8 @@ console.log('\nLA PÉRIODE DU JOUR LE VISE, ET L’EFFACEMENT L’EMPORTE');
 
   await page.click('#effacer-sans');
   await repondreALaRedemande(page, MDP);
-  await page.waitForTimeout(3000);
+  /* Un créneau scellé passe à zéro : transition, donc attente légitime. */
+  await attendreEnBase(page, 'odysseeCreneaux', (tout) => tout.length === 0);
   v('le créneau est parti', await compter('odysseeCreneaux'), 0);
 }
 
@@ -547,7 +567,8 @@ console.log('\nCOFFRE FERMÉ : LAISSÉ ENTIER, ET L’ÉCRAN DIT POURQUOI');
   await page.waitForSelector('#coffre-ouvert', { state: 'visible', timeout: 40000 });
   await page.waitForSelector('#creneaux-du-jour li button:has-text("Pris")', { timeout: 20000 });
   await page.click('#creneaux-du-jour li button:has-text("Pris")');
-  await page.waitForTimeout(8000);
+  /* Le même bandeau, la même post-condition : l'écriture, et non sa durée. */
+  await attendreEnBase(page, 'odysseeCreneaux', (tout) => tout.length >= 1);
   v('un créneau est de nouveau scellé', await compter('odysseeCreneaux'), 1);
 
   // La clé du coffre vit dans `sessionStorage` : la retirer ferme le coffre.
@@ -630,7 +651,9 @@ v('quatre exceptions scellées sont en base', await compter('odysseeExceptionsSc
 
   await page.click('#effacer-sans');
   await repondreALaRedemande(page, MDP);
-  await page.waitForTimeout(3000);
+  /* Ici le constat lit la BASE et attend un compte PRÉCIS : c'est donc la base
+     qu'on sonde, et non le verdict de l'écran. */
+  await attendreEnBase(page, 'odysseeExceptionsScellees', (tout) => tout.length === 1);
   v('les trois sont parties', await compter('odysseeExceptionsScellees'), 1);
   /*
      Et c'est bien celle de 2024 qui reste. Compter les survivants ne suffit
@@ -677,7 +700,17 @@ console.log('\nUNE CLÉ ILLISIBLE FAIT LAISSER LE MAGASIN ENTIER, ET NON À MOIT
 
   await page.click('#effacer-sans');
   await repondreALaRedemande(page, MDP);
-  await page.waitForTimeout(3000);
+  /*
+     ICI LE PIÈGE EST INVERSE, et c'est la leçon qu'A vient de me donner sur
+     les onglets : le constat dit que RIEN n'a été effacé — trois
+     enregistrements avant, trois après. Sonder la base pour « trois » serait
+     satisfait dans l'instant, avant même que l'écran ait refusé, et
+     l'assertion passerait sans rien garantir.
+
+     C'est donc le VERDICT DE L'ÉCRAN qu'on attend : il dit que le magasin
+     scellé a été laissé entier, et il ne peut pas l'avoir dit d'avance.
+  */
+  await travailFini(page, '#message-effacement');
   v('et rien n’a été effacé de ce magasin', await compter('odysseeExceptionsScellees'), 3);
 }
 
