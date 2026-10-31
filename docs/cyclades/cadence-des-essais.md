@@ -341,6 +341,26 @@ large, celle de vingt lignes en rendant 478. L'ordre de grandeur et la charge
 de travail n'en bougent pas ; ce qui change, c'est qu'un chiffre de ce chantier
 se donne désormais avec le script et la fenêtre qui le produisent.
 
+### Une post-condition ne doit jamais impliquer l'assertion qu'elle précède
+
+Règle de B, reprise ici le 31 octobre après qu'elle lui a coûté un essai, et
+elle est la jumelle exacte du vert à vide.
+
+B attendait `document.activeElement?.id === 'reinitialiser'` avant l'assertion
+« Échap rend le focus au bouton d'origine ». L'attente **décidait donc ce que
+l'assertion prétendait vérifier** : celle-ci ne pouvait plus échouer, seulement
+expirer — en panne, pas en rouge nommé. Un garde-fou qui ne peut rendre qu'une
+panne ne dit plus sur quoi il portait.
+
+La parade est une frontière : **la post-condition dit qu'il s'est passé
+quelque chose, l'assertion dit quoi.** Attendre qu'un élément IDENTIFIÉ ait le
+focus, sans dire lequel, laisse à l'assertion le soin de nommer le bon — et un
+focus parti ailleurs rougit au bon endroit, avec le mauvais identifiant écrit
+dans la sortie.
+
+Le symptôme se reconnaît sans réfléchir : si l'on peut copier l'attente dans
+l'assertion sans rien changer au sens, l'assertion ne mesure plus rien.
+
 ### Une temporisation légitime existe, et elle est rare
 
 Une sur vingt-six, dans le pilote. Deux séries de 8 répétitions à 60 kg portent
@@ -765,6 +785,34 @@ Un lot se mesure donc dans les deux sens, et c'est contre-intuitif : **bridé**
 pour les attentes trop courtes, et **plusieurs fois à vitesse pleine** pour
 les courses que la lenteur sérialise. Trois passages à ×1 ont suffi ici ; un
 seul, par chance, aurait validé le défaut.
+
+### Une attente ne doit pas coûter plus que le pari qu'elle remplace
+
+Règle de B, reprise le 31 octobre. Elle n'est pas une invitation à bâcler :
+elle dit où regarder quand une conversion ralentit l'essai.
+
+Le cas mesuré ici est `essais-entetes-collants.mjs`, passé de 38 à 41
+secondes. Trois secondes de plus pour dix contrôles — et l'explication n'était
+pas un gaspillage mais une découverte : la hauteur de la page **continue de
+croître** après les 500 ms pariées, donc l'attente dure plus longtemps parce
+qu'elle attend vraiment. Le pari était trop court, et c'est tout le sujet.
+
+La règle sert donc à trancher entre les deux cas, qui se ressemblent dans la
+sortie :
+
+- **l'attente dure plus longtemps parce que l'écran est plus lent qu'on ne
+  croyait** — alors le temps gagné n'existait pas, et la mesure d'avant était
+  fausse. On garde, et l'on dit ce qu'on a découvert ;
+- **l'attente dure plus longtemps sans rien attendre de plus** — une sonde de
+  stabilité posée là où une marque existait, un pas de relecture trop large,
+  une borne généreuse atteinte à chaque passage. Alors elle coûte plus que le
+  pari, et c'est une post-condition exacte qu'il faut chercher, pas un pas plus
+  petit.
+
+Le partage se fait sur une question, et non sur le chronomètre : **ce que
+l'essai mesure a-t-il changé ?** Si le relevé est identique au caractère, le
+temps en plus est du gaspillage. S'il a changé, c'est le temps d'avant qui
+était du mensonge.
 
 ### Une marque qui manque au site, et qui rendrait exactes quinze attentes
 
