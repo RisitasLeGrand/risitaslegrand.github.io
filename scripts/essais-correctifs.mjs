@@ -38,7 +38,17 @@ await page.goto(`${B}/revisions/`, { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
-  await page.waitForTimeout(3000);
+  /*
+     La marque que le site pose : `signalerDeverrouillage` écrit
+     `data-verrou="ouvert"` sur `<html>`, et c'est ce que les écrans guettent
+     pour charger leur contenu déchiffré. Les 3 000 ms pariaient sur la durée
+     de la dérivation PBKDF2, qui est volontairement lente.
+  */
+  await page.waitForFunction(
+    () => document.documentElement.dataset.verrou === 'ouvert',
+    undefined,
+    { timeout: 30000 },
+  );
 }
 
 /* ══ 4. « À revoir », et non « à réviser » ═══════════════════════════════ */
@@ -98,8 +108,24 @@ const inedites = async () => {
   await page.waitForFunction(() => Boolean(document.querySelector('#choix-matiere option[value="Économie"]')), null, { timeout: 30000 });
   await page.selectOption('#choix-matiere', 'Économie');
   await page.waitForFunction(() => document.getElementById('nb-neuves')?.textContent !== '—', null, { timeout: 30000 });
-  await page.waitForTimeout(600);
-  return Number(await page.locator('#nb-neuves').textContent());
+  /*
+     LE GARDE-FOU D'AU-DESSUS NE SUFFIT PAS, et c'est pourquoi 600 ms avaient
+     été ajoutées : « ce n'est plus un tiret » est vrai dès le premier nombre
+     peint, qui peut encore être affiné. On relit donc jusqu'à deux lectures
+     identiques — attente bornée par relecture, et non durée pariée. La mesure
+     de cet essai est DIFFÉRENTIELLE, deux comptes comparés : un compte lu trop
+     tôt des deux côtés donnerait une égalité, c'est-à-dire exactement le
+     verdict « le filtre ne fait rien ».
+  */
+  let lu = await page.locator('#nb-neuves').textContent();
+  const limiteDuCompte = Date.now() + 30000;
+  while (Date.now() < limiteDuCompte) {
+    await new Promise((fini) => setTimeout(fini, 120));
+    const encore = await page.locator('#nb-neuves').textContent();
+    if (encore === lu) break;
+    lu = encore;
+  }
+  return Number(lu);
 };
 const sansMethodo = await inedites();
 v('des cartes inédites sont proposées en économie', sansMethodo > 0, true);
@@ -107,7 +133,23 @@ v('des cartes inédites sont proposées en économie', sansMethodo > 0, true);
 await page.goto(`${B}/progression/`, { waitUntil: 'networkidle' });
 await page.waitForSelector('#contenus label', { timeout: 20000 });
 await page.locator('#contenus label', { hasText: 'révisions' }).locator('input').check();
-await page.waitForTimeout(800);
+/*
+   CE QUI SUIT EST UNE NAVIGATION, et c'est la raison pour laquelle cette
+   attente-là comptait : `inedites()` part sur `/flashcards/`. Un réglage écrit
+   après le départ ne serait pas lu par l'écran suivant, et les deux comptes
+   seraient égaux — le verdict « le filtre ne fait rien », pour une raison qui
+   n'est pas le filtre.
+
+   L'écran dit lui-même quand l'écriture est faite : le gestionnaire pose
+   « est réintégré » dans `#message-sources` APRÈS `await
+   ecrireReglagesContenu`. Le libellé diffère du cas inverse — « est écarté » —
+   donc l'attente ne peut pas être satisfaite par un message resté là.
+*/
+await page.waitForFunction(
+  () => (document.getElementById('message-sources')?.textContent ?? '').includes('est réintégré'),
+  undefined,
+  { timeout: 30000 },
+);
 const avecMethodo = await inedites();
 v('réintégrer la méthodologie ajoute des cartes', avecMethodo > sansMethodo, true);
 
@@ -115,7 +157,12 @@ v('réintégrer la méthodologie ajoute des cartes', avecMethodo > sansMethodo, 
 await page.goto(`${B}/progression/`, { waitUntil: 'networkidle' });
 await page.waitForSelector('#contenus label', { timeout: 20000 });
 await page.locator('#contenus label', { hasText: 'révisions' }).locator('input').uncheck();
-await page.waitForTimeout(800);
+/* Même motif, libellé inverse : « est écarté ». */
+await page.waitForFunction(
+  () => (document.getElementById('message-sources')?.textContent ?? '').includes('est écarté'),
+  undefined,
+  { timeout: 30000 },
+);
 
 /* ══ 1. Jour de repos ════════════════════════════════════════════════════ */
 console.log('\nPLANIFICATION — METTRE UN JOUR AU REPOS');
@@ -127,7 +174,17 @@ v('« repos » est proposé dans la rotation', options.includes('repos'), true);
 // On met au repos le jour de la semaine qui tombe aujourd'hui.
 const index = await page.evaluate(() => new Date().getDay());
 await page.selectOption(`#rotation-${index}`, 'repos');
-await page.waitForTimeout(1200);
+/*
+   CE QUI SUIT EST UN RECHARGEMENT, donc la même course que ci-dessus : une
+   rotation écrite après le départ serait perdue, et l'écran annoncerait la
+   séance d'avant. L'écran pose « Rotation enregistrée. » dans
+   `#message-rotation` APRÈS `await ecrireRotation`.
+*/
+await page.waitForFunction(
+  () => (document.getElementById('message-rotation')?.textContent ?? '').includes('enregistrée'),
+  undefined,
+  { timeout: 30000 },
+);
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForFunction(() => document.getElementById('titre-jour')?.textContent?.trim(), null, { timeout: 20000 });
 v('la séance du jour annonce le repos',
