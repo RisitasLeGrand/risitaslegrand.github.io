@@ -362,6 +362,23 @@ export type MotifDeRefus =
   | 'pas-une-sauvegarde'
   | 'entete-illisible'
   | 'version-trop-recente'
+  /*
+     LE SCHÉMA DES DONNÉES, ET NON LE FORMAT DU FICHIER. Les deux versions sont
+     indépendantes et se refusent pour des raisons différentes :
+     « version-trop-recente » dit que la FORME DU FICHIER dépasse ce que ce
+     module sait lire ; celui-ci dit que les DONNÉES qu'il porte viennent d'une
+     base plus récente que la base locale. Un fichier parfaitement lisible peut
+     tomber sur le second, et les confondre donnerait à la personne un message
+     qui ne désigne pas son problème.
+
+     UN PRÉCÉDENT, et il va dans l'autre sens : `sync/paquet.ts:260` refuse
+     déjà un paquet dont le schéma dépasse le schéma local, mais sous le motif
+     « version-trop-recente ». Les deux sens y sont donc confondus, et son
+     message rattrape la confusion en nommant l'appareil. Je ne touche pas à ce
+     chemin — il n'est pas de ce lot — mais le signaler valait mieux que
+     prétendre que la distinction est partout faite.
+  */
+  | 'schema-trop-recent'
   | 'somme-de-controle'
   | 'mot-de-passe'
   | 'charge-utile-illisible';

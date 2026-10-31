@@ -15,12 +15,14 @@ import {
   ecrireDerniereSauvegarde,
   exporterMagasins,
   lireDerniereSauvegarde,
+  migrerDesDonneesRestaurees,
   remplacerMagasins,
 } from '../db';
 import { VERSION as VERSION_DE_LA_BASE } from '../db';
 import { BRANCHES, ID_BRANCHE_PAR_DEFAUT } from '../branches';
 import { PARCOURS } from '../parcours/registre';
 import {
+  SauvegardeRefusee,
   ecrire,
   nomDeFichier,
   relire,
@@ -30,6 +32,7 @@ import {
   type Sauvegarde,
   type Verification,
 } from './format';
+import { verdictDUnFichier, type Verdict } from './politique-de-restauration';
 
 /**
  * La version de schéma des magasins de Révisions : celle de la base.
@@ -180,6 +183,23 @@ export interface ResultatRestauration {
   inconnus: string[];
   /** L'instantané de sécurité pris juste avant, s'il a été pris. */
   instantane: ResultatSauvegarde | null;
+  /**
+   * Ce que la politique de `.schema` a décidé, pour que l'écran puisse le dire.
+   *
+   * Rendu même quand il n'y a rien à signaler : un appelant qui lit
+   * `verdict.dire` et le trouve `null` sait qu'il n'a rien à afficher, là où
+   * une absence de champ l'obligerait à deviner.
+   */
+  verdict: Verdict;
+  /**
+   * Les magasins qui ont traversé les paliers, s'il y en a eu.
+   *
+   * Vide quand rien n'était à migrer. Il est rendu pour que l'écran puisse le
+   * dire et, surtout, pour qu'un essai puisse le CONSTATER : sans cela, une
+   * migration qui ne ferait rien ressemblerait en tout point à une migration
+   * réussie.
+   */
+  traverses: string[];
 }
 
 export interface OptionsRestauration {
@@ -213,6 +233,32 @@ export async function restaurer(
   // Relire d'abord : si le fichier est refusé, rien n'a été touché.
   const relecture = await relire(options.octets, options.motDePasse);
 
+  /*
+     LE VERDICT DU `.schema`, ET IL PASSE AVANT TOUT LE RESTE — y compris avant
+     l'instantané de sécurité.
+
+     Ce module portait l'aveu de ce manque : « le champ est désormais JUSTE ; il
+     n'est toujours pas LU. Mesuré : aucun lecteur de ".schema" dans tout
+     "src/" ». Une sauvegarde d'une version plus récente était donc écrite par
+     dessus la base sans un mot, avec des enregistrements dont un champ peut
+     avoir changé de SENS sans changer de nom.
+
+     L'ordre compte à deux titres. D'abord parce qu'un refus doit laisser la
+     base intacte : il tombe donc avant `remplacerMagasins`, et l'instantané
+     lui-même — qui ne fait que lire, mais qui écrit un fichier et prend du
+     temps — n'a aucune raison d'être fabriqué pour une restauration qui
+     n'aura pas lieu. Ensuite parce que le motif doit désigner LE problème : un
+     fichier refusé ici est parfaitement lisible, et le dire « abîmé » ou
+     « illisible » enverrait chercher une panne qui n'existe pas.
+  */
+  const verdict = verdictDUnFichier(
+    (relecture.entete.branches ?? []).map((b) => (typeof b.schema === 'number' ? b.schema : null)),
+    VERSION_DE_LA_BASE,
+  );
+  if (verdict.quoi === 'refus') {
+    throw new SauvegardeRefusee(verdict.motif, verdict.dire, relecture.entete);
+  }
+
   let instantane: ResultatSauvegarde | null = null;
   if (options.instantane !== false) {
     const mdp =
@@ -222,8 +268,40 @@ export async function restaurer(
     instantane = await fabriquer(mdp);
   }
 
-  const { ecrits, inconnus } = await remplacerMagasins(relecture.magasins);
-  return { relecture, ecrits, inconnus, instantane };
+  /*
+     LA MISE À LA FORME COURANTE, BRANCHE PAR BRANCHE.
+
+     Chaque branche déclare SA version de schéma et SES magasins. Les migrer
+     ensemble, à la plus ancienne des versions, ferait traverser à une branche
+     déjà à jour des paliers qu'elle a déjà vus — et deux d'entre eux ne
+     supportent pas une seconde passe : le douzième dédoublerait les socles de
+     révision, le treizième réécrirait des clés déjà stables.
+
+     On migre donc chaque branche avec ses propres magasins, à sa propre
+     version. C'est correct pour une branche comme pour dix, et le format en
+     prévoit plusieurs même si une seule est écrite aujourd'hui.
+
+     Les magasins qu'aucune branche ne revendique passent tels quels. Les
+     transformer au nom d'une version qui n'est pas la leur serait deviner.
+  */
+  let magasins = relecture.magasins;
+  let traverses: string[] = [];
+  if (verdict.paliers.length > 0) {
+    for (const branche of relecture.entete.branches ?? []) {
+      if (typeof branche.schema !== 'number' || branche.schema >= VERSION_DE_LA_BASE) continue;
+      const siens: Record<string, unknown[]> = {};
+      for (const nom of branche.magasins ?? []) {
+        if (Array.isArray(magasins[nom])) siens[nom] = magasins[nom];
+      }
+      if (Object.keys(siens).length === 0) continue;
+      const migres = await migrerDesDonneesRestaurees(siens, branche.schema);
+      magasins = { ...magasins, ...migres.magasins };
+      traverses = [...new Set([...traverses, ...migres.traverses])];
+    }
+  }
+
+  const { ecrits, inconnus } = await remplacerMagasins(magasins);
+  return { relecture, ecrits, inconnus, instantane, verdict, traverses };
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
