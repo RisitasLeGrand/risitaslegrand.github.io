@@ -168,7 +168,17 @@ await page.waitForSelector('#categories input[type="checkbox"]', { timeout: 4000
   );
   /* On la retire : l'export d'essai n'a aucune raison de la porter. */
   await page.click('#categories input[data-categorie="sante"]');
-  await page.waitForTimeout(200);
+  /*
+     L'état attendu DIFFÈRE de celui d'avant le geste : la case était cochée,
+     l'assertion la veut décochée. C'est ce qui rend cette post-condition
+     utile — attendre « décochée » juste après l'avoir cochée serait vrai
+     d'avance.
+  */
+  await page.waitForFunction(
+    (sel) => document.querySelector(sel)?.checked === false,
+    '#categories input[data-categorie="sante"]',
+    { timeout: 30000 },
+  );
   faux(
     'et la décocher ne demande rien',
     await page.locator('#categories input[data-categorie="sante"]').isChecked(),
@@ -266,14 +276,36 @@ let empreinteDuManifeste = '';
   /* Playwright capture les téléchargements : neuf fichiers, neuf captures. */
   const captures = [];
   const contenus = new Map();
+  /*
+     C'EST LE COLLECTEUR QUI SAIT QUAND IL A FINI. Les assertions qui suivent
+     ne lisent pas l'écran : elles lisent `captures` et `contenus`, remplis
+     ici, dans Node. Leur post-condition n'est donc pas dans la page — le
+     message d'export, déjà attendu juste avant, ne dit rien de l'arrivée des
+     neuf fichiers — mais dans ce gestionnaire, qui signale lui-même la
+     neuvième lecture. Plus de cadence à devancer, plus de 1500 ms à parier.
+
+     Le délai de 30 s n'est pas une attente : il ne se déclenche que si un
+     fichier manque, et il existe pour que l'essai tombe en disant quoi
+     plutôt que de pendre.
+  */
+  let neuvieme;
+  const tousArrives = new Promise((resoudre) => {
+    neuvieme = resoudre;
+  });
   page.on('download', async (d) => {
     captures.push(d.suggestedFilename());
     const chemin = await d.path().catch(() => null);
     if (chemin) contenus.set(d.suggestedFilename(), readFileSync(chemin, 'utf8'));
+    if (contenus.size >= 9) neuvieme();
   });
   await page.click('#telecharger');
   await page.waitForSelector('#message-export:not(.hidden)', { timeout: 30000 });
-  await page.waitForTimeout(1500);
+  await Promise.race([
+    tousArrives,
+    new Promise((r) => {
+      setTimeout(r, 30000).unref?.();
+    }),
+  ]);
   v('neuf fichiers sont téléchargés', captures.length, 9);
   vrai(
     'et le sous-dossier est aplati dans le nom',
