@@ -1684,6 +1684,21 @@ import LienReglages from '../components/LienReglages.astro';
           );
         }
         if (rapport.conflits) parties.push(`${rapport.conflits} conflit(s) à traiter`);
+        /*
+           G-4 — UNE SUPPRESSION ÉCARTÉE SE DIT, SANS QUOI L'OBJET REVIENT SANS
+           EXPLICATION.
+
+           Quelqu'un a supprimé un objet sur un appareil pendant qu'il était
+           modifié sur un autre, et c'est la modification qui a été gardée. Le
+           taire laisserait croire à un effacement qui n'a pas pris, ou à un
+           objet qui ressuscite tout seul — deux inquiétudes pires que le fait.
+        */
+        if (rapport.suppressionsEcartees) {
+          parties.push(
+            `${rapport.suppressionsEcartees} suppression(s) écartée(s) : une version modifiée ` +
+              'sur l’autre appareil a été gardée',
+          );
+        }
         if (rapport.collisions) {
           parties.push(
             `${rapport.collisions} collision(s) d’identifiants — ce paquet est peut-être abîmé`,

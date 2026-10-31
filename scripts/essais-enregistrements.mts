@@ -32,6 +32,7 @@ import {
 import { operation, SANS_LOT, type Operation } from '../src/lib/noyau/operations';
 import { decoderHlc } from '../src/lib/noyau/hlc';
 import { typeDeFait } from '../src/lib/noyau/faits';
+import { readFileSync } from 'node:fs';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -390,6 +391,30 @@ console.log('\nLE SOCLE EST DÉTERMINISTE');
     operationSocle('quiz', { id: 'Q9' })?.appareil,
     'socle',
   );
+}
+
+/*
+   LE SIGNAL DOIT ARRIVER JUSQU'À L'ÉCRAN — G-4.
+
+   Le plan porte `suppressionsEcartees`, et quatre sabotages le mesurent. Mais
+   entre le plan et la personne il y a deux passages minces : le service en
+   compte la longueur dans son rapport, et l'écran l'affiche s'il est non nul.
+   Un passage mince se retire sans bruit, et la garde du plan resterait verte
+   pendant que plus rien ne serait dit.
+
+   On balaie donc la source. C'est grossier, et c'est voulu : ce qu'on veut
+   savoir est qu'un chemin EXISTE, pas comment il est écrit.
+*/
+{
+  const service = readFileSync('src/lib/sync/service.ts', 'utf8');
+  const ecran = readFileSync('src/pages/appareils.astro', 'utf8');
+  v(
+    'prémisse — les deux fichiers ont bien été lus',
+    [service.length > 1000, ecran.length > 1000],
+    [true, true],
+  );
+  v('le rapport de fusion porte le compte', service.includes('suppressionsEcartees'), true);
+  v('et l’écran des appareils le dit', ecran.includes('suppressionsEcartees'), true);
 }
 
 console.log('\nLA MATÉRIALISATION DIT CE QUE DIT LE JOURNAL');

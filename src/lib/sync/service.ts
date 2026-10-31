@@ -302,6 +302,23 @@ export interface RapportDeFusion {
   domaineEcrits: number;
   domaineEffaces: number;
   /**
+   * Les suppressions ÉCARTÉES au profit d'une version modifiée — G-4.
+   *
+   * Zéro en temps normal. Non nul, l'écran doit le dire : quelqu'un a supprimé
+   * un objet sur un appareil pendant qu'il était modifié sur un autre, et c'est
+   * la modification qui a été gardée. Sans ce compte, l'objet réapparaîtrait
+   * sans explication — on croirait l'avoir jeté.
+   */
+  suppressionsEcartees: number;
+  /*
+     CE CHAMP N'EXISTE QUE SUR LE RAPPORT DE FUSION, et c'est une limite à
+     connaître. L'annulation et la reconstruction matérialisent elles aussi, donc
+     elles peuvent écarter une suppression — et leurs rapports ne le disent pas.
+     G-4 porte sur la synchronisation ; étendre le signal aux deux autres est une
+     décision à prendre, non une correction de compilation. Signalé au pilote le
+     31/10.
+  */
+  /**
    * Les entrées que cette fusion a effacées parce qu'un compactage reçu les
    * déclarait effacées. Zéro en temps normal ; non nul, l'écran d'annulation
    * doit le dire : une annulation ne les ramènera pas.
@@ -511,7 +528,7 @@ export async function fusionnerPaquet(
   */
   const domaine = ciblesRecues.length
     ? await materialiserFaitsDomaine(ciblesRecues)
-    : { ecrits: 0, effaces: 0, illisibles: [] };
+    : { ecrits: 0, effaces: 0, illisibles: [], suppressionsEcartees: [] };
 
   /*
      Le recalcul, ensuite. Les cartes touchées sont celles des révisions
@@ -619,6 +636,7 @@ export async function fusionnerPaquet(
     collisions: resultat.collisions.length,
     cartesRecalculees: recalculees,
     domaineEcrits: domaine.ecrits,
+    suppressionsEcartees: domaine.suppressionsEcartees.length,
     domaineEffaces: domaine.effaces,
     effaceesParCompactage: effacees.operations + effacees.revisions,
     /*
