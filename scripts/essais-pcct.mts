@@ -40,6 +40,7 @@ import { mediane, p90, scores } from '../src/features/pcct/moteur/notation';
 import { DepotEnMemoire } from '../src/features/pcct/moteur/depot';
 import { noter, poserEssai, resumer, seanceNeuve } from '../src/features/pcct/moteur/seance';
 import { attribuer } from '../src/features/pcct/moteur/grace';
+import { melanger, paveDeLEssai, reponsesPossibles } from '../src/features/pcct/moteur/pave';
 import { examinerLesVoix } from '../src/features/pcct/voix';
 
 let echecs = 0;
@@ -462,9 +463,75 @@ console.log('\nLE DÉPÔT — une séance ne se clôt qu’une fois');
   verifier('la seconde clôture est ignorée', depot.seance?.secondes, 900);
 }
 
+console.log('\nGARDE 10 — LE PAVÉ OFFRE ZÉRO ET LES NÉGATIFS QUAND ILS SONT POSSIBLES');
+{
+  /*
+     La référence bâtit sa grille sur une plage devinée : ni zéro ni négatifs,
+     alors qu'une différence en produit dès que le courant dépasse la référence.
+     Une réponse juste devient alors intapable au doigt.
+  */
+  const diff = reponsesPossibles('difference', 1, 9);
+  verifier('prémisse — l’ensemble des différences n’est pas vide', diff.length > 10, true);
+  verifier('la différence offre zéro', diff.includes(0), true);
+  verifier('et des négatifs', diff.some((x) => x < 0), true);
+  verifier('et son plus petit est min − max', Math.min(...diff), 1 - 9);
+  verifier('et son plus grand est max − min', Math.max(...diff), 9 - 1);
+
+  const somme = reponsesPossibles('somme', 1, 9);
+  verifier('la somme n’offre aucun négatif', somme.some((x) => x < 0), false);
+  verifier('et va de 2 à 18', [Math.min(...somme), Math.max(...somme)], [2, 18]);
+
+  /*
+     Le quotient est ÉNUMÉRÉ et non borné, et c'est le SABOTAGE qui a imposé la
+     plage de cet essai. Sur 1 à 9, l'ensemble énuméré des quotients se trouve
+     être exactement 1 à 9 — tout entier s'y divise par 1 — si bien qu'un pavé
+     bâti sur l'intervalle entier y passait pour juste. Mesuré sur 2 à 9, les
+     deux se séparent : seuls 1, 2, 3 et 4 sont atteignables, et 5 à 9 sont des
+     réponses que l'exercice ne demande jamais.
+  */
+  const quot = reponsesPossibles('quotient', 2, 9);
+  verifier('les quotients de 2 à 9 sont exactement ceux-là', quot, [1, 2, 3, 4]);
+  verifier('aucun quotient n’est à virgule', quot.every(Number.isInteger), true);
+  /* Et 1 y est, bien qu'il soit SOUS le minimum : une référence divisée par
+     elle-même fait 1, et un pavé qui refuserait les valeurs hors plage le
+     perdrait. */
+  verifier('le quotient 1 est offert même sous le minimum', quot.includes(1), true);
+
+  /* Une plage trop large rend une liste VIDE : l'écran passe alors au clavier,
+     plutôt que d'afficher deux cents touches qui ne sont pas une aide. */
+  verifier('une plage trop large n’a pas de pavé', reponsesPossibles('produit', 1, 99), []);
+}
+
+console.log('\nGARDE 11 — LE PAVÉ SE REMÉLANGE À CHAQUE ESSAI');
+{
+  const reponses = reponsesPossibles('somme', 1, 9);
+  verifier('prémisse — il y a de quoi mélanger', reponses.length >= 10, true);
+
+  verifier('croissant ne touche à rien', paveDeLEssai(reponses, 'croissant', 7), [...reponses]);
+  verifier('décroissant renverse', paveDeLEssai(reponses, 'decroissant', 7), [...reponses].reverse());
+
+  const essai3 = paveDeLEssai(reponses, 'melange', 3);
+  const essai4 = paveDeLEssai(reponses, 'melange', 4);
+  verifier('mélangé, l’ordre change d’un essai à l’autre', JSON.stringify(essai3) === JSON.stringify(essai4), false);
+  verifier('et le même essai rend le même ordre', paveDeLEssai(reponses, 'melange', 3), essai3);
+  verifier('aucune réponse perdue au mélange', [...essai3].sort((a, b) => a - b), [...reponses]);
+  verifier('ni dupliquée', new Set(essai3).size, reponses.length);
+
+  /* Et sur vingt essais, aucun ordre ne se répète : un mélange qui retomberait
+     deux fois sur la même grille se laisserait apprendre. */
+  const ordres = new Set(
+    Array.from({ length: 20 }, (_, i) => JSON.stringify(paveDeLEssai(reponses, 'melange', i + 1))),
+  );
+  verifier('vingt essais, vingt ordres distincts', ordres.size, 20);
+
+  /* Le mélange seul, éprouvé sur une liste dont on connaît le contenu. */
+  verifier('mélanger une liste d’un élément la rend telle quelle', melanger([42], 9), [42]);
+  verifier('mélanger une liste vide la rend vide', melanger([], 9), []);
+}
+
 console.log(
   echecs === 0
-    ? '\n\x1b[32mLe moteur de PCCT tient ses sept gardes.\x1b[0m\n'
+    ? '\n\x1b[32mLe moteur de PCCT tient ses onze gardes.\x1b[0m\n'
     : `\n\x1b[31m${echecs} échec(s).\x1b[0m\n`,
 );
 process.exit(echecs === 0 ? 0 : 1);
