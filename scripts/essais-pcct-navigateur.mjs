@@ -278,6 +278,21 @@ const horsEcran = await pageDoigt.$$eval('[data-touche-pave]', (es) => {
 });
 verifier('aucune touche ne sort de l’écran', horsEcran, []);
 
+/* Les touches de consigne, mesurées de la même façon : la seconde tâche se
+   joue au doigt ou pas du tout. */
+const consigneTropPetites = await pageDoigt.$$eval('[data-touche-consigne]', (es) =>
+  es
+    .map((e) => ({ t: e.dataset.toucheConsigne, r: e.getBoundingClientRect() }))
+    .filter(({ r }) => r.height < 44 || r.width < 44)
+    .map(({ t, r }) => `${t}: ${Math.round(r.width)}×${Math.round(r.height)}`),
+);
+verifier(
+  'prémisse : les huit touches de consigne sont là au doigt',
+  await pageDoigt.$$eval('[data-touche-consigne]', (es) => es.length),
+  8,
+);
+verifier('aucune touche de consigne sous 44 px', consigneTropPetites, []);
+
 /* Et le bouton « Arrêter », qui est le seul autre contrôle de l'écran de jeu. */
 const arreter = await pageDoigt.locator('#arreter').boundingBox();
 verifier(
@@ -421,6 +436,150 @@ verifier(
 );
 verifier('la zone de jeu a disparu', await page.locator('[data-zone-de-jeu]').count(), 0);
 
+/* ── La mémoire prospective, à l'écran ──────────────────────────────────── */
+
+console.log('\nLA CONSIGNE PARAÎT, DISPARAÎT, ET SE RÉPOND À L’HEURE');
+
+/*
+   Une page neuve, et l'horizon ramené à son minimum — dix secondes. Sans ce
+   réglage l'écart est tiré entre douze et trente-cinq secondes : l'essai
+   attendrait jusqu'à trente-cinq secondes par mesure, et ne saurait pas quand.
+   Avec lui, l'échéance est à dix secondes de la pose, et la mesure est bornée.
+*/
+const { page: pagePm, erreurs: erreursPm } = await ouvrirPcct(ctxFin);
+await reglerCurseur(pagePm, 'prospective-horizon', 10000);
+verifier(
+  'prémisse : l’horizon est bien à dix secondes',
+  await pagePm.inputValue('#prospective-horizon'),
+  '10000',
+);
+verifier(
+  'prémisse : la mémoire prospective est active par défaut',
+  await pagePm.isChecked('#prospective'),
+  true,
+);
+await pagePm.uncheck('#son');
+await pagePm.click('#commencer');
+await pagePm.waitForSelector('[data-nombre]', { timeout: 10000 });
+
+/* Les huit touches de consigne, et leurs cibles — la seconde tâche doit se
+   jouer au doigt comme la première. */
+const lettres = await pagePm.$$eval('[data-touche-consigne]', (es) =>
+  es.map((e) => e.dataset.toucheConsigne),
+);
+verifier('les huit touches de consigne sont offertes', lettres, [
+  'K', 'L', 'M', 'P', 'Q', 'S', 'V', 'X',
+]);
+verifier(
+  'et les deux régions vocales sont DEUX éléments distincts',
+  /* Chaque terme supporte l'absence de la région : lire `getAttribute` sur
+     `null` levait dans la page, et le sabotage 28 — une seule région pour les
+     deux tâches — rendait un PLANTAGE sans croix au lieu d'un rouge nommé. */
+  await pagePm.evaluate(() => {
+    const a = document.querySelector('[data-annonce]');
+    const b = document.querySelector('[data-annonce-pm]');
+    return [a !== null, b !== null, a !== null && b !== null && a !== b, b?.getAttribute('aria-live') ?? '(pas de région)'];
+  }),
+  [true, true, true, 'polite'],
+);
+
+/* La consigne paraît. Elle est posée au premier battement du compte à rebours,
+   donc dans la première seconde. */
+await pagePm.waitForSelector('[data-consigne]', { timeout: 8000 });
+const laTouche = await pagePm.$eval('[data-consigne]', (e) => e.dataset.consigne);
+verifier(
+  'la consigne nomme une touche de la liste',
+  ['K', 'L', 'M', 'P', 'Q', 'S', 'V', 'X'].includes(laTouche),
+  true,
+);
+
+/*
+   PUIS ELLE DISPARAÎT, et c'est tout le sujet : la laisser à l'écran jusqu'à
+   son échéance ferait de la mémoire prospective une simple consigne de
+   lecture. L'affichage par défaut dure 6 500 ms.
+*/
+/* L'attente est rattrapée : sans le `catch`, une consigne qui resterait à
+   l'écran ferait EXPIRER l'attente, et l'essai mourrait sur une exception au
+   lieu de rendre un rouge nommé. Le sabotage 26 l'a montré — code 1, zéro
+   croix, et un message qui ne disait pas ce qui manquait. */
+await pagePm
+  .waitForSelector('[data-consigne]', { state: 'detached', timeout: 12000 })
+  .catch(() => {});
+verifier(
+  'la consigne a disparu avant son échéance',
+  await pagePm.locator('[data-consigne]').count(),
+  0,
+);
+
+/*
+   ET ELLE SE RÉPOND À L'HEURE, AU DOIGT.
+
+   CE QUE CETTE GARDE COUVRE, MESURÉ ET NON SUPPOSÉ. J'avais d'abord écrit
+   qu'elle attrapait une horloge en temps absolu — « toute échéance serait déjà
+   passée, chaque consigne jugée oubliée ». Deux sabotages ont dit le contraire.
+
+   Passer `depuisLeDebut` en temps absolu : VERT. L'origine se simplifie,
+   puisque la pose et la frappe lisent la même horloge — la consigne est posée
+   à `t+10 s` et répondue à `t+10 s`, quel que soit `t`.
+
+   Ne décaler que la frappe, en lui donnant `performance.now()` quand la pose
+   compte depuis le départ : VERT ENCORE. L'écart vaut le temps écoulé entre le
+   chargement de la page et le lancement, soit une à deux secondes ici —
+   c'est-à-dire moins que la fenêtre de trois secondes, qui l'absorbe.
+
+   Ce que la garde attrape vraiment, et ce sont deux défauts vraisemblables :
+   la rangée tactile qui ne serait que décorative — ses huit boutons rendus
+   mais non branchés, la seconde tâche injouable au doigt —, et un désaccord
+   d'horloges assez grand pour sortir de la fenêtre. Les sabotages 25a et 25b
+   rendent chacun un rouge.
+
+   Ce qu'une origine fausse abîmerait réellement est hors de portée d'ici : le
+   refus de poser quand l'échéance ne tiendrait plus avant la fin de séance,
+   qui compare à la durée. En temps absolu, une page ouverte depuis un quart
+   d'heure cesserait d'en poser, et il faudrait une page de cet âge pour le
+   voir. `essais:pcct` garde cette règle au moteur, en millisecondes.
+
+   On appuie en boucle dans la fenêtre plutôt qu'une fois à l'instant calculé :
+   la fenêtre fait trois secondes, et viser une milliseconde exacte serait un
+   pari sur l'ordonnanceur.
+*/
+let verdictPm = '';
+const butoir = Date.now() + 16000;
+while (Date.now() < butoir) {
+  await pagePm.click(`[data-touche-consigne="${laTouche}"]`).catch(() => {});
+  const vu = (await pagePm.locator('[data-annonce-pm]').innerText()).trim();
+  if (/à l’heure/.test(vu)) {
+    verdictPm = 'à l’heure';
+    break;
+  }
+  if (/oubliée|trop tard/.test(vu)) {
+    verdictPm = vu;
+    break;
+  }
+  await pagePm.waitForTimeout(300);
+}
+verifier('la consigne répondue dans sa fenêtre est jugée « à l’heure »', verdictPm, 'à l’heure');
+
+/* Et sans la mémoire prospective, rien de tout cela n'est à l'écran : un
+   réglage décoché qui laisserait la rangée visible promettrait une tâche qui
+   ne vient pas. */
+const { page: pageSansPm } = await ouvrirPcct(ctxFin);
+await pageSansPm.uncheck('#prospective');
+await pageSansPm.uncheck('#son');
+await pageSansPm.click('#decouvrir');
+await pageSansPm.waitForSelector('[data-nombre]', { timeout: 10000 });
+await pageSansPm.waitForTimeout(1500);
+verifier(
+  'décochée, la mémoire prospective ne met rien à l’écran',
+  await pageSansPm.evaluate(() => [
+    document.querySelectorAll('[data-touche-consigne]').length,
+    document.querySelectorAll('[data-consigne]').length,
+    document.querySelectorAll('[data-annonce-pm]').length,
+  ]),
+  [0, 0, 0],
+);
+await pageSansPm.close();
+
 /* ── 5. Le mouvement réduit ─────────────────────────────────────────────── */
 
 console.log('\nET LA REQUÊTE MÉDIA L’ÉTEINT AUSSI, DANS SON PROPRE CONTEXTE');
@@ -447,6 +606,7 @@ verifier(
 verifier('aucune erreur de page (souris)', erreurs.slice(0, 3), []);
 verifier('aucune erreur de page (doigt)', erreursDoigt.slice(0, 3), []);
 verifier('aucune erreur de page (mouvement réduit)', erreursCalme.slice(0, 3), []);
+verifier('aucune erreur de page (mémoire prospective)', erreursPm.slice(0, 3), []);
 
 await nav.close();
 console.log(

@@ -53,6 +53,14 @@
     type EtatSeance,
   } from '../moteur/seance';
   import { attribuer } from '../moteur/grace';
+  import {
+    TOUCHES,
+    consigneAPoser,
+    consigneVisible,
+    surFrappe,
+    surLeTemps,
+  } from '../moteur/prospective';
+  import type { Consigne, ConsigneJugee } from '../moteur/types';
   import { paveDeLEssai, reponsesPossibles } from '../moteur/pave';
   import { DEPOT_MUET, DepotEnMemoire, type DepotPcct } from '../moteur/depot';
   import { direLeNombre, examinerLesVoix, type EtatDeLaVoix } from '../voix';
@@ -109,6 +117,28 @@
   let annonce = $state('');
   let dernierVerdict = $state<'juste' | 'faux' | null>(null);
   let saisie = $state('');
+
+  /* ── La mémoire prospective ──────────────────────────────────────────── */
+
+  /**
+   * Le délai avant de juger une consigne dont la fenêtre s'est fermée.
+   *
+   * `surLeTemps` distingue « manquée » — on y a pensé trop tard — d'« omise »,
+   * où rien n'est venu. Cette distinction n'existe que s'il reste un instant
+   * pour y penser trop tard : juger à la fermeture exacte rendrait « manquée »
+   * inatteignable, et toute omission tardive passerait pour un oubli complet.
+   * Deux secondes, et c'est un choix d'écran — le moteur n'en sait rien, on lui
+   * passe simplement un instant retardé d'autant.
+   */
+  const TARD = 2000;
+
+  let debutDeSeance = 0;
+  const depuisLeDebut = () => performance.now() - debutDeSeance;
+  /** Les frappes arrivées après la fermeture d'une fenêtre, par consigne. */
+  let frappesTardives = new Map<string, { touche: string; instant: number }>();
+  let consignesAffichees = $state<Consigne[]>([]);
+  let annoncePm = $state('');
+  let compteParVerdict = $state({ juste: 0, manquee: 0, fausse: 0, omise: 0 });
 
   let voix = $state<EtatDeLaVoix>({ voix: null, raison: '', enVisuel: true });
   let sonVoulu = $state(true);
@@ -236,6 +266,89 @@
     );
   }
 
+  /** Annonce la mémoire prospective, dans SA région — voir `annoncer`. */
+  async function annoncerPm(texte: string) {
+    annoncePm = '';
+    await tick();
+    annoncePm = texte;
+  }
+
+  /**
+   * Le battement de la mémoire prospective : poser, juger, afficher.
+   *
+   * Appelé par le compte à rebours plutôt que par la cadence des nombres : une
+   * consigne vit en secondes, et l'attacher à l'intervalle la ferait battre
+   * trois fois plus vite à cadence rapide — le temps d'une consigne ne dépend
+   * pas de la vitesse du calcul.
+   */
+  function battreLaProspective() {
+    if (!etat || !reglages.prospectiveActive) return;
+    const maintenant = depuisLeDebut();
+    const total = (decouverte ? DECOUVERTE : reglages.duree * 60) * 1000;
+
+    /* Juger d'abord : une place libérée peut être reprise dans le même
+       battement, et le refus de poser est local, jamais définitif. */
+    for (const jugee of surLeTemps(etat.prospective, maintenant - TARD, frappesTardives)) {
+      frappesTardives.delete(jugee.id);
+      noterLaConsigne(jugee);
+    }
+
+    const posee = consigneAPoser(etat.prospective, maintenant, total, reglages, hasard);
+    if (posee) {
+      etat.prospective.enAttente = [...etat.prospective.enAttente, posee];
+      void annoncerPm(
+        `Consigne : appuyez sur ${posee.touche} dans ` +
+          `${Math.round((posee.echeance - maintenant) / 1000)} secondes environ.`,
+      );
+    }
+
+    consignesAffichees = etat.prospective.enAttente.filter((c) =>
+      consigneVisible(c, maintenant, reglages),
+    );
+  }
+
+  function noterLaConsigne(jugee: ConsigneJugee) {
+    void depot.noterConsigne(jugee);
+    compteParVerdict = {
+      ...compteParVerdict,
+      [jugee.verdict]: compteParVerdict[jugee.verdict] + 1,
+    };
+    const dit: Record<ConsigneJugee['verdict'], string> = {
+      juste: `Consigne ${jugee.touche} : à l’heure.`,
+      manquee: `Consigne ${jugee.touche} : juste touche, trop tard.`,
+      fausse: `Consigne ${jugee.touche} : ${jugee.presse} au lieu de ${jugee.touche}.`,
+      omise: `Consigne ${jugee.touche} : oubliée.`,
+    };
+    void annoncerPm(dit[jugee.verdict]);
+  }
+
+  /**
+   * Une touche de consigne, du clavier ou de la rangée tactile.
+   *
+   * Hors fenêtre, la frappe n'est pas perdue : elle est portée au crédit de la
+   * consigne dont la fenêtre vient de se fermer, et c'est ce qui permettra de
+   * la juger « manquée » plutôt qu'« omise ». La PREMIÈRE frappe l'emporte —
+   * y penser puis se corriger ne change pas le fait qu'on y a pensé tard.
+   */
+  function toucherLaConsigne(touche: string) {
+    if (!etat || etape !== 'seance' || !reglages.prospectiveActive) return;
+    const maintenant = depuisLeDebut();
+    const jugee = surFrappe(etat.prospective, touche, maintenant);
+    if (jugee) {
+      noterLaConsigne(jugee);
+      consignesAffichees = consignesAffichees.filter((c) => c.id !== jugee.id);
+      return;
+    }
+    /* La consigne dont la fenêtre s'est fermée le plus récemment. */
+    const fermees = etat.prospective.enAttente
+      .filter((c) => maintenant > c.echeance + c.fenetre)
+      .sort((a, b) => b.echeance - a.echeance);
+    if (fermees.length && !frappesTardives.has(fermees[0].id)) {
+      frappesTardives.set(fermees[0].id, { touche, instant: maintenant });
+      void annoncerPm('Noté, mais la fenêtre était déjà fermée.');
+    }
+  }
+
   /* ── Le clavier ──────────────────────────────────────────────────────── */
 
   function auClavier(e: KeyboardEvent) {
@@ -243,6 +356,12 @@
     if (e.key === 'Escape') {
       e.preventDefault();
       void arreterApresConfirmation();
+      return;
+    }
+    const majuscule = e.key.toUpperCase();
+    if ((TOUCHES as readonly string[]).includes(majuscule)) {
+      e.preventDefault();
+      toucherLaConsigne(majuscule);
       return;
     }
     if (/^[0-9]$/.test(e.key)) {
@@ -287,7 +406,12 @@
     rangDeLEssai = 0;
     dernierVerdict = null;
     saisie = '';
+    frappesTardives = new Map();
+    consignesAffichees = [];
+    annoncePm = '';
+    compteParVerdict = { juste: 0, manquee: 0, fausse: 0, omise: 0 };
     secondesRestantes = enDecouverte ? DECOUVERTE : reglages.duree * 60;
+    debutDeSeance = performance.now();
     etape = 'seance';
 
     await tick();
@@ -306,6 +430,7 @@
     const battre = () => {
       if (etape !== 'seance') return;
       secondesRestantes = Math.max(0, Math.ceil((fin - performance.now()) / 1000));
+      battreLaProspective();
       if (secondesRestantes <= 0) {
         terminer('terme');
         return;
@@ -508,7 +633,61 @@
         </label>
       </div>
 
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="block text-sm">
+          <span class="font-medium text-slate-700 dark:text-slate-200">
+            Horizon d’une consigne :
+            <span data-valeur="prospectiveHorizon" class="tabular-nums">
+              {Math.round(reglages.prospectiveHorizon / 1000)}
+            </span> s au plus
+          </span>
+          <input
+            id="prospective-horizon"
+            type="range"
+            bind:value={reglages.prospectiveHorizon}
+            min={BORNES.prospectiveHorizon.min}
+            max={BORNES.prospectiveHorizon.max}
+            step={BORNES.prospectiveHorizon.pas}
+            class="mt-2 w-full"
+          />
+          <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+            Le délai au bout duquel une consigne est attendue. L’écart réel est tiré au hasard,
+            puis plafonné par ce réglage.
+          </span>
+        </label>
+
+        <label class="block text-sm">
+          <span class="font-medium text-slate-700 dark:text-slate-200">
+            Fenêtre de réponse :
+            <span data-valeur="prospectiveFenetre" class="tabular-nums">
+              {reglages.prospectiveFenetre}
+            </span> ms
+          </span>
+          <input
+            id="prospective-fenetre"
+            type="range"
+            bind:value={reglages.prospectiveFenetre}
+            min={BORNES.prospectiveFenetre.min}
+            max={BORNES.prospectiveFenetre.max}
+            step={BORNES.prospectiveFenetre.pas}
+            class="mt-2 w-full"
+          />
+        </label>
+      </div>
+
       <label class="mt-4 flex items-center gap-2 text-sm">
+        <input
+          id="prospective"
+          type="checkbox"
+          bind:checked={reglages.prospectiveActive}
+          class="cible-tactile-pleine"
+        />
+        <span class="font-medium text-slate-700 dark:text-slate-200">
+          Mémoire prospective — retenir une consigne et y penser au bon moment
+        </span>
+      </label>
+
+      <label class="mt-2 flex items-center gap-2 text-sm">
         <input id="son" type="checkbox" bind:checked={sonVoulu} class="cible-tactile-pleine" />
         <span class="font-medium text-slate-700 dark:text-slate-200">Dire les nombres à voix haute</span>
       </label>
@@ -563,6 +742,30 @@
       {/if}
       <span class="tabular-nums" data-cadence>{intervalle} ms</span>
     </div>
+
+    <!--
+      LA CONSIGNE, LE TEMPS DE SON AFFICHAGE SEULEMENT.
+
+      Elle paraît, puis disparaît : c'est tout le sujet de la mémoire
+      prospective — retrouver une intention sans que rien ne la rappelle. La
+      laisser à l'écran jusqu'à son échéance en ferait une simple consigne de
+      lecture, et l'exercice n'aurait plus de seconde tâche.
+    -->
+    {#each consignesAffichees as consigne (consigne.id)}
+      <p
+        data-consigne={consigne.touche}
+        class="rounded-xl border border-indigo-300 bg-indigo-50 p-3 text-center text-sm
+               font-medium text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950
+               dark:text-indigo-100"
+      >
+        À retenir : dans environ
+        <strong class="tabular-nums">
+          {Math.max(0, Math.round((consigne.echeance - depuisLeDebut()) / 1000))}
+        </strong>
+        secondes, appuyez sur
+        <strong class="text-lg">{consigne.touche}</strong>.
+      </p>
+    {/each}
 
     <!--
       Le nombre. `data-nombre` est le point d'ancrage des essais au navigateur.
@@ -620,6 +823,51 @@
     {:else}
       <p class="text-center text-sm text-slate-500 dark:text-slate-400">
         La plage est trop large pour un pavé : répondez au clavier.
+      </p>
+    {/if}
+
+    {#if reglages.prospectiveActive}
+      <!--
+        L'ÉQUIVALENT TACTILE DES TOUCHES DE CONSIGNE.
+
+        Les huit lettres sont offertes en permanence, et non la seule attendue :
+        donner uniquement la bonne touche répondrait à la place de la personne,
+        et la mémoire prospective consiste précisément à retrouver LAQUELLE.
+        C'est donc l'exact équivalent du clavier, ni plus ni moins.
+      -->
+      <div
+        role="group"
+        aria-label="Touches de consigne"
+        data-touches-consigne
+        class="flex flex-wrap justify-center gap-2"
+      >
+        {#each TOUCHES as lettre (lettre)}
+          <button
+            type="button"
+            data-touche-consigne={lettre}
+            onclick={() => toucherLaConsigne(lettre)}
+            class="cible-tactile-pleine min-h-11 min-w-11 rounded-lg border border-indigo-300
+                   bg-indigo-50 font-semibold text-indigo-900 hover:bg-indigo-100
+                   dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-100
+                   dark:hover:bg-indigo-900"
+          >
+            {lettre}
+          </button>
+        {/each}
+      </div>
+
+      <!--
+        UNE SECONDE RÉGION VOCALE, et c'est nécessaire : les deux tâches
+        rendent un verdict en même temps, et une seule région verrait le second
+        effacer le premier avant qu'il soit annoncé. Deux régions, deux voix.
+      -->
+      <p
+        data-annonce-pm
+        role="status"
+        aria-live="polite"
+        class="min-h-6 text-center text-sm font-medium text-indigo-700 dark:text-indigo-300"
+      >
+        {annoncePm}
       </p>
     {/if}
 
@@ -685,6 +933,16 @@
         </dd>
       </div>
     </dl>
+    {#if reglages.prospectiveActive}
+      <p data-bilan-pm class="text-sm text-slate-500 dark:text-slate-400">
+        Mémoire prospective — {compteParVerdict.juste} à l’heure,
+        {compteParVerdict.manquee} trop tard, {compteParVerdict.fausse} mauvaise touche,
+        {compteParVerdict.omise} oubliée(s).
+        {#if bilan.scores.prospective !== null}
+          Score : {Math.round(bilan.scores.prospective * 100)} %.
+        {/if}
+      </p>
+    {/if}
     <button
       id="revenir"
       type="button"
