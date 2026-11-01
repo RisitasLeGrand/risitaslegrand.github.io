@@ -306,6 +306,7 @@
     "essais:pointage-derive": "tsx scripts/essais-pointage-derive.mts",
     "essais:occurrences-fenetre": "tsx scripts/essais-occurrences-fenetre.mts",
     "essais:facteurs-cycle": "tsx scripts/essais-facteurs-cycle.mts",
+    "essais:raccord-identite": "tsx scripts/essais-raccord-identite-migration.mts",
     "essais:schema:navigateur": "tsx scripts/essais-schema-restauration.mts",
     "essais:politique-restauration": "tsx scripts/essais-politique-restauration.mts",
     "essais:version": "tsx scripts/essais-version.mts",

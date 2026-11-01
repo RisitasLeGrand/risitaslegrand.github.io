@@ -629,7 +629,20 @@ export type MotifDeRefus =
   | 'schema-trop-recent'
   | 'somme-de-controle'
   | 'mot-de-passe'
-  | 'charge-utile-illisible';
+  | 'charge-utile-illisible'
+  /*
+     LE SEUL MOTIF QUI N'ACCUSE PAS LE FICHIER, mais le programme.
+
+     Les autres disent « ce fichier ne convient pas ». Celui-ci dit que la
+     RESTAURATION s'apprêtait à écrire une base dont le coffre ne s'ouvrirait
+     plus — le fichier portait « coffre.sel » et l'état à écrire ne l'a plus.
+     Le fichier, lui, est parfaitement valide.
+
+     Il vit dans le même type que les autres parce que c'est le même chemin de
+     refus et le même écran ; mais son message ne demande rien à la personne
+     qu'elle puisse faire, et il le dit : c'est un défaut du programme.
+  */
+  | 'sel-du-coffre-perdu';
 
 export class SauvegardeRefusee extends Error {
   constructor(
