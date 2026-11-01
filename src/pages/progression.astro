@@ -604,7 +604,7 @@ import LienReglages from '../components/LienReglages.astro';
     bouton.disabled = true;
     dire('message-sauvegarde', 'Compression et chiffrement en cours…', 'neutre');
     try {
-      const { sauvegarde, nom } = await fabriquer(sans ? null : mdp);
+      const { sauvegarde, nom, enregistrements } = await fabriquer(sans ? null : mdp);
       offrirLeFichier(sauvegarde.octets, nom);
       ($('mdp-sauvegarde') as HTMLInputElement).value = '';
 
@@ -612,7 +612,14 @@ import LienReglages from '../components/LienReglages.astro';
         ['Fichier', nom],
         ['Taille', octets(sauvegarde.tailleFichier)],
         ['Avant compression', octets(sauvegarde.tailleClair)],
-        ['Enregistrements', String(Object.values(sauvegarde.entete.magasins).reduce((s, n) => s + n, 0))],
+        /*
+           LE COMPTE VIENT DE LA SOURCE, et non de l'en-tête. Il sommait
+           « entete.magasins », qui depuis M-2bis ne compte plus les magasins
+           scellés : le reçu annonçait donc à la personne moins
+           d'enregistrements qu'elle n'en avait sauvegardé, juste après l'avoir
+           fait. Le fichier se tait ; l'écran de la personne, non.
+        */
+        ['Enregistrements', new Intl.NumberFormat('fr-FR').format(enregistrements)],
         ['Chiffré', sauvegarde.entete.chiffrement ? 'oui (AES-GCM)' : 'non'],
         ['Empreinte', sauvegarde.empreinteCourte],
       ]);

@@ -141,13 +141,33 @@ export const VERSION_FORMAT = 2;
  * (`db.ts`, `MAGASINS_HORS_SAUVEGARDE_EN_CLAIR`). Il vaut autant pour l'en-tête
  * en clair d'un fichier chiffré.
  *
- * Les comptes des magasins scellés sont donc remplacés par un TOTAL unique.
- * L'en-tête reste utile — on sait combien d'enregistrements le fichier porte
- * — sans dire de quoi. Ce qui reste à dire, et qui n'est pas rien : ce total
- * renseigne encore sur l'ORDRE DE GRANDEUR de ce qui est scellé. Le faire
- * disparaître tout à fait coûterait la vérification à blanc, qui est la raison
- * d'être de l'en-tête ; l'arbitrage appartient au pilote, et la limite est
- * écrite ici plutôt que tue.
+ * Les comptes des magasins scellés quittent donc le clair.
+ *
+ * ## M-2bis — les NOMS aussi, et le total avec
+ *
+ * Première version : les comptes partaient, remplacés par un total unique, et
+ * les noms restaient dans `branches[].magasins`. La limite était écrite ici
+ * plutôt que tue, et le pilote a tranché — aucun nom, aucun compte, total
+ * compris.
+ *
+ * Il a raison deux fois. Le TOTAL dit encore l'ordre de grandeur de ce qui est
+ * scellé, et il ne vaut que pour quelqu'un qui en a : « zéro » et « quatre
+ * cents » ne disent pas la même chose de la personne. Et le NOM suffit à lui
+ * seul : lire qu'un fichier porte le magasin du cycle ou celui des prises de
+ * traitement dit que la personne suit l'un ou l'autre, avant même de savoir
+ * combien. C'est exactement l'argument que le dépôt tenait déjà pour
+ * `odysseeSexe` — nous ne l'avions appliqué qu'à moitié.
+ *
+ * CE QUE L'EN-TÊTE EN CLAIR GARDE : les magasins non sensibles, nommés et
+ * comptés, et `chiffrement` — présent, le fichier est protégé ; `null`, la
+ * personne a désactivé le chiffrement en connaissance de cause. La
+ * vérification à blanc survit donc : on sait ce qu'est ce fichier, s'il est
+ * entier, de quelle version il vient, et s'il faudra un mot de passe.
+ *
+ * CE QUI DÉMÉNAGE APRÈS LE MOT DE PASSE : l'aperçu détaillé des magasins
+ * scellés, noms et comptes. Il se lit dans la charge utile, au moment où la
+ * restauration demande de toute façon le mot de passe. Rien n'est perdu ; ce
+ * qui était gratuit coûte maintenant ce qu'il devait coûter.
  *
  * ## Pourquoi la v1 reste lisible
  *
@@ -194,14 +214,26 @@ export interface EnTeteSauvegarde {
    * total est rendu à part.
    */
   magasins: Record<string, number>;
-  /**
-   * Ce que portent les magasins SCELLÉS, en un seul nombre (version 2 et plus).
-   *
-   * Absent d'un fichier de version 1, où les scellés étaient comptés un par un
-   * dans `magasins`. Sa présence ne dit donc pas seulement combien : elle dit
-   * aussi que ce fichier vient d'une version qui sait se taire.
-   */
-  scelles?: { total: number };
+  /*
+     IL N'Y A PAS DE CHAMP POUR LES SCELLÉS, ET C'EST LE POINT DE M-2bis.
+
+     Une première version en gardait le TOTAL — un seul nombre, les comptes par
+     magasin ayant déjà quitté le clair. Le pilote l'a écarté, et sa raison est
+     D2 : un nombre lisible sans mot de passe dit encore l'ordre de grandeur de
+     ce qui est scellé, et il ne vaut que pour quelqu'un qui en a. « Zéro » et
+     « quatre cents » ne disent pas la même chose de la personne.
+
+     Il n'y a pas non plus de drapeau « ce fichier contient des données
+     scellées ». Il dirait en clair que la personne suit son cycle ou un
+     traitement — le même fait, un cran plus bas. La mention neutre que l'écran
+     a besoin de lire existe déjà, et c'est `chiffrement` : présent, le fichier
+     est protégé et il faudra un mot de passe ; `null`, la personne a désactivé
+     le chiffrement en connaissance de cause.
+
+     Ce que portent les magasins scellés — leurs noms comme leurs comptes — se
+     lit APRÈS le déchiffrement, dans la charge utile, au moment où l'écran a
+     de toute façon demandé le mot de passe pour restaurer.
+  */
   /** `null` quand la personne a explicitement désactivé le chiffrement. */
   chiffrement: ParametresChiffrement | null;
   compression: 'gzip' | null;
@@ -436,9 +468,29 @@ export async function ecrire(options: OptionsEcriture): Promise<Sauvegarde> {
     ([nom, v]) => [nom, v.length] as const,
   );
   const magasinsEnClair = Object.fromEntries(comptes.filter(([nom]) => !scelles.has(nom)));
-  const totalScelle = comptes
-    .filter(([nom]) => scelles.has(nom))
-    .reduce((somme, [, n]) => somme + n, 0);
+
+  /*
+     ET LES NOMS AUSSI — M-2bis. Les comptes avaient quitté le clair, les NOMS y
+     restaient : `branches[].magasins` les déclarait tous. Or un nom suffit. Lire
+     dans un éditeur de texte qu'un fichier porte le magasin du cycle ou celui
+     des prises de traitement dit déjà, sans aucun mot de passe, que la personne
+     suit l'un ou l'autre — avant même de savoir combien.
+
+     LE FILTRAGE EST ICI, ET NON CHEZ L'APPELANT, parce que « ecrire » a deux
+     appelants : la sauvegarde et le paquet de synchronisation. Une règle de
+     confidentialité qui dépend du souvenir de chaque appelant tient jusqu'au
+     troisième. Celle-ci tient par construction, et le module reste pur : c'est
+     l'appelant qui dit QUELS magasins sont scellés, ce module ne fait
+     qu'appliquer.
+
+     Ce que la branche déclare reste donc vrai, simplement incomplet en clair :
+     elle n'annonce aucun magasin que le fichier ne porte pas. Le reste se lit
+     dans la charge utile, après le mot de passe.
+  */
+  const branchesEnClair = options.branches.map((branche) => ({
+    ...branche,
+    magasins: branche.magasins.filter((nom) => !scelles.has(nom)),
+  }));
 
   let chargeUtile: Octets = compresse;
   let chiffrement: ParametresChiffrement | null = null;
@@ -454,7 +506,8 @@ export async function ecrire(options: OptionsEcriture): Promise<Sauvegarde> {
     versionFormat: version,
     versionApplication: options.versionApplication,
     creeLe: maintenant.toISOString(),
-    branches: options.branches,
+    branches:
+      version > VERSION_SANS_EN_TETE_AUTHENTIFIE ? branchesEnClair : options.branches,
     /*
        EN VERSION 1, TOUS LES COMPTES SONT EN CLAIR — c'est précisément ce que
        M-2 corrige, et un fichier écrit en version 1 doit l'être comme un
@@ -464,7 +517,6 @@ export async function ecrire(options: OptionsEcriture): Promise<Sauvegarde> {
     magasins: version > VERSION_SANS_EN_TETE_AUTHENTIFIE
       ? magasinsEnClair
       : Object.fromEntries(comptes),
-    ...(version > VERSION_SANS_EN_TETE_AUTHENTIFIE ? { scelles: { total: totalScelle } } : {}),
     chiffrement: parametres,
     compression: compressionDisponible() ? ('gzip' as const) : null,
     sommeDeControle: {

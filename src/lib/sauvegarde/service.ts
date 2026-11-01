@@ -78,6 +78,20 @@ export function brancheRevisions(): BrancheSauvegardee {
 export interface ResultatSauvegarde {
   sauvegarde: Sauvegarde;
   nom: string;
+  /**
+   * Tout ce que le fichier porte, scellés COMPRIS.
+   *
+   * Il ne se déduit plus de l'en-tête : depuis M-2bis, l'en-tête en clair ne
+   * compte que les magasins non scellés, et le reçu qui sommait ses valeurs
+   * sous-comptait donc — il annonçait à la personne, juste après sa sauvegarde,
+   * moins d'enregistrements qu'elle n'en avait réellement enregistré.
+   *
+   * Se taire dans le FICHIER, qui peut sortir de l'appareil, et se taire DEVANT
+   * LA PERSONNE, sur son propre écran, sont deux choses sans rapport. Le second
+   * n'est pas de la discrétion, c'est une erreur d'affichage. Le compte se
+   * prend donc à la source, avant que l'en-tête ne se taise.
+   */
+  enregistrements: number;
 }
 
 /**
@@ -120,9 +134,16 @@ export async function fabriquer(motDePasse: string | null): Promise<ResultatSauv
   const sauvegarde = await ecrire({
     magasins,
     /*
-       La branche déclare ce qu'elle apporte, donc elle déclare la même
-       liste : annoncer des magasins que le fichier ne porte pas rendrait
-       l'aperçu de restauration faux.
+       La branche déclare ce qu'elle apporte, donc elle déclare la même liste :
+       annoncer des magasins que le fichier ne porte pas rendrait l'aperçu de
+       restauration faux.
+
+       On la donne ENTIÈRE, scellés compris, et c'est « format.ts » qui retire
+       les noms scellés de l'en-tête en clair (M-2bis) à partir de
+       `magasinsScelles` ci-dessous. Le filtrage est là-bas et non ici parce que
+       « ecrire » a deux appelants — celui-ci et le paquet de synchronisation :
+       une règle de confidentialité qui dépend du souvenir de chaque appelant
+       tient jusqu'au troisième.
     */
     branches: [{ ...brancheRevisions(), magasins: [...emportes] }],
     magasinsScelles,
@@ -134,7 +155,11 @@ export async function fabriquer(motDePasse: string | null): Promise<ResultatSauv
     motDePasse,
     maintenant,
   });
-  return { sauvegarde, nom: nomDeFichier(maintenant) };
+  return {
+    sauvegarde,
+    nom: nomDeFichier(maintenant),
+    enregistrements: Object.values(magasins).reduce((somme, v) => somme + v.length, 0),
+  };
 }
 
 /** Note la réussite. À appeler **après** que le fichier est réellement parti. */

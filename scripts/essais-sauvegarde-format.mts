@@ -417,47 +417,94 @@ const faire = (plus: Record<string, unknown> = {}) =>
   );
 }
 
-console.log('\n\x1b[1mLES COMPTES DES MAGASINS SCELLÉS QUITTENT LE CLAIR (M-2)\x1b[0m');
+console.log('\n\x1b[1mNI NOM NI COMPTE SCELLÉ DANS LE CLAIR (M-2 et M-2bis)\x1b[0m');
 {
   const s = await faire();
   const enClair = ligneDEnTete(s.octets);
-  verifierQue(
-    'le magasin non scellé garde son compte nommé',
-    s.entete.magasins.cartes,
-    2,
-  );
+  verifierQue('le magasin non scellé garde son compte nommé', s.entete.magasins.cartes, 2);
   verifierQue(
     'le magasin scellé n’a plus de compte nommé',
     'odysseeCycleJournal' in s.entete.magasins,
     false,
   );
   /*
-     ET SON NOM NON PLUS N'EST PAS DANS L'EN-TÊTE. Un compte retiré dont le
-     nom resterait ne cacherait rien de ce qui compte : « odysseeCycleJournal
-     est dans ce fichier » dit déjà que la personne suit son cycle.
-
-     La branche, elle, déclare bien la liste de ses magasins — c'est ce qui
-     rend l'aperçu de restauration juste —, et cette assertion ne porte donc
-     que sur la carte des comptes. La limite est dite : le nom reste lisible
-     dans `branches`, et le retirer de là rendrait l'aperçu faux. C'est au
-     pilote d'arbitrer s'il faut aller plus loin.
+     ET PLUS DE TOTAL NON PLUS — M-2bis. La première version en gardait un, et
+     la limite était écrite dans le module plutôt que tue. Le pilote a tranché :
+     un total dit encore l'ordre de grandeur de ce qui est scellé, et il ne vaut
+     que pour quelqu'un qui en a — « zéro » et « quatre cents » ne disent pas la
+     même chose de la personne.
+  */
+  verifierQue('et il n’y a plus de total du tout', 'scelles' in s.entete, false);
+  /*
+     ET LE NOM A QUITTÉ « branches ». C'était la dernière fuite, et la plus
+     bête : un compte retiré dont le nom reste ne cache rien de ce qui compte.
+     « odysseeCycleJournal est dans ce fichier » dit déjà que la personne suit
+     son cycle, avant même de savoir combien.
   */
   verifierQue(
-    'le total des scellés est rendu à part',
-    s.entete.scelles,
-    { total: 3 },
+    'et la branche ne déclare plus le magasin scellé',
+    s.entete.branches[0].magasins,
+    ['cartes'],
   );
   verifierQue(
-    'et le compte du scellé ne se lit nulle part dans la carte en clair',
-    /"odysseeCycleJournal":\s*3/.test(enClair),
+    'mais elle déclare toujours ce qui n’est pas scellé',
+    s.entete.branches[0].magasins.includes('cartes'),
+    true,
+  );
+
+  /*
+     LE CONTRÔLE QUI COMPTE, ET IL PORTE SUR LE FICHIER ENTIER.
+
+     Les quatre précédents interrogent l'en-tête DÉJÀ ANALYSÉ, c'est-à-dire
+     l'objet que ce module a bien voulu rendre. Ils passeraient tous le jour où
+     le nom se glisserait ailleurs dans le clair — dans un champ ajouté, dans
+     la portée, dans un futur index. Celui-ci lit les OCTETS, comme le ferait
+     la personne qui ouvre le fichier dans un éditeur de texte, et c'est elle
+     qu'on protège.
+  */
+  const octetsEnClair = Buffer.from(s.octets).toString('latin1');
+  verifierQue(
+    'aucun nom de magasin scellé dans les octets en clair du fichier',
+    octetsEnClair.includes('odysseeCycleJournal'),
     false,
   );
+  verifierQue(
+    'et aucun compte de magasin scellé dans la carte en clair',
+    /"odysseeCycleJournal"\s*:\s*3/.test(enClair),
+    false,
+  );
+
+  /*
+     ET LE SABOTAGE, sans lequel les deux précédents ne prouveraient rien : un
+     contrôle qui cherche une chaîne absente passe aussi quand la chaîne ne
+     pouvait pas y être. On réécrit donc le MÊME fichier sans déclarer aucun
+     magasin scellé — c'est exactement ce que faisait la version 1 — et le nom
+     doit reparaître. S'il ne reparaît pas, le contrôle ci-dessus ne garde rien.
+  */
+  const sansProtection = await faire({ magasinsScelles: [] });
+  const clairSansProtection = Buffer.from(sansProtection.octets).toString('latin1');
+  verifierQue(
+    'et sans la protection, ce nom SE LIT dans le clair — le contrôle mord',
+    clairSansProtection.includes('odysseeCycleJournal'),
+    true,
+  );
+  verifierQue(
+    'et son compte aussi',
+    /"odysseeCycleJournal"\s*:\s*3/.test(ligneDEnTete(sansProtection.octets)),
+    true,
+  );
+
   /* Le fichier, lui, porte bien les trois enregistrements : rien n'est perdu. */
   const relu = await relire(s.octets, MDP);
   verifierQue(
-    'les enregistrements scellés sont tous là',
+    'les enregistrements scellés sont tous là, après le mot de passe',
     (relu.magasins.odysseeCycleJournal as unknown[]).length,
     3,
+  );
+  verifierQue(
+    'et c’est là que leur nom se lit, et nulle part avant',
+    Object.keys(relu.magasins).includes('odysseeCycleJournal'),
+    true,
   );
 }
 
@@ -477,6 +524,17 @@ console.log('\n\x1b[1mLA VERSION 1 RESTE LISIBLE\x1b[0m');
     3,
   );
   verifierQue('sans total séparé', 'scelles' in v1.entete, false);
+  /*
+     ET ELLE DÉCLARE ENCORE LE MAGASIN SCELLÉ DANS SA BRANCHE. C'est le défaut
+     que M-2bis ferme, et il doit rester visible ICI : un fichier de version 1
+     écrit par la version d'aujourd'hui doit être un vrai fichier de version 1,
+     sinon l'essai de compatibilité éprouve un fichier qui n'a jamais existé.
+  */
+  verifierQue(
+    'et sa branche déclare encore tous ses magasins, comme en version 1',
+    [...v1.entete.branches[0].magasins].sort(),
+    ['cartes', 'odysseeCycleJournal'],
+  );
 
   const relu = await relire(v1.octets, MDP);
   verifierQue('il se relit à l’identique', relu.magasins, MAGASINS_ESSAI);
