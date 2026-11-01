@@ -74,13 +74,29 @@ const seme = await page.evaluate(async () => {
     r.onsuccess = () => ok(r.result);
   });
   const maintenant = new Date();
+  /*
+     DEUX JOURS QUI SONT SÛREMENT DANS LA FENÊTRE, ET JAMAIS DANS LE FUTUR.
+
+     Le semis prenait les jours 1 et 2 du mois courant. Le 1er du mois, la
+     seconde séance était donc datée de DEMAIN — une séance « terminée » qui
+     n'a pas eu lieu. Elle tombait dans la fenêtre par chance, puisque la
+     fenêtre est le mois entier ; sur une fenêtre « jusqu'à aujourd'hui » elle
+     en sortirait, et l'indicateur vaudrait la moitié.
+
+     On prend donc aujourd'hui et la veille, ramenées au premier du mois : deux
+     jours distincts dès le 2, un seul le 1er, et jamais de date future. Le
+     total reste deux heures, qui est ce que l'essai mesure.
+  */
+  const jourDuMois = maintenant.getUTCDate();
   const seances = [];
-  for (let i = 1; i <= 2; i += 1) {
-    const jour = new Date(Date.UTC(maintenant.getUTCFullYear(), maintenant.getUTCMonth(), i))
+  for (const numero of [Math.max(1, jourDuMois - 1), jourDuMois]) {
+    const jour = new Date(
+      Date.UTC(maintenant.getUTCFullYear(), maintenant.getUTCMonth(), numero),
+    )
       .toISOString()
       .slice(0, 10);
     seances.push({
-      id: `01IMPORTESSAI${i}0000000000000`.slice(0, 26),
+      id: `01IMPORTESSAI${seances.length + 1}0000000000000`.slice(0, 26),
       jour,
       statut: 'terminee',
       theme: 'droit-public',
@@ -97,9 +113,10 @@ const seme = await page.evaluate(async () => {
     tx.onerror = () => ko(tx.error);
   });
   base.close();
-  return seances.length;
+  return seances.map((s) => s.jour);
 });
-v('deux séances d’une heure sont semées', seme, 2);
+const joursSemes = seme;
+v('deux séances d’une heure sont semées', joursSemes.length, 2);
 
 /* ════════════════════════════════════════════════════════════════════════
    Un export réel, pour en reprendre l'identifiant et l'empreinte
@@ -151,6 +168,33 @@ vrai('le manifeste porte une empreinte', /^sha256:[0-9a-f]{64}$/.test(manifeste.
 const vraieValeur = (indicateurs.valeurs ?? []).find(
   (x) => x.indicateur === 'cog.temps-revision',
 )?.valeur;
+console.log(`      période du manifeste : ${manifeste.periode?.debut} → ${manifeste.periode?.fin}`);
+console.log(`      jours semés : ${joursSemes.join(', ')}`);
+
+/*
+   LE CONTRÔLE QUI MANQUAIT, ET IL EST EN AMONT DE TOUS LES AUTRES.
+
+   Le semis est daté par l'horloge au moment où il est écrit ; la fenêtre de
+   l'export est calculée par l'application au moment où elle exporte. Rien ne
+   garantissait que les deux soient d'accord — et quand ils ne le sont pas,
+   l'indicateur rend « null », donc le chiffre cité n'est pas retrouvé, donc le
+   constat devient « douteux » et la preuve « non-retrouve ». Cinq croix, dont
+   quatre sont des conséquences, et aucune ne dit que le problème est une
+   histoire de DATES.
+
+   C'est la forme d'échec la plus coûteuse : la cause est à cinq lignes de la
+   première croix, et rien ne l'y renvoie. Ce contrôle-ci la nomme sur place.
+*/
+v(
+  'les jours semés tombent tous dans la période de l’export',
+  joursSemes.filter(
+    (j) => j < (manifeste.periode?.debut ?? '') || j > (manifeste.periode?.fin ?? ''),
+  ),
+  [],
+);
+console.log(
+  `      indicateurs rendus : ${(indicateurs.valeurs ?? []).map((x) => `${x.indicateur}=${x.valeur}`).join(', ') || '(aucun)'}`,
+);
 v('le temps de révision du mois vaut deux heures', vraieValeur, 7200);
 
 const analyse = (modifications = {}) => ({
