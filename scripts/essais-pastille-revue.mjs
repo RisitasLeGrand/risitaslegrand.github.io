@@ -136,12 +136,71 @@ await page.evaluate(async () => {
 
 await aller('/revisions/');
 /*
-   On attend la fin du travail de la barre avant de conclure à l'absence :
-   une sonde d'absence qui regarde trop tôt est verte pour rien. Le témoin
-   de synchronisation, peint dans le même passage, sert de repère.
+   SONDE FAIBLE, ET IL FAUT LA DIRE PLUS FAIBLE QU'ELLE N'ÉTAIT DITE.
+
+   Le commentaire d'origine annonçait que « le témoin de synchronisation,
+   peint dans le même passage, sert de repère ». Ce n'est pas vrai : le témoin
+   de synchronisation est peint par un AUTRE `quandDeverrouille` de
+   « Base.astro », pour une autre fonction. Rien ne lie son apparition à la
+   décision de la pastille, et il n'était de toute façon pas attendu ici —
+   seules quatre secondes l'étaient.
+
+   Et la décision de la pastille n'a AUCUNE marque. Son passage fait :
+
+       if (await revueASignaler()) pastille.classList.replace('hidden', …);
+
+   Quand la réponse est « non », il ne fait rien. L'absence qu'on lit est donc
+   exactement ce qu'on lirait si le passage n'avait pas encore tourné — et
+   aucune attente, même juste, ne peut distinguer les deux. Ce n'est pas une
+   temporisation à remplacer : c'est une post-condition qui MANQUE AU SITE.
+
+   Le remède exact est la marque de fin de peinture posée sur le conteneur de
+   la pastille, décidée après la bascule et non à l'intérieur — elle attend
+   la fusion de `claude/b-marque-peinture`. Tant qu'elle n'est pas là, cette
+   ligne reste une sonde faible et le dit.
+
+   CE QUI LA REND MALGRÉ TOUT UTILE est la section 2 puis le retour
+   ci-dessous : la section 2 a montré, sur ce même contexte, que la pastille
+   SAIT s'allumer — donc un passage entièrement mort est déjà exclu. Et le
+   retour montre qu'elle sait se rallumer quand la donnée revient, ce qui
+   prouve que la chaîne tourne encore à ce moment de l'essai. L'absence lue
+   ici est encadrée par deux mesures bruyantes, à défaut d'être elle-même
+   bruyante.
 */
 await page.waitForTimeout(4000);
-v('la pastille a disparu', await page.locator('#pastille-revue').isVisible(), false);
+v(
+  'la pastille a disparu (sonde faible : une absence n’a pas de marque — voir ci-dessus)',
+  await page.locator('#pastille-revue').isVisible(),
+  false,
+);
+
+console.log('\n\x1b[1m4. LA DONNÉE REVIENT : ELLE SE RALLUME\x1b[0m');
+/*
+   LE RETOUR, QUI DONNE UN OBJET À L'EXTINCTION.
+
+   Sans lui, la section 3 est une absence lue après une attente à l'aveugle,
+   et elle resterait verte si la chaîne avait cessé de tourner entre-temps —
+   par exemple si une erreur levée dans un `quandDeverrouille` antérieur avait
+   interrompu la file. On vide donc les revues et l'on exige que la pastille
+   REVIENNE : c'est la seule assertion de cette section qui rougisse d'elle-même,
+   et elle mesure au passage quelque chose que l'essai ne mesurait pas — que
+   l'extinction est réversible, et non un aller simple.
+*/
+await page.evaluate(async () => {
+  const base = await new Promise((ok) => {
+    const r = indexedDB.open('revinsp');
+    r.onsuccess = () => ok(r.result);
+  });
+  await new Promise((ok, ko) => {
+    const tx = base.transaction('odysseeRevues', 'readwrite');
+    tx.objectStore('odysseeRevues').clear();
+    tx.oncomplete = () => ok();
+    tx.onerror = () => ko(tx.error);
+  });
+  base.close();
+});
+await aller('/revisions/');
+vrai('la pastille est revenue, donc la chaîne tournait bien', await pastilleVisible());
 
 await nav.close();
 console.log(

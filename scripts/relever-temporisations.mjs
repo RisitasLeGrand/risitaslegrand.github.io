@@ -36,6 +36,8 @@
  *     node scripts/relever-temporisations.mjs --amortissements
  *     node scripts/relever-temporisations.mjs --bornes
  *     node scripts/relever-temporisations.mjs --bornes --dans <dossier>
+ *     node scripts/relever-temporisations.mjs --deguisees
+ *     node scripts/relever-temporisations.mjs --deguisees --fenetre 10
  *     node scripts/relever-temporisations.mjs --pour 'coffre|sauvegarde'
  *
  * Le dernier relève les délais que le SITE s'impose, c'est-à-dire ce qui peut
@@ -77,6 +79,47 @@
  * dans huit essais, derrière un « 0 borne » qui se lisait comme un verdict.
  * Les seize du 26 octobre n'étaient que la forme sur une ligne.
  *
+ * ## L'ATTENTE DÉGUISÉE, que les deux relevés précédents ne voient pas
+ *
+ * `--deguisees` cherche une troisième forme, et c'est celle qui se compte le
+ * moins bien : **on attend sur le sélecteur A, puis on lit le sélecteur B.**
+ * Rien ne ressemble plus à un essai bien tenu. Il y a une attente, elle est
+ * bornée, elle porte un sélecteur — et elle ne garantit rien de ce qui est
+ * ensuite affirmé. Les deux autres relevés la manquent entièrement : il n'y a
+ * ni `waitForTimeout` ni borne mal placée.
+ *
+ * **Un sélecteur étranger n'est pas une faute en soi**, et le relevé ne le dit
+ * jamais. Sur beaucoup d'écrans, B est peint dans la même passe que A, et
+ * l'attente vaut pour les deux. Ce qui décide est ce que l'assertion DEVIENT
+ * si la course est perdue :
+ *
+ * — une lecture comparée à une VALEUR rend `null` et **rougit**. Elle se
+ *   signale, on la corrige le jour où elle tombe ;
+ * — une lecture qui attend une **ABSENCE** — `faux(…isVisible)`, un compte à
+ *   zéro, un `false` attendu — est satisfaite par la page pas encore peinte.
+ *   Elle **verdit à faux**, et rien ne le dira jamais.
+ *
+ * Le relevé sépare donc les deux et ne met en tête que les secondes. Un faux
+ * rouge se signale ; un faux vert, non — c'est toute l'asymétrie, et c'est
+ * pourquoi le chiffre à regarder est celui des muettes, pas celui des
+ * candidats.
+ *
+ * ## Les trois gonflages que ce motif a subis avant de valoir quelque chose
+ *
+ * Chacun n'a été vu que parce que le relevé IMPRIME les cas qu'il compte.
+ *
+ * 1. Il prenait le **premier littéral de la ligne**. Or `verifier('et les
+ *    boutons ont disparu', …)` en porte un avant son sélecteur : huit des dix
+ *    cas tirés au sort étaient des intitulés français. 173 → 150.
+ * 2. Il fermait chaque littéral sur **n'importe quel guillemet**, ce qui
+ *    tronquait `'[data-etat="plein"]'` en `[data-etat=` — et un sélecteur
+ *    tronqué ne ressemble plus à aucun autre, donc passait pour étranger.
+ *    150 → 147.
+ * 3. Il ne regardait que l'attente **la plus proche**. `essais-journal.mjs`
+ *    attend `#total` puis `#reviser` et lit les deux : la garde était deux
+ *    lignes plus haut. 147 → 146, un seul site — la forme était rare, et c'est
+ *    une raison de le dire, pas de le taire.
+ *
  * **Un repos comparé à l'horloge** n'a aucun minuteur : le site garde l'instant
  * du dernier geste et refuse le suivant s'il arrive trop tôt. `src/lib/geste.ts`
  * fait cela — `performance.now() - derniere < repos`, 600 ms par défaut, pour
@@ -92,6 +135,31 @@ import { bornesAuMauvaisRang } from './lib/bornes-de-waitforfunction.mjs';
 const LECTURE =
   /isVisible|textContent|innerText|innerHTML|getAttribute|\$\$eval|\$eval|\.count\(\)|evaluate\(|verifier\(|verifierPresque\(|inputValue|checkVisibility/;
 
+/*
+   LES MOTIFS SONT DÉCLARÉS ICI, AU-DESSUS DU BALAYAGE PRINCIPAL, et non
+   près du mode qui les a introduits. Un « const » ne se hisse pas : laissés
+   plus bas, ils faisaient lever le balayage des temporisations, qui tourne
+   au chargement du module et s'en sert désormais pour classer ses sites.
+*/
+const ATTENTE =
+  /\b(waitForSelector|devientVisible|annonceDe|attendreLeCompte|travailFini|boutonRendu|apresLaPeinture|apresLeChangementDeTexte|apresLesAnimations|apresLeRemplacement)\s*\(/;
+
+const LECTURE_SELECTEUR =
+  /\b(locator|textContent|innerText|isVisible|getAttribute|inputValue|\$\$eval|\$eval)\s*\(/;
+
+const LITTERAUX = /'([^'\n]{0,160})'|"([^"\n]{0,160})"|`([^`\n]{0,160})`/g;
+
+const FORME_DE_SELECTEUR =
+  /^(?:[#.[]|(?:button|input|section|div|li|ul|ol|table|tr|td|th|span|a|h[1-6]|dialog|form|select|textarea|details|summary|p|nav|main|header|footer|canvas|svg|label|option|fieldset|progress|meter|img|body|html)\b)/;
+
+const MUETTE = /\bfaux\(|,\s*false\s*[),]|===\s*false|,\s*0\s*[),]|toBe\(false\)|toHaveCount\(0\)/;
+
+const CRIE = /isEnabled\(/;
+
+const CRI_PAR_AIDE = /\b(?:v|verifier|verifierPresque)\(/;
+
+const GESTE = /\b(?:click|fill|goto|reload|setInputFiles|press|uncheck|selectOption|dispatchEvent|setChecked)\s*\(/;
+
 const args = process.argv.slice(2);
 const iFenetre = args.indexOf('--fenetre');
 const FENETRE = iFenetre === -1 ? 12 : Number(args[iFenetre + 1]);
@@ -99,6 +167,7 @@ const AMORTISSEMENTS = args.includes('--amortissements');
 const BORNES = args.includes('--bornes');
 const iDans = args.indexOf('--dans');
 const DANS = iDans === -1 ? 'scripts' : args[iDans + 1];
+const DEGUISEES = args.includes('--deguisees');
 const iPour = args.indexOf('--pour');
 const POUR = iPour === -1 ? null : args[iPour + 1];
 
@@ -115,6 +184,9 @@ const essais = readdirSync('scripts')
 
 let total = 0;
 let avecLecture = 0;
+let ralentissent = 0;
+let muettesGardees = 0;
+const dangereuses = [];
 const parFichier = new Map();
 const sites = [];
 
@@ -128,6 +200,31 @@ for (const f of essais) {
     avecLecture += 1;
     parFichier.set(f, (parFichier.get(f) ?? 0) + 1);
     sites.push({ fichier: f, ligne: i + 1, code: l.trim().slice(0, 72) });
+
+    /*
+       ET LE RANG DE CHACUNE, qui est ce qui sert à prioriser.
+
+       « 208 temporisations avec une lecture derrière » se lit comme 208
+       risques, et ce n'est pas vrai. Une temporisation ne peut faire VERDIR un
+       essai à tort que si la lecture qui la suit attend une absence et qu'aucun
+       cri ne l'encadre dans son bloc — le même critère que « --deguisees », et
+       pour la même raison : les aides d'assertion comptent au lieu de lever.
+       Les autres ralentissent la batterie, ce qui se corrige sans précaution
+       et sans urgence.
+    */
+    let fin = i + 1;
+    while (fin < lignes.length && fin < i + 1 + FENETRE && !GESTE.test(lignes[fin]) && !ATTENTE.test(lignes[fin])) {
+      fin += 1;
+    }
+    let muette = 0;
+    for (let k = i + 1; k < fin; k += 1) {
+      if (!LECTURE.test(lignes[k])) continue;
+      const e = assertionDe(lignes, k);
+      if (MUETTE.test(e) && !CRIE.test(e)) { muette = k + 1; break; }
+    }
+    if (!muette) { ralentissent += 1; return; }
+    if (crieEntre(lignes, i + 1, fin)) { muettesGardees += 1; return; }
+    dangereuses.push({ fichier: f, ligne: i + 1, muette, code: lignes[muette - 1].trim().slice(0, 72) });
   });
 }
 
@@ -182,6 +279,317 @@ function amortissements(racine) {
       });
   }
   return { repos, minuteurs, constantes };
+}
+
+
+/* ── Les attentes déguisées ───────────────────────────────────────────── */
+
+
+/* Chaque littéral est lu PAR SON PROPRE délimiteur : voir le gonflage n° 2. */
+
+/* La forme d'un sélecteur, pour ne pas prendre un intitulé : gonflage n° 1. */
+
+/*
+   L'ASSERTION MUETTE : celle qui verdit si la course est perdue, parce que ce
+   qu'elle exige est une absence — et qu'une page pas encore peinte n'affiche
+   rien. C'est le seul des deux versants qui ne se signale jamais.
+*/
+
+/*
+   ET L'EXCEPTION QUI REND LE CRI. `faux(…isEnabled())` a la forme d'une
+   muette et n'en est pas une : un bouton présent est ACTIF par défaut, donc
+   une page pas encore peinte rend `true` et l'assertion ROUGIT ; et un bouton
+   absent fait lever l'appel, donc elle rougit aussi. Des deux côtés, elle se
+   signale.
+
+   `isChecked` ne rejoint pas la liste, et c'est le même raisonnement qui le
+   dit : une case non cochée EST l'état de départ, donc `faux(…isChecked())`
+   est bel et bien satisfaite par une page qui n'a rien fait.
+
+   Ce qu'il faut savoir en lisant le chiffre : la règle générale — « une
+   assertion d'absence est muette » — ne vaut que si l'absence est aussi
+   l'état d'avant. Le relevé n'a pas les moyens de le savoir en général ; il ne
+   traite que ce cas-ci, où le défaut du navigateur le dit. Il SUR-COMPTE donc
+   encore un peu, et il vaut mieux qu'il sur-compte.
+*/
+
+/**
+ * L'assertion ENTIÈRE à laquelle la ligne appartient, et rien de plus.
+ *
+ * Une assertion tient souvent sur plusieurs lignes, donc il faut regarder plus
+ * loin que la ligne lue. Mais un voisinage de taille fixe DÉBORDE sur
+ * l'assertion suivante : `vrai('le coffre est fermé au départ', …)` passait
+ * pour muette parce qu'une voisine trois lignes plus bas portait un `false`.
+ * Quatrième gonflage, et le plus sournois : il inventait des muettes là où le
+ * code disait exactement le contraire de ce qu'on lui prêtait.
+ *
+ * On s'arrête donc là où les parenthèses se referment — la fin de l'énoncé —
+ * sans jamais dépasser huit lignes.
+ */
+function assertionDe(lignes, i) {
+  let profondeur = 0;
+  const prises = [];
+  for (let k = i; k < Math.min(lignes.length, i + 8); k += 1) {
+    const l = lignes[k];
+    prises.push(l);
+    for (const c of l) {
+      if (c === '(' || c === '[') profondeur += 1;
+      else if (c === ')' || c === ']') profondeur -= 1;
+    }
+    if (k > i && profondeur <= 0) break;
+    if (k === i && profondeur <= 0) break;
+  }
+  return prises.join('\n');
+}
+
+/** Le premier littéral de la ligne qui ait la forme d'un sélecteur. */
+function selecteurDe(ligne) {
+  for (const m of ligne.matchAll(LITTERAUX)) {
+    const v = (m[1] ?? m[2] ?? m[3] ?? '').trim();
+    if (!FORME_DE_SELECTEUR.test(v)) continue;
+    /* Une phrase française n'est pas un sélecteur. */
+    if (/[^\x00-\x7F]/.test(v)) continue;
+    return v;
+  }
+  return null;
+}
+
+/** Le sujet d'un sélecteur : ce sur quoi il porte, sans ses conditions. */
+function sujetsDe(s) {
+  return s
+    .split(',')
+    .map((p) =>
+      p
+        .replace(/:not\([^)]*\)/g, '')
+        .replace(/:has\([^)]*\)/g, '')
+        .replace(/:(?:visible|hidden|first-child|last-child|checked|disabled|enabled)\b/g, '')
+        .trim(),
+    )
+    .filter(Boolean);
+}
+
+/** A et B tiennent-ils l'un dans l'autre ? « #liste » et « #liste li ». */
+function seTiennent(a, b) {
+  return a.startsWith(b) || b.startsWith(a) || a.includes(` ${b}`) || b.includes(` ${a}`);
+}
+
+/**
+ * LE CRI QUI GARDE LES MUETTES QUI LE SUIVENT.
+ *
+ * C'est la correction la plus lourde que ce relevé ait subie, et elle change
+ * le sens du chiffre.
+ *
+ * Une muette ne peut faire passer un essai à tort que si RIEN avant elle ne
+ * serait tombé. Or dans ces essais, les assertions viennent en bloc derrière
+ * une attente :
+ *
+ *     await page.waitForSelector('#proposition-reponse:not(.hidden)');
+ *     v('la réponse dit quand on en reparlera', …'deux semaines'…, true);
+ *     faux('et les boutons ont disparu', …locator('#proposition-oui')…);
+ *
+ * Le `faux` est bien une muette : une page pas encore peinte la satisfait.
+ * Mais le `v` au-dessus compare un texte à une valeur — il ROUGIT sur une page
+ * pas encore peinte. Si la course est perdue, l'essai est rouge par le `v`, et
+ * la muette n'a rien pu cacher. Elle est sans objet, pas sans garde.
+ *
+ * On ne retient donc comme muette que celle qu'AUCUN cri ne précède entre
+ * l'attente et elle. Ce qu'on compte alors n'est plus « une assertion faible »
+ * mais « un essai qui peut verdir à tort », qui est la seule chose qui coûte.
+ *
+ * Un cri, ici : une lecture d'écran comparée à une valeur, c'est-à-dire une
+ * assertion qui n'est PAS muette au sens ci-dessus. Les deux notions sont donc
+ * définies l'une par l'autre, et c'est voulu.
+ *
+ * ET LE CRI COMPTE AUSSI QUAND IL VIENT APRÈS, ce qui a été la dernière
+ * surprise de ce relevé. Les aides d'assertion de ces essais ne LÈVENT pas :
+ *
+ *     let echecs = 0;
+ *     const v = (titre, obtenu, attendu) => { if (!ok) echecs += 1; … };
+ *     process.exit(echecs ? 1 : 0);
+ *
+ * Elles COMPTENT, et le code de sortie ne tombe qu'à la fin. Une muette suivie
+ * d'un cri sur la même peinture ne cache donc rien non plus : l'essai sera
+ * rouge par le cri, même s'il est passé par la muette d'abord. La garde est
+ * donc des DEUX CÔTÉS, et c'est pourquoi on balaie le bloc entier.
+ *
+ * Le bloc va de l'attente qui le gouverne au geste suivant — un clic, une
+ * saisie, une navigation, une autre attente — parce qu'au-delà, ce n'est plus
+ * la même peinture et le cri ne prouve plus rien d'ici.
+ */
+
+function crieDansLeBloc(lignes, attente, i) {
+  /* En amont : de l'attente la plus haute jusqu'à la muette. */
+  const amont = crieEntre(lignes, attente, i);
+  if (amont) return amont;
+  /* En aval : jusqu'au geste ou à l'attente qui ferme le bloc. */
+  let fin = i + 1;
+  while (fin < lignes.length && fin < i + 14) {
+    if (GESTE.test(lignes[fin]) || ATTENTE.test(lignes[fin])) break;
+    fin += 1;
+  }
+  return crieEntre(lignes, i + 1, fin);
+}
+
+/*
+   ET LE CRI QUI PASSE PAR UNE AIDE, qui a été le dernier angle mort.
+
+   Les deux muettes qui restaient après tout ce qui précède étaient gardées,
+   l'une par « v('le bloc le dit', await texteDuBloc(), '…') », l'autre par
+   « v('la carte est toujours là', await compter('cartes'), 1) ». Aucune des
+   deux ne porte de sélecteur littéral : elles lisent l'écran à travers une
+   fonction du fichier. Le balayage ne les voyait donc pas, et comptait pour
+   dangereuses deux muettes qu'un cri encadrait.
+
+   On reconnaît donc aussi l'assertion qui ATTEND une valeur sans nommer de
+   sélecteur : une aide d'assertion, un « await » dans ses arguments, et une
+   valeur attendue qui n'est ni « false » ni zéro. C'est plus large que le
+   reste du motif, et c'est le bon côté pour l'être : une garde manquée
+   gonfle le chiffre, une garde inventée le creuse.
+*/
+
+function crieEntre(lignes, depuis, jusqua) {
+  for (let k = depuis; k < jusqua; k += 1) {
+    const l = lignes[k];
+    const enonce = assertionDe(lignes, k);
+    const parSelecteur = LECTURE_SELECTEUR.test(l) && !ATTENTE.test(l);
+    const parAide = CRI_PAR_AIDE.test(l) && /await/.test(enonce);
+    if (!parSelecteur && !parAide) continue;
+    if (MUETTE.test(enonce) && !CRIE.test(enonce)) continue;
+    return k + 1;
+  }
+  return 0;
+}
+
+/**
+ * LES COUPLES QUE LE SITE BASCULE D'UN SEUL TENANT, lus dans `src/`.
+ *
+ * Le relevé classait « attend `#coffre-ferme`, lit `#coffre-ouvert` » parmi
+ * les étrangers — ce qui est vrai de leurs noms et faux de leur conduite. Les
+ * écrans font :
+ *
+ *     $('coffre-ferme').classList.toggle('hidden', ouvert);
+ *     $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+ *
+ * Deux énoncés synchrones, sans `await` entre eux : au moment où l'un est
+ * visible, l'autre est DÉJÀ caché. L'attente garantit donc bel et bien la
+ * lecture, et six des seize muettes relevaient de ce seul motif.
+ *
+ * Une liste d'exemptions écrite à la main aurait pourri au premier écran
+ * renommé. On les DÉDUIT : deux identifiants dont la visibilité se règle à
+ * moins de trois lignes l'un de l'autre, dans le même fichier, forment un
+ * couple. Ce qui exempte n'est pas un nom, c'est un fait lisible dans le code.
+ *
+ * Ce que ce calcul NE VOIT PAS, et qu'il faut dire : un couple dont les deux
+ * bascules sont séparées par un `await`, ou posées dans deux fonctions. Il
+ * sous-exempte donc, jamais l'inverse — le relevé reste prudent du bon côté.
+ */
+function couplesBascules(racine) {
+  const BASCULE =
+    /\$\(\s*['"`]#?([\w-]+)['"`]\s*\)\s*\.classList\s*\.\s*(?:toggle|add|remove)\(\s*['"`]hidden['"`]/;
+  const couples = new Set();
+  for (const chemin of sourcesDuSite(racine)) {
+    const lignes = readFileSync(chemin, 'utf8').split('\n');
+    const vus = [];
+    lignes.forEach((l, i) => {
+      const m = l.match(BASCULE);
+      if (!m) return;
+      for (const v of vus) {
+        if (i - v.ligne > 3) continue;
+        if (v.id === m[1]) continue;
+        couples.add([v.id, m[1]].sort().join('|'));
+      }
+      vus.push({ id: m[1], ligne: i });
+    });
+  }
+  return couples;
+}
+
+/**
+ * Les lectures d'écran, classées par ce qui les garde.
+ *
+ * On remonte la fenêtre depuis chaque lecture et l'on retient TOUTES les
+ * attentes qu'on y trouve — pas seulement la plus proche : gonflage n° 3.
+ */
+function deguisees(fenetre, dossier = 'scripts') {
+  /*
+     Le dossier est réglable pour que les TROIS codes de sortie de ce mode
+     puissent être éprouvés — zéro, un, et le refus — sans toucher au dépôt.
+     C'est la leçon du balayage des bornes : un refus qu'on n'a jamais vu
+     partir n'est pas un refus, c'est une intention.
+  */
+  const lus = readdirSync(dossier)
+    .filter((f) => /^essais-.*\.(mjs|mts)$/.test(f))
+    .sort();
+  const couples = couplesBascules('src');
+  /** Les deux sujets sont-ils les deux faces d'une même bascule ? */
+  const accouples = (x, y) => {
+    const a = x.replace(/^#/, '');
+    const b = y.replace(/^#/, '');
+    return couples.has([a, b].sort().join('|'));
+  };
+  let lectures = 0;
+  let sansAttente = 0;
+  let meme = 0;
+  let parent = 0;
+  let couple = 0;
+  const cas = [];
+
+  for (const f of lus) {
+    const lignes = readFileSync(`${dossier}/${f}`, 'utf8').split('\n');
+    lignes.forEach((l, i) => {
+      if (!LECTURE_SELECTEUR.test(l)) return;
+      /* Une attente qui lit n'est pas une lecture non gardée : elle EST la garde. */
+      if (ATTENTE.test(l)) return;
+      const selecteur = selecteurDe(l);
+      if (!selecteur) return;
+      const sL = sujetsDe(selecteur);
+      if (sL.length === 0) return;
+      lectures += 1;
+
+      const attentes = [];
+      for (let k = i - 1; k >= Math.max(0, i - fenetre); k -= 1) {
+        if (!ATTENTE.test(lignes[k])) continue;
+        const sel = selecteurDe(lignes[k]);
+        if (sel) attentes.push({ ligne: k + 1, sel });
+      }
+      if (attentes.length === 0) {
+        sansAttente += 1;
+        return;
+      }
+      const couvre = (test) =>
+        attentes.some((a) => {
+          const sA = sujetsDe(a.sel);
+          return sL.some((x) => sA.some((y) => test(x, y)));
+        });
+      if (couvre((x, y) => x === y)) {
+        meme += 1;
+        return;
+      }
+      if (couvre(seTiennent)) {
+        parent += 1;
+        return;
+      }
+      if (couvre(accouples)) {
+        couple += 1;
+        return;
+      }
+      const enonce = assertionDe(lignes, i);
+      let muette = MUETTE.test(enonce) && !CRIE.test(enonce);
+      /* Un cri entre l'attente la plus haute et ici rend la muette inoffensive. */
+      const cri = muette ? crieDansLeBloc(lignes, attentes[attentes.length - 1].ligne, i) : 0;
+      if (cri) muette = false;
+      cas.push({
+        fichier: f,
+        muette,
+        cri,
+        attente: attentes[0],
+        ligne: i + 1,
+        selecteur,
+        code: l.trim().slice(0, 74),
+      });
+    });
+  }
+  return { lectures, sansAttente, meme, parent, couple, cas, combien: lus.length };
 }
 
 
@@ -248,6 +656,60 @@ if (POUR) {
   for (const f of fautes) console.log(`  ${f.fichier}:${f.ligne}  second argument : ${f.code}`);
   console.log('');
   process.exit(fautes.length === 0 ? 0 : 1);
+} else if (DEGUISEES) {
+  /*
+     La fenêtre par défaut est plus COURTE ici que pour les temporisations :
+     on cherche une lecture qui suit son attente de près, et non la portée d'un
+     geste. Elle reste réglable par `--fenetre`, et deux relevés de fenêtres
+     différentes ne se comparent pas.
+  */
+  const fenetre = iFenetre === -1 ? 6 : FENETRE;
+  const { lectures, sansAttente, meme, parent, couple, cas, combien } = deguisees(fenetre, DANS);
+  const muettes = cas.filter((c) => c.muette);
+
+  console.log(`\nFenêtre de ${fenetre} lignes en amont. ${combien} essais de « ${DANS} ».\n`);
+  console.log(`  ${lectures} lectures d’écran à sélecteur littéral`);
+  console.log(`  ${sansAttente} sans aucune attente dans la fenêtre`);
+  console.log(`  ${meme} gardées par une attente sur LE MÊME sujet`);
+  console.log(`  ${parent} sur un sujet qui tient dans l’autre`);
+  console.log(`  ${couple} sur l’AUTRE FACE d’une bascule que le site fait d’un tenant`);
+  console.log(`  ${cas.length} sur un sujet ÉTRANGER — candidats, pas fautes`);
+  const gardees = cas.filter((c) => c.cri);
+  console.log(`      dont ${muettes.length} MUETTES SANS GARDE : l’essai peut VERDIR à tort`);
+  console.log(`      ${gardees.length} muettes qu’un CRI précède : sans objet, mais sans danger`);
+  console.log(`      et  ${cas.length - muettes.length - gardees.length} bruyantes : elles rougissent, donc elles se signalent\n`);
+
+  const parF = new Map();
+  for (const c of muettes) parF.set(c.fichier, (parF.get(c.fichier) ?? 0) + 1);
+  console.log('LES MUETTES, essai par essai — c’est le seul chiffre qui presse :\n');
+  for (const [f, n] of [...parF].sort((a, b) => b[1] - a[1])) {
+    console.log(`  ${String(n).padStart(3)}  scripts/${f}`);
+    for (const c of muettes.filter((x) => x.fichier === f)) {
+      console.log(`         l.${String(c.attente.ligne).padStart(4)} attend « ${c.attente.sel} »`);
+      console.log(`         l.${String(c.ligne).padStart(4)} lit    « ${c.selecteur} »  ${c.code}`);
+    }
+  }
+  /*
+     LE REFUS, comme pour les bornes. Zéro muette et zéro lecture se rendraient
+     de la même façon, et ce mode est fait pour entrer devant un « && ». Un
+     dossier renommé, une extension oubliée rendraient sinon le zéro d'un
+     balayage qui n'a rien lu — « non mesuré » n'est ni vert ni rouge.
+  */
+  if (lectures === 0) {
+    console.error(
+      `\n✗ REFUS — aucune lecture d’écran à sélecteur littéral dans ${combien} essai(s) de « ${DANS} ».\n` +
+        '  Ce dépôt en porte plus de seize cents : un balayage qui n’en lit aucune\n' +
+        '  ne mesure rien, et son silence ne vaut pas un verdict.\n',
+    );
+    process.exit(2);
+  }
+  console.log(`  ${muettes.length} muettes dans ${parF.size} essais.\n`);
+  /*
+     ET LE CODE DE SORTIE, pour que ce relevé puisse GARDER l'invariant au
+     lieu de seulement le constater. Il vaut zéro aujourd'hui ; le jour où
+     quelqu'un écrit une absence sans cri dans son bloc, il vaudra un.
+  */
+  process.exit(muettes.length === 0 ? 0 : 1);
 } else if (AMORTISSEMENTS) {
   const { repos, minuteurs, constantes } = amortissements('src');
   const dire = (titre, liste) => {
@@ -272,6 +734,15 @@ if (POUR) {
   console.log(`\nFenêtre de ${FENETRE} lignes.\n`);
   console.log(`  ${total} temporisations dans ${essais.length} essais`);
   console.log(`  ${avecLecture} avec une lecture derrière, dans ${parFichier.size} essais\n`);
+  console.log(`  Et ce que ces ${avecLecture} valent, par rang, car le total se lit mal :\n`);
+  console.log(`    ${ralentissent} ne sont suivies d’aucune absence → elles RALENTISSENT, rien de plus`);
+  console.log(`    ${muettesGardees} suivies d’une absence qu’un cri encadre → sans objet, sans danger`);
+  console.log(`    ${dangereuses.length} suivies d’une absence SEULE dans son bloc → peuvent verdir à tort\n`);
+  for (const d of dangereuses) {
+    console.log(`      scripts/${d.fichier}  tempo l.${d.ligne} → absence l.${d.muette}`);
+    console.log(`          ${d.code}`);
+  }
+  if (dangereuses.length) console.log('');
   console.log('Les essais les plus chargés :\n');
   for (const [f, n] of [...parFichier].sort((a, b) => b[1] - a[1]).slice(0, 15)) {
     console.log(`  ${String(n).padStart(3)}  ${f}`);

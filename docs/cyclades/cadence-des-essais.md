@@ -864,9 +864,9 @@ comme `parametres.astro` le fait avec `data-monte`. C'est une quinzaine
 d'écrans, donc une proposition au pilote et non une initiative : elle
 toucherait des fichiers qui ne sont pas de ce chantier.
 
-## 7. Deux règles du 1er novembre, tirées de huit méprises en une nuit
+## 7. Trois règles du 1er novembre, tirées de huit méprises en une nuit
 
-Les deux sont venues de la même nuit, et chacune a coûté plusieurs fois le
+Les trois sont venues de la même nuit, et chacune a coûté plusieurs fois le
 même temps avant d'être nommée. Elles ne portent pas sur ce qu'un essai
 mesure, mais sur ce qu'il RAPPORTE.
 
@@ -946,6 +946,231 @@ posé avant les cinq autres — « les jours semés tombent-ils dans la période
 l'export ? » — transforme quatre croix de conséquence en une croix de cause.
 C'est la forme d'échec la plus coûteuse qu'un essai puisse avoir : une cause à
 cinq lignes de la première croix, et rien qui l'y renvoie.
+
+### 7.3 Pour un essai instable, rapporter la DISTRIBUTION, pas le verdict
+
+Un essai qui tombait une fois sur deux rend quatre verts d'affilée une fois sur
+seize. « Vert après le correctif » n'est donc pas une mesure sur un essai
+instable : c'est un tirage, annoncé comme un résultat.
+
+La règle : quand on corrige un essai dont on sait l'instabilité — parce qu'on
+l'a mesurée, ou parce que quelqu'un l'a signalée —, on dit **combien de courses
+sur combien**, et on dit le chiffre d'avant à côté. « 4 sur 4, là où il donnait
+2 sur 4 » se discute ; « vert » ne se discute pas, et c'est précisément le
+problème.
+
+**Et ce qui rend un tel chiffre crédible n'est pas son compte, mais son accord
+avec le diagnostic.** Quatre verts d'affilée après un correctif pris au hasard
+ne valent rien ; les mêmes quatre après un correctif qui traite la cause
+NOMMÉE par la sonde valent beaucoup — non parce qu'ils sont quatre, mais parce
+que la cause nommée et la cause traitée sont la même. Le 1er novembre, le
+constructeur avait montré les treize cases décochées à l'expiration et la
+phrase « Choisissez au moins un domaine. » ; le correctif faisait venir le
+verdict après la peinture. C'est cet accord qu'il faut rapporter, et le compte
+seulement pour dire qu'on n'a pas cessé de regarder.
+
+**Le cas où la règle mord le plus** est celui où l'on n'a QUE des verts. Un
+essai réparé qui passe huit fois sur huit reste un essai dont on ignore la
+borne : on sait qu'il n'a pas échoué en huit courses, pas qu'il ne peut plus
+échouer. Dire « 8 sur 8 » laisse la question ouverte, et c'est exact. Dire
+« corrigé » la ferme, et c'est faux.
+
+## 8. L'attente déguisée, et l'invariant qui la rend inoffensive
+
+`node scripts/relever-temporisations.mjs --deguisees`
+
+### La forme
+
+On attend sur le sélecteur A, puis on lit le sélecteur B. Rien ne ressemble
+plus à un essai bien tenu : il y a une attente, elle est bornée, elle porte un
+sélecteur — et elle ne garantit rien de ce qui est ensuite affirmé. Ni le
+relevé des temporisations ni celui des bornes ne la voit : il n'y a pas de
+`waitForTimeout`, et la borne est au bon rang.
+
+**Un sélecteur étranger n'est pas une faute.** Ce qui décide est ce que
+l'assertion devient si la course est perdue :
+
+- une lecture comparée à une **valeur** rend `null` et **rougit**. Elle se
+  signale ; on la corrige le jour où elle tombe ;
+- une lecture qui attend une **absence** — `faux(…isVisible)`, un compte à
+  zéro — est satisfaite par la page pas encore peinte. Elle **verdit à faux**,
+  et rien ne le dira jamais.
+
+### Le résultat : zéro, et sa raison
+
+**1644 lectures lues, 140 sur un sujet étranger, 10 absences — et zéro qui
+puisse faire verdir un essai à tort.** La raison n'est pas la discipline de
+chaque site. Elle est structurelle, et c'est pourquoi elle se note ici :
+
+```js
+let echecs = 0;
+const v = (titre, obtenu, attendu) => { if (!ok) echecs += 1; … };
+process.exit(echecs ? 1 : 0);
+```
+
+**Les aides d'assertion ne lèvent pas : elles comptent.** Il suffit donc qu'UN
+cri figure dans le bloc — avant ou après, peu importe — pour qu'une course
+perdue rende l'essai rouge. Les dix absences du dépôt sont toutes encadrées
+ainsi.
+
+### Pourquoi l'invariant mérite d'être nommé : il est fragile
+
+Il tient à deux choses qu'on pourrait défaire sans y penser.
+
+1. **Rendre `v()` levante** — ce qui a l'air d'une amélioration, et qu'on
+   proposera un jour — ferait passer ces dix absences au rang de faux verts le
+   jour même. La robustesse du dépôt sur cette forme est un effet de bord de
+   `v()`, pas un choix qui a été fait.
+2. **Un bloc réduit à une seule assertion, et muette**, perdrait sa garde sans
+   que rien ne change de forme. Aucune revue ne le verrait.
+
+Le mode rend donc un **code de sortie** — 0 aujourd'hui, 1 le jour où une
+absence se trouve seule dans son bloc, 2 s'il ne lit rien du tout. Il peut
+ainsi garder l'invariant au lieu de le constater.
+
+### Sept gonflages, et ce qu'ils enseignent sur les motifs de mesure
+
+Le chiffre est passé de **173 à 0**. Chaque correction n'a été vue que parce
+que le relevé **imprime les cas qu'il compte**.
+
+| | ce qui gonflait |
+|---|---|
+| 173 | le premier littéral de la ligne est souvent l'intitulé français de `verifier`, pas le sélecteur |
+| 150 | un littéral fermé sur n'importe quel guillemet tronque `[data-etat="plein"]` en `[data-etat=` |
+| 147 | ne regarder que l'attente la plus proche manque la garde posée deux lignes plus haut |
+| 146 → 29 | un voisinage de taille fixe déborde sur l'assertion suivante et lui prête son `false` |
+| 16 | `#coffre-ferme` et `#coffre-ouvert` basculent en deux énoncés synchrones : au moment où l'un paraît, l'autre est déjà caché |
+| 11 | `faux(…isEnabled())` a la forme d'une muette et crie : un bouton présent est actif par défaut |
+| 5 → 2 → 0 | un cri garde le bloc des **deux** côtés, et il peut passer par une aide (`texteDuBloc()`, `compter('cartes')`) plutôt que par un sélecteur |
+
+Le quatrième est le seul des sept qui ait menti dans le mauvais sens : il
+**inventait** des muettes. `vrai('le coffre est fermé au départ', …)` passait
+pour une absence parce qu'une voisine trois lignes plus bas portait un `false`
+— le relevé prêtait à une assertion le contraire de ce qu'elle dit.
+
+**Ces sept corrections n'ajoutent aucune règle : elles instruisent le § 7.2.**
+C'est le plus gros dossier qu'il ait reçu, et il faut le dire ainsi plutôt que
+de compter une règle de plus — l'inflation d'un document se fait exactement
+comme celle d'un chiffre.
+
+Ce que les sept ajoutent au § 7.2 est une précision sur le COÛT. Un relevé qui
+ne montre que son total est indiscutable au mauvais sens du terme : on ne peut
+ni le vérifier ni le corriger. Les sept sont sorties de dix lignes imprimées,
+et la quatrième — qui inventait des muettes là où le code disait le contraire
+— aurait survécu à n'importe quelle relecture du total. Un motif de mesure se
+juge donc sur les cas qu'il nomme, et sur rien d'autre.
+
+Et le sens de l'erreur compte. Six des sept gonflaient ; aucune ne creusait.
+Un motif qui sur-compte se corrige en regardant ses cas ; un motif qui
+sous-compte rend un chiffre rassurant que personne n'ira ouvrir. Quand il faut
+choisir le côté sur lequel se tromper — et il a fallu le choisir trois fois
+ici — c'est celui du sur-comptage.
+
+**Et un zéro ne se croit pas.** Celui-ci a été passé sur un témoin jetable
+portant deux absences, l'une seule dans son bloc, l'autre suivie d'un cri : il
+a rendu la première et épargné la seconde. Ses trois codes de sortie ont été
+éprouvés par `--dans`. Un refus qu'on n'a jamais vu partir n'est pas un refus,
+c'est une intention.
+
+## 9. Les 208 temporisations ne sont pas 208 risques
+
+Le même critère, appliqué aux temporisations à l'aveugle du § 4, change
+entièrement la façon de les attaquer. Sur les 206 qui ont une lecture derrière
+elles :
+
+| | |
+|---|---|
+| **198** | ne sont suivies d'aucune absence → elles **ralentissent** la batterie, rien de plus. Se retirent sans précaution, sans urgence. |
+| **7** | suivies d'une absence qu'un cri encadre → sans objet, sans danger. |
+| **1** | suivies d'une absence **seule** dans son bloc. |
+
+Et ce « 1 » est un faux positif du critère, vérifié à la main :
+`essais-navigation-navigateur.mjs:214` presse Échap puis exige que
+`#feuille-plus` soit invisible. L'absence attendue n'est PAS l'état d'avant —
+la feuille était ouverte —, donc une lecture trop tôt rend `true` et
+**rougit**. Le relevé ne sait pas, en général, si une absence était déjà vraie
+avant le geste ; il sur-compte, et il ne faut pas l'ajuster sur ce cas-ci,
+car ce serait régler la mesure sur la réponse.
+
+**Le chantier des temporisations n'était donc pas un chantier de 208 sites.**
+C'étaient 3 assertions à réparer et 198 lenteurs à ranger quand l'occasion
+vient. Les trois, traitées le 1er novembre :
+
+### 9.1 La tautologie : `essais-centre-m14.mjs`
+
+On clique DANS le panneau, on attend 400 ms, on vérifie qu'il est encore
+ouvert. Il l'était déjà avant le clic : **l'état attendu est l'état d'avant le
+geste**. Une attente plus longue ne corrige rien — elle rend l'assertion plus
+lente à être fausse.
+
+À mettre au crédit de la forme d'origine : la **livraison** du clic était bien
+prouvée, car `page.click` lève si le sélecteur ne résout pas. Ce qui manquait
+est le **traitement**.
+
+Remède, faute de post-condition positive — un clic correctement ignoré ne
+laisse aucune trace : un **négatif borné, dont la borne est mesurée**. On fait
+d'abord fermer et rouvrir le panneau par son bouton, ce qui établit
+bruyamment que la fermeture est observable et ce qu'elle coûte (53 à 60 ms
+ici). On attend ensuite la fermeture après le clic intérieur, borne à
+1500 ms, et l'on exige qu'elle ne vienne pas.
+
+Le sabotage qui sépare les deux formes n'est pas « le clic referme » — les
+deux le voient. C'est **une fermeture qui arrive à 800 ms** : au-delà des
+400 ms que lisait l'ancienne, en deçà des 1500 ms que borne la nouvelle. La
+nouvelle rougit, l'ancienne aurait verdi.
+
+### 9.2 La mesure qui se croit double : `essais-theme-menus.mjs`
+
+L'essai passe `data-theme` à `clair` puis `sombre` et vérifie à chaque fois
+qu'aucun menu n'est hors palette. Mais **la palette admise et les surfaces
+mesurées sortent du même document** : elles s'accordent donc toujours entre
+elles, y compris sur le mauvais thème. Si la bascule ne prend pas, l'essai
+mesure deux fois `clair` et annonce deux thèmes, en vert.
+
+Sabotage : on empêche la bascule vers `sombre`. **Les deux assertions « aucun
+menu hors palette » restent vertes.** L'essai passait un thème entièrement
+cassé.
+
+Remède : garder la palette résolue par thème et exiger, après la boucle, que
+les deux diffèrent. Ce que cette ligne interdit n'est pas une couleur fausse,
+c'est **une mesure qui se croit double**.
+
+**Et la leçon sur les 400 ms, qui va contre ce qu'on attendrait.** Je les
+avais prises pour une négligence et remplacées par deux trames — ce qui
+mesurait en pleine transition et rendait quatre rouges. `global.css` pose sur
+`:root` une transition de `--duree-moyenne` (200 ms) sur `background-color` et
+`color`. Changer le thème ne repeint pas : cela **lance une animation**. Les
+400 ms étaient un pari juste, à deux fois la durée réelle ; c'est la forme qui
+manquait, pas le chiffre. La post-condition exacte se demande au navigateur —
+`getAnimations({ subtree: true })`, toutes finies — après deux trames, car on
+ne peut pas attendre la fin de ce qui n'a pas commencé.
+
+### 9.3 La post-condition qui manque AU SITE : `essais-pastille-revue.mjs`
+
+Celle-ci ne se répare pas dans l'essai, et il faut le dire plutôt que de
+l'habiller. La pastille est peinte par :
+
+```js
+if (await revueASignaler()) pastille.classList.replace('hidden', 'inline-flex');
+```
+
+Quand la réponse est « non », **ce passage ne fait rien**. L'absence qu'on lit
+est exactement ce qu'on lirait s'il n'avait pas encore tourné, et aucune
+attente, même juste, ne distingue les deux. Le commentaire d'origine annonçait
+que « le témoin de synchronisation, peint dans le même passage, sert de
+repère » : c'est faux — il est peint par un autre `quandDeverrouille`, pour une
+autre fonction, et il n'était de toute façon pas attendu.
+
+Le remède exact est la **marque de fin de peinture** posée sur le conteneur de
+la pastille, décidée après la bascule. Elle attend la fusion de
+`claude/b-marque-peinture`.
+
+Entre-temps, l'absence est encadrée par deux mesures bruyantes au lieu d'une :
+la section 2 montre que la pastille sait s'allumer, et une section 4 nouvelle
+qu'elle **se rallume quand la donnée revient** — ce qui prouve que la chaîne
+tourne encore à ce moment de l'essai, et mesure au passage que l'extinction
+est réversible, ce que rien ne vérifiait. La sonde reste faible et son
+intitulé le dit.
 
 ## Ce qui reste hors d'atteinte ici
 

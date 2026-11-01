@@ -105,13 +105,73 @@ for (const [nom, options] of [
   verifier(`${nom} — son bas aussi`, vu.bottom <= vu.vueH + 1, true);
   verifier(`${nom} — et ses côtés`, vu.left >= 0 && vu.right <= vu.vueL + 1, true);
 
+  /*
+     CETTE ASSERTION ÉTAIT UNE TAUTOLOGIE, et c'est le motif le plus coûteux
+     du chantier des temporisations.
+
+     Elle disait : on clique dans le panneau, on attend 400 ms, le panneau est
+     encore ouvert. Or il était DÉJÀ ouvert avant le clic — l'état attendu est
+     l'état d'avant le geste. Rien, dans cette forme, ne distingue « le clic a
+     été reçu et correctement ignoré » de « le clic n'a rien déclenché du
+     tout », ni de « la fermeture est en route et arrivera à 500 ms ». Une
+     attente plus longue ne la corrige pas : elle la rend seulement plus lente
+     à être fausse.
+
+     Ce qui est bien prouvé, et qu'il faut mettre au crédit de la forme
+     d'origine : la LIVRAISON du clic. `page.click` lève si le sélecteur ne
+     résout pas, donc un « #centre-titre » disparu rougirait. Ce qui manque
+     n'est pas la livraison, c'est le TRAITEMENT.
+
+     LE REMÈDE EST UN NÉGATIF BORNÉ, et la borne est mesurée plutôt que pariée.
+     On fait d'abord fermer et rouvrir le panneau par son bouton, ce qui
+     établit deux choses bruyamment — que la fermeture est observable, et
+     combien de temps elle prend ici. On attend ensuite la fermeture après le
+     clic intérieur, avec six fois ce coût pour borne, et l'on exige qu'elle
+     NE VIENNE PAS.
+
+     Ce n'est pas aussi fort qu'une post-condition positive, et il faut le
+     dire : un clic correctement ignoré ne laisse aucune trace, donc il n'y a
+     rien de positif à attendre. C'est la forme la plus forte disponible sans
+     ajouter une marque au site, et sa borne, elle, ne dépend plus de la
+     machine.
+  */
+  const attendreLEtat = (ferme, delai) =>
+    page
+      .waitForFunction(
+        (f) => document.getElementById('centre-panneau')?.hidden === f,
+        ferme,
+        { timeout: delai },
+      )
+      .then(() => true)
+      .catch(() => false);
+
+  const debut = Date.now();
+  await page.click('#centre-bouton');
+  const aSuFermer = await attendreLEtat(true, 5000);
+  const coutDeLaFermeture = Date.now() - debut;
+  /*
+     LA PRÉMISSE REND UN BOOLÉEN PLUTÔT QUE DE LEVER. Une attente nue aurait
+     fait mourir l'essai sur une panne illisible si la fermeture ne venait
+     pas — alors que c'est justement le cas qu'il faut RAPPORTER : sans
+     fermeture observable, le négatif borné ci-dessous ne vaut plus rien, et
+     il le dirait en restant vert.
+  */
+  verifier(
+    `${nom} — prémisse : le panneau sait se fermer, et il y met ${coutDeLaFermeture} ms`,
+    aSuFermer && coutDeLaFermeture < 2000,
+    true,
+  );
+  await page.click('#centre-bouton');
+  verifier(`${nom} — prémisse : et se rouvrir`, await attendreLEtat(false, 5000), true);
+
   /* Le panneau a quitté l'en-tête : un clic DEDANS ne doit pas le refermer. */
   await page.click('#centre-titre');
-  await page.waitForTimeout(400);
+  const sEstReferme = await attendreLEtat(true, Math.max(1500, coutDeLaFermeture * 6));
   verifier(
-    `${nom} — un clic dans le panneau ne le referme pas`,
-    await page.evaluate(() => document.getElementById('centre-panneau')?.hidden === false),
-    true,
+    `${nom} — un clic dans le panneau ne le referme pas, ` +
+      `dans ${Math.max(1500, coutDeLaFermeture * 6)} ms`,
+    sEstReferme,
+    false,
   );
   await ctx.close();
 }

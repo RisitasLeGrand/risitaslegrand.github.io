@@ -532,6 +532,28 @@ const SOCLE = [
      défaut qui a coûté cela à trois agents n'a pas sa place hors du socle.
   */
   ['essais:effacement-verdict', 'le verdict de l’effacement vient en dernier, et il ne ment pas'],
+  /*
+     IL GARDE UN INVARIANT QUE PERSONNE N'A CHOISI, et c'est la raison de sa
+     présence ici plutôt qu'en relevé à la demande.
+
+     Aucune absence affirmée dans ces essais ne peut faire VERDIR un essai à
+     tort — non par discipline, mais parce que les aides d'assertion COMPTENT
+     au lieu de lever : « let echecs = 0 », puis « process.exit(echecs ? 1 : 0) ».
+     Il suffit donc qu'un cri figure dans le bloc pour qu'une course perdue
+     rende l'essai rouge, et les dix absences du dépôt sont toutes encadrées
+     ainsi.
+
+     Cet effet de bord n'a jamais été décidé, et deux gestes anodins le
+     défont : rendre « v() » levante — ce qui a l'air d'une amélioration — ou
+     laisser un bloc avec une seule assertion, muette. Dans les deux cas rien
+     ne change de forme et aucune relecture ne le verrait. Ce passage le voit.
+
+     Il vaut 0 le jour où il entre, 1 dès qu'une absence se trouve seule dans
+     son bloc, et 2 s'il ne lit aucune lecture du tout — un dossier renommé ne
+     peut donc pas rendre le zéro d'un balayage mort. Il coûte une seconde et
+     ne demande ni navigateur ni aperçu. Voir « cadence-des-essais.md » § 8.
+  */
+  ['essais:deguisees', 'aucune absence affirmée sans un cri dans son bloc'],
 ];
 
 /**

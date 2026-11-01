@@ -175,10 +175,70 @@ for (const { nom, width, height } of [
   }
   await page.waitForSelector('#temoin-coffre', { timeout: 40000 }).catch(() => {});
 
+  /*
+     LA PALETTE RÉSOLUE DU THÈME COURANT, qui sert de témoin de bascule.
+     On la garde par thème pour pouvoir, après la boucle, vérifier que les
+     deux passes ont bien mesuré DEUX thèmes.
+  */
+  const paletteResolue = () =>
+    page.evaluate((noms) => {
+      const sonde = document.createElement('span');
+      sonde.style.display = 'none';
+      document.body.appendChild(sonde);
+      const lues = noms.map((n) => {
+        sonde.style.color = `var(${n})`;
+        return getComputedStyle(sonde).color;
+      });
+      sonde.remove();
+      return lues;
+    }, nomsCouleurs);
+
+  const paletteParTheme = new Map();
+
   for (const theme of ['clair', 'sombre']) {
     await page.goto(`${RACINE}/odyssee/`, { waitUntil: 'networkidle' });
     await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
-    await page.waitForTimeout(400);
+    /*
+       ON ATTEND LA FIN DES TRANSITIONS, ET NON QUATRE CENTS MILLISECONDES.
+
+       `global.css` pose sur « :root » une transition de « --duree-moyenne »,
+       200 ms par défaut, sur « background-color » et « color » ; Tailwind en
+       ajoute 120 ms par défaut sur le reste. Changer « data-theme » ne repeint
+       donc pas : cela LANCE une animation, et la couleur lue pendant ce
+       trajet n'est ni celle d'avant ni celle d'après.
+
+       Les 400 ms d'origine n'étaient donc PAS une attente à l'aveugle posée
+       au hasard : c'était un pari, à peu près deux fois la durée réelle, sur
+       une machine. Il faut le dire, parce que je l'avais d'abord pris pour
+       une négligence et remplacé par deux trames — ce qui mesurait en pleine
+       transition et rendait quatre rouges. Le pari était juste ; c'est la
+       forme qui manquait.
+
+       La post-condition exacte, elle, se demande au navigateur : que TOUTES
+       les animations de l'arbre soient finies. Deux trames d'abord, pour que
+       le recalcul ait eu lieu et que les transitions existent — on ne peut
+       pas attendre la fin de ce qui n'a pas commencé, et c'est le piège que
+       `quandCelaSeFixe` documente pour son propre compte.
+
+       La borne est là pour une animation en boucle, dont « finished » ne se
+       résout jamais : elle rend la main au bout d'une seconde, et
+       l'assertion qui suit dira ce qu'elle a vu.
+    */
+    await page.evaluate(
+      () => new Promise((fini) => requestAnimationFrame(() => requestAnimationFrame(fini))),
+    );
+    await page.evaluate(
+      () =>
+        Promise.race([
+          Promise.all(
+            document.documentElement
+              .getAnimations({ subtree: true })
+              .map((a) => a.finished.catch(() => null)),
+          ),
+          new Promise((fini) => setTimeout(fini, 1000)),
+        ]),
+    );
+    paletteParTheme.set(theme, await paletteResolue());
 
     const horsPalette = await page.evaluate(
       ([selecteurs, noms, rayons, polices]) => {
@@ -306,6 +366,27 @@ for (const { nom, width, height } of [
     const retenues = horsPalette.filter((f) => !EXCEPTIONS.some((e) => f.startsWith(e)));
     verifier(`${nom} · thème ${theme} — aucun menu hors palette`, retenues, []);
   }
+
+  /*
+     LE CONTRÔLE QUI DONNE UN OBJET AUX DEUX PASSES.
+
+     Sans lui, un « data-theme » ignoré — ou lu avant que le style ne soit
+     recalculé — ferait mesurer DEUX FOIS le même thème, et les deux passes
+     seraient vertes. La raison est que la palette admise et les surfaces
+     mesurées sortent du MÊME document : elles s'accordent donc toujours entre
+     elles, y compris sur le mauvais thème. L'assertion « aucun menu hors
+     palette » est pour cela muette sur la bascule, et aucune attente, même
+     juste, ne la rendrait bavarde.
+
+     Ce que cette ligne interdit n'est donc pas une couleur fausse : c'est une
+     mesure qui se croit double.
+  */
+  verifier(
+    `${nom} — les deux thèmes ont bien résolu deux palettes distinctes`,
+    JSON.stringify(paletteParTheme.get('clair')) !==
+      JSON.stringify(paletteParTheme.get('sombre')),
+    true,
+  );
 
   await contexte.close();
 }
