@@ -174,6 +174,7 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { agirPuisPeindre } from '../../lib/agir';
   import {
     jourISO,
     lireReglagesPlanification,
@@ -324,13 +325,61 @@ import Base from '../../layouts/Base.astro';
     };
   }
 
+  /**
+   * REMETTRE LA LIGNE D'ÉTAT DEBOUT APRÈS UN ÉCHEC.
+   *
+   * `effacerLEchec` ne vide pas seulement le texte : il pose `hidden` et la
+   * classe `hidden`. Comme il tourne JUSTE AVANT le repeint, écrire le
+   * message de succès sans défaire cela donnerait une ligne au bon texte et
+   * invisible — le succès deviendrait muet dès qu'un échec l'aurait précédé,
+   * c'est-à-dire exactement quand la personne a besoin d'être rassurée.
+   */
+  function direLEtatDeSauvegarde(message: string) {
+    const ligne = $('etat-sauvegarde');
+    ligne.textContent = message;
+    ligne.hidden = false;
+    ligne.classList.remove('hidden');
+    /*
+       ET LE RÔLE D'ALERTE S'EN VA AVEC L'ÉCHEC.
+
+       `direLEchec` pose `role="alert"` sur une zone qui n'en a pas, et
+       `effacerLEchec` ne le retire pas — il n'a aucune raison de le faire,
+       puisqu'une zone qui déclare son rôle dans le gabarit doit le garder.
+       Mais celle-ci n'en déclare aucun : le rôle serait donc posé au premier
+       échec et jamais repris, et chaque « Enregistré. » suivant partirait en
+       alerte à qui écoute l'écran. Une alerte qui annonce une routine cesse
+       d'être entendue comme une alerte, ce qui désarme celles qui comptent.
+    */
+    ligne.removeAttribute('role');
+  }
+
+  /**
+   * L'ENREGISTREMENT AUTOMATIQUE, QUI MENTAIT LE PLUS FORT DES TROIS.
+   *
+   * Son échec ne partait pas seulement dans le vide : il partait dans le vide
+   * DEPUIS UN `setTimeout`, donc en rejet de promesse non intercepté, que
+   * rien dans la page ne pouvait rattraper. Et la ligne d'état gardait le
+   * « Enregistré. » d'une frappe précédente — un message de succès qui
+   * survit à l'échec qui le démentit est pire que pas de message : la
+   * personne continue d'écrire sa note sur la foi d'une phrase périmée.
+   *
+   * La ligne est donc la zone, et elle porte maintenant l'un ou l'autre, pas
+   * les deux.
+   */
   async function sauvegarderBientot() {
     if (sauvegardeEnAttente !== null) clearTimeout(sauvegardeEnAttente);
-    sauvegardeEnAttente = window.setTimeout(async () => {
-      const collecte = collecter();
-      seance = await sauvegarder(collecte.seance, collecte.texte);
-      texte = collecte.texte;
-      $('etat-sauvegarde').textContent = 'Enregistré.';
+    sauvegardeEnAttente = window.setTimeout(() => {
+      void agirPuisPeindre(
+        async () => {
+          const collecte = collecter();
+          seance = await sauvegarder(collecte.seance, collecte.texte);
+          texte = collecte.texte;
+        },
+        {
+          peindre: () => direLEtatDeSauvegarde('Enregistré.'),
+          zone: 'etat-sauvegarde',
+        },
+      );
     }, 800);
   }
 
@@ -517,11 +566,42 @@ import Base from '../../layouts/Base.astro';
     });
 
     $('bouton-minuteur').addEventListener('click', basculerMinuteur);
-    $('enregistrer').addEventListener('click', async () => {
-      const collecte = collecter();
-      seance = await sauvegarder(collecte.seance, collecte.texte);
-      texte = collecte.texte;
-      $('etat-sauvegarde').textContent = 'Séance enregistrée : vous pourrez la reprendre plus tard.';
+    /*
+       L'ÉCRITURE EST L'ACTION, LE MESSAGE EST LE REPEINT.
+
+       Avant : « await sauvegarder(...) » puis la phrase de succès, sans
+       aucune interception. Une base pleine — la panne la plus probable d'un
+       site qui garde cinq ans de révisions sur un téléphone — laissait donc
+       « Vos saisies sont enregistrées automatiquement » en place, et la
+       personne quittait la séance en croyant l'avoir enregistrée.
+
+       La zone est « etat-sauvegarde », c'est-à-dire LA LIGNE QUE LA PERSONNE
+       LIT DÉJÀ pour savoir où en est son enregistrement. Mettre l'échec
+       ailleurs laisserait deux textes se contredire à trois centimètres l'un
+       de l'autre, l'un disant « enregistré » et l'autre « échec ».
+    */
+    $('enregistrer').addEventListener('click', () => {
+      void agirPuisPeindre(
+        async () => {
+          const collecte = collecter();
+          /*
+             Les deux affectations sont DANS l'action, après l'attente : si
+             l'écriture échoue, l'état du module ne doit pas avancer, sinon le
+             prochain enregistrement repartirait d'une séance qui n'est pas
+             dans la base.
+          */
+          seance = await sauvegarder(collecte.seance, collecte.texte);
+          texte = collecte.texte;
+        },
+        {
+          peindre: () => {
+            direLEtatDeSauvegarde(
+              'Séance enregistrée : vous pourrez la reprendre plus tard.',
+            );
+          },
+          zone: 'etat-sauvegarde',
+        },
+      );
     });
     $('terminer').addEventListener('click', cloturer);
   }
@@ -839,18 +919,54 @@ import Base from '../../layouts/Base.astro';
       `${signes / 1500 >= 2 ? 'pages' : 'page'} — objectif : 1 à 2 pages.`;
   }
 
+  /**
+   * LA CLÔTURE — le geste dont l'échec silencieux coûtait le plus cher.
+   *
+   * `terminer` accorde l'XP et inscrit la séance au rappel des prochaines.
+   * S'il échouait, RIEN ne paraissait : pas de bilan, pas de message, et le
+   * bouton restait actif. La personne appuyait sur « Terminer », voyait la
+   * page ne pas broncher, et n'avait aucun moyen de savoir si sa séance était
+   * close. Elle appuyait une seconde fois.
+   *
+   * Le minuteur est arrêté AVANT l'écriture et on le laisse ainsi, même en
+   * cas d'échec : arrêter le chronomètre fait partie du geste « je termine »,
+   * et `collecter()` a déjà lu les secondes. Le relancer après un échec
+   * ferait repartir un compteur que la personne vient d'arrêter exprès.
+   */
   async function cloturer() {
     if (minuterie !== null) basculerMinuteur();
     const collecte = collecter();
-    const resultat = await terminer(collecte.seance, secondes, collecte.texte);
-    seance = resultat.seance;
-    texte = collecte.texte;
+    await agirPuisPeindre(
+      async () => {
+        const resultat = await terminer(collecte.seance, secondes, collecte.texte);
+        seance = resultat.seance;
+        texte = collecte.texte;
+        peindreLeBilan(resultat.xpGagne, resultat.monteeDeNiveau);
+      },
+      { zone: 'etat-sauvegarde' },
+    );
+  }
 
+  /*
+     LE BILAN EST PEINT DANS L'ACTION, ET NON DANS « peindre ».
+
+     C'est le seul des trois où ce choix se discute, donc il faut le dire :
+     « peindre » ne reçoit pas le résultat de l'action, et le bilan a besoin
+     de l'XP gagnée. Le faire passer par une variable de portée extérieure
+     marcherait, et serait un état de plus à tenir juste.
+
+     Le prix est connu : si cette peinture lève, l'échec sera attribué à
+     l'écriture alors que la séance EST close. Il est acceptable parce que la
+     peinture ne touche que le DOM de cette page — elle ne lit rien, n'écrit
+     rien, et ne peut lever que si un des quatre éléments manque, c'est-à-dire
+     jamais sans que la page soit déjà cassée.
+  */
+  function peindreLeBilan(xpGagne: number, monteeDeNiveau: boolean) {
     const bilan = $('bilan');
     bilan.textContent =
       `Séance enregistrée — ${formaterDuree(seance.secondes)}` +
-      (serieEtXpAffichees() ? `, +${resultat.xpGagne} XP` : '') +
-      (resultat.monteeDeNiveau && serieEtXpAffichees() ? ' · niveau supérieur atteint !' : '') +
+      (serieEtXpAffichees() ? `, +${xpGagne} XP` : '') +
+      (monteeDeNiveau && serieEtXpAffichees() ? ' · niveau supérieur atteint !' : '') +
       '. Elle vous sera proposée à restituer lors des prochaines séances de cette matière.';
     bilan.classList.remove('hidden');
     $('etiquette').textContent = 'Séance terminée';

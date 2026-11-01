@@ -521,6 +521,195 @@ console.log('\nUN TypeError NE MONTRE PAS SON TEXTE ANGLAIS');
   await ctx.close();
 }
 
+/* ── 7. La séance : les trois écritures passent par la porte ──────────────── */
+
+/*
+   TROIS GESTES SUR UN ÉCRAN, ET LE PLUS DANGEREUX EST CELUI QU'ON NE CLIQUE
+   PAS.
+
+   « planification/seance » écrivait de trois façons, aucune interceptée :
+
+   - « Enregistrer et reprendre plus tard », qui écrivait puis annonçait le
+     succès sans condition ;
+   - « Terminer la séance », qui accorde l'XP et inscrit la séance au rappel
+     des prochaines, et dont l'échec ne faisait RIEN paraître — ni bilan, ni
+     message, et le bouton restait actif ;
+   - l'enregistrement AUTOMATIQUE de la note, 800 ms après la dernière frappe.
+     Son échec partait en rejet de promesse non intercepté depuis un
+     « setTimeout », et la ligne d'état gardait le « Enregistré. » d'une frappe
+     antérieure. Un message de succès qui survit à l'échec qui le démentit est
+     pire que pas de message : la personne continue d'écrire sa note sur la foi
+     d'une phrase périmée.
+
+   C'est ce dernier que l'essai regarde le plus attentivement, parce que c'est
+   le seul où l'écran AFFIRMAIT quelque chose de faux au lieu de se taire.
+*/
+
+console.log('\nLA SÉANCE : LES TROIS ÉCRITURES PASSENT PAR LA PORTE');
+{
+  const { ctx, page } = await ouvrir();
+  await page.goto(`${RACINE}/planification/seance/`, { waitUntil: 'networkidle' });
+
+  const etat = page.locator('#etat-sauvegarde');
+  const note = page.locator('#note');
+  /*
+     LA PRÉMISSE, et elle est gardée : sans la zone de note ni la ligne
+     d'état, tout ce qui suit porterait sur du vide et serait vert par
+     absence. C'est la leçon de la section 2 — un contrôle doit échouer
+     lisiblement.
+  */
+  const prete =
+    (await note.count()) > 0 &&
+    (await etat.count()) > 0 &&
+    (await page.locator('#enregistrer').count()) > 0;
+  verifier('l’écran de séance est là, avec sa note et sa ligne d’état', prete, true);
+
+  if (!prete) {
+    await ctx.close();
+  } else {
+    /* ── 7a. L'enregistrement automatique, et le message périmé ─────────── */
+
+    /* On fait d'abord RÉUSSIR un enregistrement, pour poser le « Enregistré. »
+       qui servira de piège : c'est lui qui mentait. */
+    await note.fill('Première note, celle-ci s’enregistre.');
+    await page.waitForTimeout(1400);
+    const apresSucces = ((await etat.textContent()) ?? '').trim();
+    verifier(
+      'après une frappe, la ligne d’état dit que c’est enregistré',
+      /enregistr/i.test(apresSucces),
+      true,
+    );
+
+    /*
+       ON RANGE LES MÉTHODES D'ORIGINE AVANT DE CASSER, parce qu'on ne sait
+       pas les retrouver autrement — voir 7d, où une première version a cru
+       qu'un « delete » suffirait.
+    */
+    await page.evaluate(`
+      (() => {
+        globalThis.__ecrituresDOrigine = {
+          put: IDBObjectStore.prototype.put,
+          delete: IDBObjectStore.prototype.delete,
+          add: IDBObjectStore.prototype.add,
+        };
+        'rangé'
+      })();
+    `);
+
+    /* Puis on casse la base SOUS le message de succès déjà affiché. */
+    await page.evaluate(saboterLesEcritures(null));
+    await note.fill('Seconde note, celle-ci ne peut PAS s’enregistrer.');
+    await page.waitForTimeout(1600);
+
+    const apresEchec = ((await etat.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+    verifier(
+      'après l’échec, la ligne ne dit PLUS que c’est enregistré',
+      /^enregistré\.?$/i.test(apresEchec),
+      false,
+    );
+    verifier('elle dit quelque chose, en texte', apresEchec.length > 10, true);
+    verifier(
+      'et elle s’annonce (role="alert")',
+      await etat.getAttribute('role'),
+      'alert',
+    );
+    /*
+       LE TEXTE DE LA NOTE RESTE DANS LA ZONE, et c'est ce qui rend l'échec
+       réparable : la personne peut recopier sa note ailleurs. Un écran qui
+       aurait vidé la zone en croyant avoir enregistré lui ferait perdre ce
+       qu'elle vient d'écrire.
+    */
+    verifier(
+      'la note est toujours dans la zone — rien n’a été vidé',
+      await note.inputValue(),
+      'Seconde note, celle-ci ne peut PAS s’enregistrer.',
+    );
+
+    /* ── 7b. Le bouton « Enregistrer » explicite ────────────────────────── */
+
+    await page.locator('#enregistrer').click();
+    await page.waitForTimeout(1200);
+    const apresBouton = ((await etat.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+    verifier(
+      'le bouton explicite n’annonce pas un succès qui n’a pas eu lieu',
+      /vous pourrez la reprendre/i.test(apresBouton),
+      false,
+    );
+    verifier('et il dit l’échec', apresBouton.length > 10, true);
+
+    /* ── 7c. « Terminer », le geste qui accorde l'XP ─────────────────────── */
+
+    const terminer = page.locator('#terminer');
+    const bilan = page.locator('#bilan');
+    if ((await terminer.count()) > 0) {
+      await terminer.click();
+      await page.waitForTimeout(1500);
+      verifier(
+        'une clôture qui échoue ne montre PAS le bilan',
+        await bilan.isVisible(),
+        false,
+      );
+      verifier(
+        'et elle ne désactive pas le bouton : le geste peut être repris',
+        await terminer.isDisabled(),
+        false,
+      );
+      const apresCloture = ((await etat.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+      verifier('l’échec de la clôture est dit', apresCloture.length > 10, true);
+    } else {
+      verifier('le bouton « Terminer » est là', false, true);
+    }
+
+    /* ── 7d. ET LE SUCCÈS REDEVIENT VISIBLE ─────────────────────────────── */
+
+    /*
+       LE PIÈGE QUE CETTE SECTION EXISTE POUR TENIR.
+
+       « effacerLEchec » ne vide pas seulement le texte de la zone : il y pose
+       « hidden » et la classe « hidden ». Comme il tourne JUSTE AVANT le
+       repeint, écrire le message de succès sans défaire cela donnerait une
+       ligne au bon texte et INVISIBLE — le succès deviendrait muet dès qu'un
+       échec l'aurait précédé, c'est-à-dire précisément quand la personne a
+       besoin d'être rassurée.
+
+       On relève donc « isVisible » et non « textContent », qui serait vert
+       dans les deux cas et ne mesurerait rien.
+    */
+    /*
+       ET « delete » NE RÉPARE RIEN, ce que l'essai a dit en rougissant deux
+       fois sur ma première version.
+
+       Le sabotage ASSIGNE « IDBObjectStore.prototype.put = refuser », ce qui
+       écrase la méthode natale — qui est une propriété propre du prototype,
+       et non héritée d'ailleurs. « delete » la retire donc entièrement au lieu
+       de révéler l'originale : « put » devient « undefined », et les écritures
+       échouent d'une SECONDE façon. Le vert aurait été impossible, et c'est
+       heureux ; le piège est qu'un essai moins regardant aurait conclu que le
+       site ne sait pas revenir d'un échec.
+    */
+    await page.evaluate(`
+      (() => {
+        const o = globalThis.__ecrituresDOrigine;
+        IDBObjectStore.prototype.put = o.put;
+        IDBObjectStore.prototype.delete = o.delete;
+        IDBObjectStore.prototype.add = o.add;
+        'rendu'
+      })();
+    `);
+    await note.fill('Troisième note, la base est réparée.');
+    await page.waitForTimeout(1600);
+    verifier('après réparation, la ligne d’état est VISIBLE', await etat.isVisible(), true);
+    const apresReprise = ((await etat.textContent()) ?? '').trim();
+    verifier('et elle redit que c’est enregistré', /enregistr/i.test(apresReprise), true);
+    verifier(
+      'sans garder le rôle d’alerte d’un échec passé',
+      await etat.getAttribute('role'),
+      null,
+    );
+    await ctx.close();
+  }
+}
+
 await nav.close();
-console.log(rouges === 0 ? '\n\x1b[32mTout est vert.\x1b[0m' : `\n\x1b[31m${rouges} rouge(s).\x1b[0m`);
+console.log(rouges === 0 ? '\n\x1b[32mTout est vert.\x1b[0m' : `\n\x1b[31m${rouges} ${rouges >= 2 ? 'rouges' : 'rouge'}.\x1b[0m`);
 process.exit(rouges === 0 ? 0 : 1);
