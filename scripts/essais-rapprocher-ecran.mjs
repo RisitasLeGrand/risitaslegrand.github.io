@@ -197,6 +197,9 @@ async function aller(chemin, selecteur) {
   }
 }
 
+/** Les catégories relevées avant l'enregistrement des parts — voir son usage. */
+let categoriesAvantLesParts = '[]';
+
 /* ── 1. Quatre relevés entrent ────────────────────────────────────────── */
 
 console.log('\nQUATRE RELEVÉS MENSUELS ENTRENT');
@@ -205,7 +208,11 @@ await aller('/odyssee/finances/', '#vue');
 for (const f of fichiers) {
   await page.setInputFiles('#fichier', f);
   await page.waitForSelector('#apercu:not(.hidden)', { timeout: 60000 });
-  v(`le relevé ${f.slice(-10, -4)} boucle`, await page.getAttribute('#verdict', 'data-importable'), 'true');
+  /* Le mois du nom de fichier, et non un découpage à l'aveugle : `slice(-10, -4)`
+     rendait « 026-09 », une année amputée de son premier chiffre, et chaque
+     ligne de ce journal mentait d'un caractère. */
+  const moisDuFichier = f.match(/(\d{4}-\d{2})/)?.[1] ?? f;
+  v(`le relevé ${moisDuFichier} boucle`, await page.getAttribute('#verdict', 'data-importable'), 'true');
   /*
      CINQ RELEVÉS DE SUITE, et c'est ce qui rend le compteur nécessaire. Au
      second tour, la table d'état n'est plus « occupée » avant le clic :
@@ -431,11 +438,44 @@ console.log('\nLES ÉCARTS, ET L’ÉCHÉANCE NON ÉCHUE');
     lignes.every((t) => t.includes('prévu') && t.includes('réel') && t.includes('écart')),
     JSON.stringify(lignes));
 
+  /*
+     ON ATTEND QUE LES LIGNES CHANGENT, ET NON QUE LE BOUTON SE MARQUE.
+
+     Relevé dans la page, toutes les cent cinquante millisecondes après le
+     clic :
+
+         0 ms  ["Dupont Loyer"]
+       150 ms  ["2026-09","2026-10","2026-11","2026-12","2027-01"]
+
+     L'écran pose `data-actif="true"` sur l'axe AVANT de redessiner les
+     lignes. Attendre cet attribut, c'est donc lire les lignes de l'axe
+     PRÉCÉDENT — celles des locataires — et l'essai rougissait sur un écran qui
+     faisait son travail, cent cinquante millisecondes plus tard.
+
+     L'attente ne peut pas porter sur « les lignes sont des mois » : ce serait
+     attendre ce qu'on s'apprête à mesurer, et la mesure ne dirait plus rien.
+     Elle porte donc sur le CHANGEMENT — les lignes ne sont plus celles
+     d'avant le clic —, après quoi le constat garde tout son mordant : un
+     écran qui redessinerait des locataires, ou n'importe quoi d'autre,
+     rougirait encore.
+  */
+  const avantLeClic = JSON.stringify(
+    await page.$$eval('[data-ecart]', (e) => e.map((x) => x.dataset.ecart)),
+  );
   await page.click('[data-axe="mois"]');
   await attendreLAttribut('[data-axe="mois"]', 'data-actif', 'true');
+  await page
+    .waitForFunction(
+      (avant) =>
+        JSON.stringify([...document.querySelectorAll('[data-ecart]')].map((x) => x.dataset.ecart)) !==
+        avant,
+      avantLeClic,
+      { timeout: 10000 },
+    )
+    .catch(() => {});
   const mois = await page.$$eval('[data-ecart]', (e) => e.map((x) => x.dataset.ecart));
-  vrai('l’axe des mois rend des mois', mois.every((m) => /^\d{4}-\d{2}$/.test(m)),
-    JSON.stringify(mois));
+  v('l’axe des mois rend des mois', { tous: mois.every((m) => /^\d{4}-\d{2}$/.test(m)), mois },
+    { tous: true, mois });
   v('l’axe est marqué comme actif',
     await page.getAttribute('[data-axe="mois"]', 'data-actif'), 'true');
 
@@ -788,6 +828,15 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
     .catch(() => {});
   faux('un type distinct rouvre l’enregistrement',
     await page.isDisabled('[data-geste="valider-parts"]'));
+  /*
+     LES CATÉGORIES SONT RECALCULÉES APRÈS LA FERMETURE DE L'ÉDITEUR, et le
+     constat qui suit les lit. On relève donc leur état AVANT d'enregistrer,
+     pour pouvoir attendre qu'il change — la fermeture de l'éditeur, elle,
+     arrive trop tôt pour servir de signal.
+  */
+  categoriesAvantLesParts = JSON.stringify(
+    await page.$$eval('[data-categorie-pointee]', (e) => e.map((x) => x.dataset.categoriePointee)),
+  );
   await page.click('[data-geste="valider-parts"]');
   /* L'éditeur se referme quand les parts sont enregistrées. */
   await attendreLeNombre('[data-part="1"]', '=', 0);
@@ -801,10 +850,36 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
      ce qu'eux ne disent pas, c'est que les conventions de signe des deux
      côtés sont les mêmes.
   */
+  /*
+     ON ATTEND QUE LES CATÉGORIES CHANGENT, et non que l'éditeur se referme.
+
+     L'éditeur se ferme dès que les parts sont enregistrées ; la vue des
+     catégories, elle, est recalculée après. Lire aussitôt donnait la liste
+     d'AVANT le fractionnement, et l'essai rougissait par intermittence — vert
+     quand le recalcul gagnait la course. C'est le même défaut d'instrument que
+     l'axe des mois, trente lignes plus haut, et il valait d'être nommé deux
+     fois plutôt que corrigé une.
+
+     L'attente porte sur le CHANGEMENT et non sur « Logement est là » : attendre
+     ce qu'on mesure viderait le constat. Ici, un recalcul qui n'amènerait pas
+     Logement rougit encore.
+  */
+  await page
+    .waitForFunction(
+      (avant) =>
+        JSON.stringify(
+          [...document.querySelectorAll('[data-categorie-pointee]')].map(
+            (x) => x.dataset.categoriePointee,
+          ),
+        ) !== avant,
+      categoriesAvantLesParts,
+      { timeout: 15000 },
+    )
+    .catch(() => {});
   const lignes = await page.$$eval('[data-categorie-pointee]',
     (e) => e.map((x) => x.dataset.categoriePointee));
-  vrai('le logement apparaît, depuis la part de bricolage',
-    lignes.includes('Logement'), JSON.stringify(lignes));
+  v('le logement apparaît, depuis la part de bricolage',
+    { present: lignes.includes('Logement'), lignes }, { present: true, lignes });
 
   await page.fill('#chercher-operation', '43,90');
   await page.waitForFunction(
