@@ -166,6 +166,46 @@ v('sur un registre conforme, le balayage photosensible rend vide',
 v('et celui des nombres aussi',
   nombresSansDureeFixe([{ id: 'ok', compteDEvenements: true, dureeTotaleMs: 900 }]), []);
 
+console.log('\n\x1b[1mLES SEPT PARLÉES DU PLAN L0, CONTRE LA FRONTIÈRE\x1b[0m\n');
+/*
+   CE BLOC N'INVENTE RIEN, et c'est la raison pour laquelle il peut exister
+   avant VMTrainer.html. Les sept NOMS viennent du plan L0 d'A
+   (docs/cyclades/p63-l0-plan-veridical-mapping.md, § 5, lot 5d) ; les comptes
+   de niveaux viennent du MONDE et non d'un choix de conception — il y a sept
+   jours dans la semaine et douze mois dans l'année.
+
+   Les deux comptes ambigus sont éprouvés dans leurs DEUX lectures, pour que le
+   verdict ne dépende pas de celle que j'aurais retenue : « compass_point » à
+   huit aires de vent ou à seize, « note_name » à sept noms ou à douze avec les
+   altérations. Les quatre cas sont refusés.
+
+   À confirmer contre VMTrainer.html quand il arrivera : si la référence donne
+   un autre compte pour l'une d'elles, c'est ce contrôle qui le dira.
+*/
+const PARLEES: [string, number][] = [
+  ['weekday', 7],
+  ['month', 12],
+  ['clock_hour', 12],
+  ['compass_point', 8],
+  ['note_name', 7],
+  ['number', 10],
+];
+for (const [nom, niveaux] of PARLEES) {
+  vrai(
+    `« ${nom} » (${niveaux} niveaux) n’est pas mesurable par cet escalier`,
+    raisonDInaptitude(d(nom, niveaux)) !== null,
+  );
+}
+/* Les deux lectures ambiguës, pour que le verdict n'en dépende pas. */
+vrai('« compass_point » reste refusée même à seize niveaux', raisonDInaptitude(d('compass_point', 16)) !== null);
+vrai('« note_name » reste refusée même à douze niveaux', raisonDInaptitude(d('note_name', 12)) !== null);
+/*
+   ET LA SEULE QUI PASSE, qui donne sa valeur aux six refus : sans elle, un
+   critère qui refuserait TOUT aurait le même air.
+*/
+v('« letter » (26 niveaux) est admise, tout juste au plancher', raisonDInaptitude(d('letter', 26)), null);
+proche('et son grain vaut exactement le plancher de la procédure', grainDe(d('letter', 26)), PLANCHER_MESURABLE);
+
 console.log(
   echecs === 0
     ? '\n\x1b[32mTous les essais passent.\x1b[0m\n'
