@@ -86,6 +86,7 @@
  * vaut dans les deux.
  */
 import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 
 import { chromium } from 'playwright-core';
 
@@ -136,11 +137,12 @@ async function deriverCle(motDePasse) {
 
 async function dechiffrer(cle, chemin) {
   const blob = JSON.parse(readFileSync(chemin, 'utf8'));
-  const clair = await crypto.subtle.decrypt(
+  const brut = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: b64(blob.iv) },
     cle,
     b64(blob.ct),
   );
+  const clair = blob.z === 'gzip' ? gunzipSync(Buffer.from(brut)) : Buffer.from(brut);
   return JSON.parse(new TextDecoder().decode(clair));
 }
 
@@ -266,12 +268,19 @@ const phases = await page.evaluate(
     const t2 = performance.now();
     const octets = b64v(blob.ct);
     const t3 = performance.now();
-    const clair = await crypto.subtle.decrypt(
+    const chiffre = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: b64v(blob.iv) },
       cle,
       octets,
     );
     const t4 = performance.now();
+    const clair =
+      blob.z === 'gzip'
+        ? await new Response(
+            new Blob([chiffre]).stream().pipeThrough(new DecompressionStream('gzip')),
+          ).arrayBuffer()
+        : chiffre;
+    const tz = performance.now();
     const texte = new TextDecoder().decode(clair);
     const t5 = performance.now();
     const valeur = JSON.parse(texte);
@@ -282,7 +291,9 @@ const phases = await page.evaluate(
       parseEnveloppe: t2 - t1,
       base64: t3 - t2,
       aes: t4 - t3,
-      utf8: t5 - t4,
+      gunzip: tz - t4,
+      comprime: blob.z ?? '(aucune)',
+      utf8: t5 - tz,
       parseClair: t6 - t5,
       sansReseau: t6 - t1,
       octetsServis: brut.length,
@@ -299,6 +310,7 @@ console.log(`  réseau (localhost, non représentatif) ${ms(phases.reseau)}`);
 console.log(`  1. JSON.parse de l’enveloppe base64  ${ms(phases.parseEnveloppe)}`);
 console.log(`  2. base64 vers octets                ${ms(phases.base64)}`);
 console.log(`  3. AES-GCM decrypt                   ${ms(phases.aes)}`);
+console.log(`  3bis. décompression (${phases.comprime})       ${ms(phases.gunzip)}`);
 console.log(`  4. décodage UTF-8                    ${ms(phases.utf8)}`);
 console.log(`  5. JSON.parse du clair               ${ms(phases.parseClair)}`);
 console.log(`  ─────────────────────────────────────────────────`);

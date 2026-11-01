@@ -6,6 +6,7 @@
  * Seul le résultat chiffré est écrit dans « public/data/ », donc dans « dist/ »,
  * donc sur GitHub Pages.
  */
+import { gzipSync } from 'node:zlib';
 import { webcrypto as crypto } from 'node:crypto';
 
 const encodeur = new TextEncoder();
@@ -39,11 +40,48 @@ export function selAleatoire(taille) {
 }
 
 /** Chiffre une valeur JSON. Retourne { iv, ct } en base64. */
+/**
+ * À partir de quelle taille on comprime avant de chiffrer.
+ *
+ * Au-dessous, le gain ne vaut pas la peine et surtout : les petits fichiers
+ * gardent EXACTEMENT la forme qu'ils avaient. Le jour où quelqu'un compare
+ * deux publications, seul ce qui devait changer a changé — et « temoin », que
+ * l'écran de connexion déchiffre avant toute autre chose, n'entre jamais dans
+ * cette branche.
+ *
+ * 256 Ko laisse dehors le glossaire (228 Ko) et les molécules (142 Ko), et
+ * prend « recherche.json » (11,6 Mo), « bibliographie », « qcm-dgfip »
+ * (683 Ko) et le manifeste (302 Ko) — c'est-à-dire tout ce qui pèse.
+ */
+const SEUIL_DE_COMPRESSION_OCTETS = 256 * 1024;
+
+/**
+ * Chiffre une valeur JSON, en la comprimant d'abord si elle est grosse.
+ *
+ * ## Pourquoi comprimer AVANT de chiffrer
+ *
+ * Du JSON se comprime de 80 à 90 %. Ces fichiers n'y gagnaient que 25 %, et ce
+ * chiffre est la signature du chiffrement : un texte chiffré n'a plus de
+ * redondance, donc plus rien à offrir au compresseur. Celui du serveur et
+ * celui du navigateur arrivaient tous deux trop tard.
+ *
+ * Mesuré sur « recherche.json » : 11 371 Ko servis deviennent 3 270 Ko, pour
+ * un clair identique octet pour octet.
+ *
+ * Brotli ferait mieux — 1 791 Ko contre 2 452 Ko sur le clair — et
+ * « DecompressionStream » ne le connaît pas : vérifié dans le navigateur du
+ * dépôt, il n'accepte que « gzip », « deflate » et « deflate-raw ». On écrit
+ * donc du gzip, et le bloc porte un champ « z » qui dit lequel, pour que le
+ * jour où brotli arrive ne demande pas de republier le reste.
+ */
 export async function chiffrerJson(cle, valeur, tailleIvOctets) {
   const iv = crypto.getRandomValues(new Uint8Array(tailleIvOctets));
-  const donnees = encodeur.encode(JSON.stringify(valeur));
+  const clair = encodeur.encode(JSON.stringify(valeur));
+  const comprime = clair.length >= SEUIL_DE_COMPRESSION_OCTETS;
+  const donnees = comprime ? gzipSync(clair, { level: 9 }) : clair;
   const chiffre = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cle, donnees);
-  return { iv: b64(iv), ct: b64(new Uint8Array(chiffre)) };
+  const bloc = { iv: b64(iv), ct: b64(new Uint8Array(chiffre)) };
+  return comprime ? { ...bloc, z: 'gzip' } : bloc;
 }
 
 /**

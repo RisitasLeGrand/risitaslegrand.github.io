@@ -74,6 +74,7 @@
     "essais:manifeste-filtre": "node scripts/essais-manifeste-filtre.mjs",
     "essais:chemin-du-navigateur": "node scripts/essais-chemin-du-navigateur.mjs",
     "essais:bornes": "node scripts/essais-bornes.mjs",
+    "essais:contenu-comprime": "node scripts/essais-contenu-comprime.mjs",
     "mesure:repechage": "node scripts/mesurer-cout-du-repechage.mjs",
     "essais:jour-logique": "tsx scripts/essais-jour-logique.mts",
     "essais:noyau": "tsx scripts/essais-noyau.mts",

@@ -431,10 +431,22 @@ async function charger<T>(chemin: string): Promise<T> {
   try {
     valeur = await dechiffrerJson<T>(cle, blob);
   } catch {
-    // Seul cas plausible : le fichier vient d'une autre publication que la clé.
+    /*
+       DEUX CAUSES, ET LE MÊME REMÈDE.
+
+       La première est celle d'origine : le fichier vient d'une autre
+       publication que la clé. La seconde est née avec la compression — un bloc
+       marqué « z » dont le contenu décomprimé est illisible, c'est-à-dire un
+       fichier abîmé ou servi en partie.
+
+       Le commentaire d'avant disait « seul cas plausible », et il aurait
+       survécu à ce changement sans rien signaler. Le message, lui, ne nomme
+       plus la cause qu'il ne peut pas distinguer : il dit ce qui ne va pas et
+       ce qu'il faut faire, et la marche à suivre est la même dans les deux cas.
+    */
     throw new Error(
-      'Ce contenu ne correspond pas à la clé de la session. ' +
-        'Le site a été republié entre-temps : rechargez la page (Ctrl+Maj+R), ' +
+      'Ce contenu n’a pas pu être lu : il ne correspond pas à la clé de la ' +
+        'session, ou il est arrivé abîmé. Rechargez la page (Ctrl+Maj+R), ' +
         'puis ressaisissez le mot de passe si besoin.',
     );
   }
