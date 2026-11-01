@@ -17,6 +17,21 @@ import {
   type Reglages,
 } from '../src/features/pcct/moteur/reglages';
 import { resultatAttendu } from '../src/features/pcct/moteur/calcul';
+import {
+  accumuler,
+  comptesInhibitionNeufs,
+  compterInhibition,
+  debutDeBloc,
+  donneesNeuves,
+  essaiComplet,
+  jugerInhibition,
+  operationDuRang,
+  operationsCommutables,
+  sensAttendu,
+  sensEntre,
+  type Evenement,
+} from '../src/features/pcct/moteur/modules';
+import { delaiDeGraceValide } from '../src/features/pcct/moteur/reglages';
 import { diviseursAdmissibles, prochainNombre } from '../src/features/pcct/moteur/tirage';
 import {
   AJUSTEMENT_MAX,
@@ -573,9 +588,254 @@ console.log('\nGARDE 11 — LE PAVÉ SE REMÉLANGE À CHAQUE ESSAI');
   verifier('mélanger une liste vide la rend vide', melanger([], 9), []);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   L3 — LES QUATRE MODULES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+{
+  console.log('\nL3 — L’INHIBITION SE RÉPOND, ET LES FAUSSES ALARMES SE COMPTENT');
+
+  /*
+     LES CINQ CAS, ET POURQUOI IL EN FAUT CINQ.
+
+     La référence n'en mesure AUCUN : son champ est désactivé sur un essai
+     d'inhibition, et les touches ne sont écoutées que sur ce champ. Personne ne
+     peut donc signaler qu'il retient, et une fausse alarme ne peut pas exister
+     non plus — le module ne mesure ni ce qu'il annonce, ni son contraire.
+
+     On distingue ici `retenu` de `omis` parce que ne rien faire n'est pas
+     retenir, et `rate` l'emporte sur `retenu` parce que qui a répondu n'a pas
+     retenu, fût-ce en pressant le bouton ensuite.
+  */
+  verifier('signal + Retenir, sans réponse → retenu', jugerInhibition(true, true, false), 'retenu');
+  verifier('signal + réponse → raté, même si Retenir a suivi', jugerInhibition(true, true, true), 'rate');
+  verifier('signal + réponse seule → raté', jugerInhibition(true, false, true), 'rate');
+  verifier('signal + rien → omis, et non retenu', jugerInhibition(true, false, false), 'omis');
+  verifier('pas de signal + Retenir → FAUSSE ALARME', jugerInhibition(false, true, false), 'fausse-alarme');
+  verifier('pas de signal + rien → sans objet', jugerInhibition(false, false, false), 'sans-objet');
+
+  /* Les comptes, et leurs deux dénominateurs : les essais SIGNALÉS portent la
+     retenue, les essais ORDINAIRES portent les fausses alarmes. Les mêler
+     donnerait un taux de fausses alarmes dilué par des essais où elles étaient
+     impossibles. */
+  let c = comptesInhibitionNeufs();
+  for (const v of ['retenu', 'rate', 'omis', 'fausse-alarme', 'sans-objet', 'sans-objet'] as const) {
+    c = compterInhibition(c, v);
+  }
+  verifier('les essais signalés sont comptés à part', { signales: c.signales, ordinaires: c.ordinaires }, { signales: 3, ordinaires: 3 });
+  verifier('et chaque verdict est compté une fois', { retenus: c.retenus, rates: c.rates, omis: c.omis, fa: c.faussesAlarmes }, { retenus: 1, rates: 1, omis: 1, fa: 1 });
+
+  console.log('\nL3 — LA FLÈCHE COMPTE AVANT COMME APRÈS LE NOMBRE');
+
+  /*
+     LE DÉFAUT N° 2 DE LA RÉFÉRENCE, et la seule garde qui l'attrape.
+
+     Sa validation automatique note l'essai dès que le nombre est complet : une
+     flèche donnée APRÈS arrive sur un essai clos. Deux personnes font le même
+     geste, l'une est notée juste et l'autre fausse, selon l'ordre.
+
+     On joue donc les DEUX ORDRES et l'on exige le même état. Une version qui
+     refuserait un sens déjà suivi d'un nombre rendrait ici deux états
+     différents.
+  */
+  const exigences = { nombre: true, sens: true };
+  const flechePuisNombre = [
+    { quoi: 'sens', valeur: 'plus-grand' },
+    { quoi: 'nombre', valeur: 7 },
+  ] as const;
+  const nombrePuisFleche = [
+    { quoi: 'nombre', valeur: 7 },
+    { quoi: 'sens', valeur: 'plus-grand' },
+  ] as const;
+  const jouer = (evts: readonly Evenement[]) => evts.reduce(accumuler, donneesNeuves());
+  verifier(
+    'les deux ordres donnent le MÊME état',
+    jouer(flechePuisNombre),
+    jouer(nombrePuisFleche),
+  );
+  verifier('et l’essai est complet dans les deux cas', [essaiComplet(exigences, jouer(flechePuisNombre)), essaiComplet(exigences, jouer(nombrePuisFleche))], [true, true]);
+  verifier(
+    'le nombre seul ne suffit pas quand un sens est demandé',
+    essaiComplet(exigences, jouer([{ quoi: 'nombre', valeur: 7 }])),
+    false,
+  );
+  verifier(
+    'ni le sens seul',
+    essaiComplet(exigences, jouer([{ quoi: 'sens', valeur: 'egal' }])),
+    false,
+  );
+  /* Et sur un essai d'inhibition, le nombre n'est pas demandé : l'essai est
+     complet sans lui, sans quoi retenir correctement bloquerait la séance. */
+  verifier(
+    'un essai d’inhibition est complet sans nombre',
+    essaiComplet({ nombre: false, sens: false }, jouer([{ quoi: 'retenir' }])),
+    true,
+  );
+
+  console.log('\nL3 — SDM NOMME LA SOMME À LAQUELLE IL COMPARE');
+
+  /*
+     LE DÉFAUT N° 3. La référence compare à la dernière somme JUSTE : sa
+     variable n'est réécrite que dans la branche des essais réussis. Après un
+     essai manqué, la comparaison porte donc sur une somme plus ancienne que la
+     précédente, et rien à l'écran ne dit laquelle.
+
+     Ici la référence est le résultat attendu de l'essai PRÉCÉDENT, réussi ou
+     non — et c'est `poserEssai` qui l'avance, à chaque essai, précisément parce
+     que `noter` ne court pas pour tous.
+
+     La garde se joue donc sur une SÉANCE, avec un essai manqué au milieu : si
+     la référence sautait les essais manqués, le sens attendu changerait.
+  */
+  verifier('sens d’un plus grand', sensEntre(9, 4), 'plus-grand');
+  verifier('sens d’un plus petit', sensEntre(4, 9), 'plus-petit');
+  verifier('sens d’un égal', sensEntre(7, 7), 'egal');
+  verifier('pas de référence → pas de sens, et non « égal »', sensAttendu(5, null), null);
+
+  /*
+     ET LA GARDE QUI ATTRAPE VRAIMENT LE DÉFAUT : une SÉANCE, avec un essai
+     manqué au milieu.
+
+     Les trois lignes ci-dessus mesurent la comparaison, qui n'était pas en
+     cause. Le défaut de la référence est AILLEURS : sa référence n'avance que
+     sur les essais réussis. Pour le prendre, il faut donc jouer plusieurs
+     essais, en manquer un, et regarder à quoi le suivant se compare.
+
+     `poserEssai` avance `attenduPrecedent` à CHAQUE essai, sans consulter la
+     notation — c'est la forme qui tient l'invariant, et c'est elle qu'on
+     mesure ici.
+  */
+  const etatSdm = seanceNeuve({ ...reglagesParDefaut(), n: 1, nombreMin: 1, nombreMax: 9 });
+  const hasardSdm = hasardFixe(7);
+  const attendus: (number | null)[] = [];
+  const references: (number | null)[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const essai = poserEssai(etatSdm, hasardSdm);
+    attendus.push(essai.attendu);
+    /*
+       RELEVÉ APRÈS L'APPEL, et c'est l'essai qui m'a corrigé.
+
+       Je l'avais d'abord relevé AVANT, et la garde a rougi d'un cran :
+       `[null,null,12,15,15]` contre `[null,12,15,15,10]`. Le code avait raison.
+       `poserEssai` avance la référence EN TÊTE de l'appel, depuis l'essai qui
+       s'achève : après l'appel i, elle porte donc l'attendu de l'essai i−1,
+       qui est exactement ce à quoi l'essai i doit se comparer. Avant l'appel,
+       elle portait encore celui de i−2.
+    */
+    references.push(etatSdm.attenduPrecedent);
+  }
+  /* La référence de chaque essai est l'attendu du PRÉCÉDENT, et aucun essai
+     n'est sauté. On ne note rien du tout : si la référence dépendait de la
+     notation — le défaut de la référence —, elle resterait figée. */
+  verifier(
+    'la référence de SDM suit l’attendu précédent, essai par essai',
+    references.slice(1),
+    attendus.slice(0, -1),
+  );
+  verifier(
+    'et elle avance même quand RIEN n’est noté',
+    references.slice(1).some((r) => r !== null) && new Set(references.slice(1)).size > 1,
+    true,
+  );
+  /* Le NOMBRE précédent est une autre chose que l'attendu précédent : NDM se
+     compare à l'un, SDM à l'autre. Les confondre ferait un module qui vise
+     juste seulement quand l'opération est l'identité. */
+  verifier(
+    'NDM et SDM n’ont pas la même référence',
+    etatSdm.nombrePrecedent !== etatSdm.attenduPrecedent ||
+      etatSdm.reglages.operation === 'somme',
+    true,
+  );
+
+  console.log('\nL3 — LE CHARGEMENT NE PLANTE PAS QUAND LE CHANGEMENT DE RÈGLE EST ENREGISTRÉ');
+
+  /*
+     LE CINQUIÈME DÉFAUT DE LA RÉFÉRENCE, et il est d'une autre nature : ce
+     n'est pas une règle fausse mais un CHARGEMENT qui lève. Chez elle, `synth`
+     et `SHARE_KEYS` sont employés avant leur déclaration — zone morte d'un
+     `const` —, et l'appel qui arrive pendant le chargement emporte la page.
+
+     Ici le risque équivalent est qu'un réglage de module enregistré ne se
+     relise pas : un sous-objet manquant, un champ d'un type inattendu. On joue
+     donc le pire — un objet partiel, des types faux — et l'on exige que la
+     lecture RENDE des réglages utilisables plutôt que de lever.
+  */
+  const copie = reglagesParDefaut();
+  copie.changementDeRegleActif = true;
+  copie.changementDeRegleBloc = 4;
+  copie.operationsCommutees = { somme: true, difference: false, produit: true, quotient: false };
+  const relus = JSON.parse(JSON.stringify(copie)) as Reglages;
+  verifier(
+    'un réglage de changement de règle survit à l’aller-retour',
+    [relus.changementDeRegleActif, relus.changementDeRegleBloc, relus.operationsCommutees.produit],
+    [true, 4, true],
+  );
+  /* Et une séance se monte dessus sans lever, en employant bien les opérations
+     commutées : c'est le chemin qui emporte la page chez la référence. */
+  let leve: string | null = null;
+  let operationsVues: string[] = [];
+  try {
+    const etatCr = seanceNeuve(relus);
+    const h = hasardFixe(3);
+    for (let i = 0; i < 9; i += 1) operationsVues.push(poserEssai(etatCr, h).operation);
+  } catch (e) {
+    leve = String(e);
+  }
+  verifier('monter une séance avec le module ne lève pas', leve, null);
+  verifier(
+    'et elle alterne bien entre les opérations commutées',
+    [...new Set(operationsVues)].sort(),
+    ['produit', 'somme'],
+  );
+  /* La copie en profondeur tient aussi avec le sous-objet des modules : écrire
+     dans la copie ne doit pas toucher les défauts. */
+  const a = reglagesParDefaut();
+  a.operationsCommutees.quotient = true;
+  verifier('écrire dans une copie ne touche pas les défauts', DEFAUTS.operationsCommutees.quotient, false);
+
+  console.log('\nL3 — LE DÉLAI DE GRÂCE : ZÉRO ÉTEINT, SINON DE 100 À 2 000');
+
+  /*
+     LA PLAGE N'EST PAS D'UN SEUL TENANT, et c'est pourquoi `valeurValide` ne
+     suffit pas : elle borne sur un intervalle continu et ramènerait un zéro au
+     minimum — donc RALLUMERAIT une aide qu'on vient d'éteindre, en silence.
+  */
+  verifier('zéro survit, et éteint l’aide', delaiDeGraceValide(0), 0);
+  verifier('une valeur dans la plage est gardée', delaiDeGraceValide(300), 300);
+  verifier('au-dessus du plafond, on redescend à 2 000', delaiDeGraceValide(5000), 2000);
+  verifier('entre 1 et 99, on monte à 100 — « un peu » n’est pas « pas du tout »', delaiDeGraceValide(40), 100);
+  verifier('un négatif éteint', delaiDeGraceValide(-10), 0);
+  verifier('ce qui n’est pas un nombre retrouve le défaut', delaiDeGraceValide('300'), DEFAUTS.delaiDeGrace);
+  verifier('et le défaut est dans la plage', DEFAUTS.delaiDeGrace === 0 || (DEFAUTS.delaiDeGrace >= 100 && DEFAUTS.delaiDeGrace <= 2000), true);
+
+  console.log('\nL3 — LE CHANGEMENT DE RÈGLE ALTERNE PAR BLOCS');
+
+  const deux = operationsCommutables({ somme: true, difference: true, produit: false, quotient: false });
+  verifier('deux opérations commutées donnent deux règles', deux, ['somme', 'difference']);
+  /* Une seule opération commutée n'est pas un changement : on rend une liste
+     vide plutôt qu'une liste d'un, qui ferait un module allumé qui ne change
+     jamais — annoncé par une couleur immobile, donc pire qu'éteint. */
+  verifier(
+    'une seule opération commutée ne fait pas un changement',
+    operationsCommutables({ somme: true, difference: false, produit: false, quotient: false }),
+    [],
+  );
+  verifier(
+    'les cinq premiers rangs d’un bloc de 3 alternent par bloc',
+    [1, 2, 3, 4, 5, 6, 7].map((r) => operationDuRang(r, deux, 3, 'produit')),
+    ['somme', 'somme', 'somme', 'difference', 'difference', 'difference', 'somme'],
+  );
+  verifier(
+    'sans commutables, l’opération des réglages est gardée',
+    operationDuRang(4, [], 3, 'quotient'),
+    'quotient',
+  );
+  verifier('le début de bloc est annoncé', [1, 2, 3, 4].map((r) => debutDeBloc(r, 3)), [true, false, false, true]);
+}
+
 console.log(
   echecs === 0
-    ? '\n\x1b[32mLe moteur de PCCT tient ses onze gardes.\x1b[0m\n'
+    ? '\n\x1b[32mLe moteur de PCCT tient ses gardes, modules compris.\x1b[0m\n'
     : `\n\x1b[31m${echecs} échec(s).\x1b[0m\n`,
 );
 process.exit(echecs === 0 ? 0 : 1);

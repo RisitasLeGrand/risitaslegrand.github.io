@@ -44,7 +44,17 @@ export interface Reglages {
   nombreMin: number;
   nombreMax: number;
   /**
-   * La fenêtre du délai de grâce, en millisecondes. Zéro éteint l'aide.
+   * La fenêtre du délai de grâce, en millisecondes.
+   *
+   * SA PLAGE N'EST PAS CONTINUE, et c'est voulu : **zéro éteint l'aide**, et
+   * toute autre valeur vaut entre 100 et 2 000 ms. Rien entre 1 et 99, parce
+   * qu'une fenêtre de quelques dizaines de millisecondes ne rattrape aucune
+   * frappe — elle donnerait une aide allumée qui n'aide jamais, c'est-à-dire
+   * exactement le défaut de la référence, obtenu cette fois par le réglage.
+   *
+   * C'est pourquoi `valeurValide` ne suffit pas ici : elle borne sur un
+   * intervalle d'un seul tenant, et ramènerait un zéro à 100 — donc
+   * rallumerait une aide qu'on vient d'éteindre. Voir `delaiDeGraceValide`.
    *
    * Le réglage est ici, avec les autres, parce qu'il se valide, se borne et se
    * met par défaut comme eux ; la RÈGLE qu'il commande est dans `grace.ts`.
@@ -79,6 +89,31 @@ export interface Reglages {
    * défaut de la référence, lui, ne mord que sur ses réglages imbriqués.
    */
   operationsCommutees: Record<Operation, boolean>;
+
+  /* ── Les quatre modules facultatifs (L3) ──────────────────────────────── */
+
+  /**
+   * L'inhibition : certains essais portent un signal, et il ne faut pas
+   * répondre mais presser « Retenir ».
+   */
+  inhibitionActive: boolean;
+  /** Part des essais qui portent le signal, en pourcentage. */
+  inhibitionFrequence: number;
+  /** NDM : dire si le NOMBRE est plus petit, égal ou plus grand que le précédent. */
+  ndmActif: boolean;
+  /** SDM : la même chose sur le RÉSULTAT ATTENDU. */
+  sdmActif: boolean;
+  /**
+   * Le changement de règle, **marqué « expérimental »** à l'écran.
+   *
+   * Expérimental au sens propre : les opérations entre lesquelles il alterne
+   * sont celles d'`operationsCommutees`, et rien n'a encore établi qu'alterner
+   * entre quatre reste lisible. Le marquer le dit à qui l'allume plutôt que de
+   * le lui laisser découvrir.
+   */
+  changementDeRegleActif: boolean;
+  /** Nombre d'essais par bloc avant que la règle change. */
+  changementDeRegleBloc: number;
 }
 
 /**
@@ -98,11 +133,25 @@ export const BORNES = {
   precisionCible: { min: 50, max: 99, pas: 1 },
   nombreMin: { min: 0, max: 99, pas: 1 },
   nombreMax: { min: 1, max: 99, pas: 1 },
-  delaiDeGrace: { min: 0, max: 600, pas: 50 },
+  /*
+     LA PLAGE DU DÉLAI DE GRÂCE est celle des valeurs NON NULLES : zéro est un
+     cas à part, traité par `delaiDeGraceValide`. L'écran lit ces bornes pour
+     son curseur, et pose l'extinction par une case à cocher — un curseur qui
+     descendrait à zéro mettrait l'éteint et le plus court au même bout, et
+     personne ne saurait lequel il vient de choisir.
+  */
+  delaiDeGrace: { min: 100, max: 2000, pas: 50 },
   prospectiveFenetre: { min: 500, max: 10000, pas: 100 },
   prospectiveEnAttente: { min: 1, max: 5, pas: 1 },
   prospectiveHorizon: { min: 10000, max: 180000, pas: 1000 },
   prospectiveAffichage: { min: 1000, max: 20000, pas: 500 },
+  inhibitionFrequence: { min: 5, max: 50, pas: 5 },
+  /*
+     AU MOINS DEUX ESSAIS PAR BLOC. Un bloc d'un seul essai ferait changer la
+     règle à chaque nombre : ce n'est plus une bascule de règle, c'est la
+     lecture d'un signal, et le module mesurerait autre chose que son nom.
+  */
+  changementDeRegleBloc: { min: 2, max: 40, pas: 1 },
 } as const;
 
 /**
@@ -143,6 +192,15 @@ export const DEFAUTS: Readonly<Reglages> = Object.freeze({
   /* Somme et différence, comme la référence : deux opérations suffisent à faire
      du changement de règle une épreuve, et quatre la rendent illisible. */
   operationsCommutees: { somme: true, difference: true, produit: false, quotient: false },
+  /* LES QUATRE MODULES SONT ÉTEINTS PAR DÉFAUT. Ils sont facultatifs, et
+     chacun ajoute une tâche à une épreuve qui en porte déjà deux. Qui les
+     allume le fait exprès. */
+  inhibitionActive: false,
+  inhibitionFrequence: 20,
+  ndmActif: false,
+  sdmActif: false,
+  changementDeRegleActif: false,
+  changementDeRegleBloc: 10,
 });
 Object.freeze(DEFAUTS.operationsCommutees);
 
@@ -182,4 +240,23 @@ export function valeurValide(
   const crans = Math.round((bornee - bornes.min) / bornes.pas);
   const surGrille = bornes.min + crans * bornes.pas;
   return surGrille > bornes.max ? bornes.min + (crans - 1) * bornes.pas : surGrille;
+}
+
+/**
+ * Valide le délai de grâce, dont la plage n'est PAS d'un seul tenant.
+ *
+ * Zéro éteint l'aide et doit survivre tel quel ; toute autre valeur vaut entre
+ * 100 et 2 000 ms. `valeurValide` seule ramènerait un zéro au minimum de la
+ * plage — donc RALLUMERAIT une aide qu'on vient d'éteindre, en silence, et le
+ * réglage ne pourrait plus jamais être mis à zéro.
+ *
+ * Une valeur entre 1 et 99 remonte à 100 plutôt que de retomber à zéro : elle
+ * dit qu'on VEUT l'aide, et la plus courte fenêtre utile est 100. Retomber à
+ * zéro interpréterait « un peu » comme « pas du tout ».
+ */
+export function delaiDeGraceValide(brut: unknown): number {
+  if (brut === 0) return 0;
+  if (!nombreFini(brut)) return DEFAUTS.delaiDeGrace;
+  if (brut < 0) return 0;
+  return valeurValide(brut, BORNES.delaiDeGrace, DEFAUTS.delaiDeGrace);
 }
