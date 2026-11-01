@@ -108,7 +108,21 @@ const fait = (jour: string, heure: number, minutes: number, domaine = 'connaissa
     jourLogique: jour,
     valeur: minutes * 60,
     unite: 'secondes',
-    source: 'automatique',
+    /*
+       « auto », et non « automatique ».
+
+       « Fait.source » vaut « auto | manuel | import | derive ». Ces quatre
+       fabrications écrivaient « automatique », qui n'est pas une source de
+       fait : c'est un type de RAPPROCHEMENT, dans « odyssee/rapprochement.ts ».
+       Le mot a été pris dans le vocabulaire voisin.
+
+       **Et cela ne coûtait rien, ce qu'il faut dire** : rien dans « src/ » ne
+       branche sur « Fait.source » — vérifié, zéro comparaison. Les assertions
+       n'étaient donc pas vertes pour une mauvaise raison. Le défaut était une
+       valeur hors union dans un objet par ailleurs juste, invisible parce que
+       « scripts/ » n'était pas typé.
+    */
+    source: 'auto',
     fiabilite: 'confirme',
     proprietaire: 'revisions',
     version: 1,

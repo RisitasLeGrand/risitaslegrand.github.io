@@ -462,7 +462,7 @@ const fait = (jour: string, heureDebut: number, minutes: number, domaine = 'conn
     jourLogique: jour,
     valeur: minutes * 60,
     unite: 'secondes',
-    source: 'automatique',
+    source: 'auto',
     fiabilite: 'confirme',
     proprietaire: 'revisions',
     version: 1,

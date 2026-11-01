@@ -356,7 +356,7 @@ const fait = (jour: string, minutes: number): Fait => {
     jourLogique: jour,
     valeur: minutes * 60,
     unite: 'secondes',
-    source: 'automatique',
+    source: 'auto',
     fiabilite: 'confirme',
     proprietaire: 'revisions',
     version: 1,

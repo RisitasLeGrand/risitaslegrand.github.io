@@ -42,6 +42,30 @@ import {
   classeDeclaree,
 } from '../src/lib/odyssee/classes-de-molecules';
 import { CLASSES_DU_CYCLE } from '../src/lib/notifications/filtre-cycle';
+import { populationNonLue } from '../src/lib/noyau/population';
+
+/**
+ * UNE SOURCE COMPLÈTE, parce que « Source » en exige quatre champs et que ces
+ * fabrications n'en donnaient que deux.
+ *
+ * Il manquait « nom » et « populationVisee ». Le second n'est pas un oubli de
+ * forme : son commentaire dans « odyssee/sante.ts » explique qu'il est
+ * OBLIGATOIRE exprès, parce qu'avec un champ facultatif « on peut citer une
+ * source sans dire qui elle vise, et rien ne s'en aperçoit avant l'écran — où
+ * le repère s'affiche comme s'il concernait tout le monde ».
+ *
+ * C'est donc une garde posée contre un défaut d'affichage précis, et sept
+ * fabrications de cet essai la contournaient sans le savoir : elles
+ * éprouvaient « controlerPaire » sur des sources que le programme refuse de
+ * construire. Le même commentaire donne la réponse honnête pour un document
+ * qui n'a pas été relu pour cela, et c'est celle qu'on prend ici.
+ */
+const source = (ou: string, le: string, nom = 'Document d’essai') => ({
+  nom,
+  ou,
+  le,
+  populationVisee: populationNonLue('document d’essai, non relu pour la population visée'),
+});
 
 let rouges = 0;
 const v = (quoi: string, obtenu: unknown, attendu: unknown) => {
@@ -172,7 +196,7 @@ console.log('\n\x1b[1mLE STATUT « PROBABLE » EXIGE SA BASE\x1b[0m\n');
     'avec une publication primaire citée, elle passe',
     controlerPaire(
       paire({
-        base: { nature: 'cas-rapporte', source: { ou: 'Rev. Exemple 2025;1:1', le: '2025-01-01' } },
+        base: { nature: 'cas-rapporte', source: source('Rev. Exemple 2025;1:1', '2025-01-01') },
       }),
     ),
     [],
@@ -180,7 +204,7 @@ console.log('\n\x1b[1mLE STATUT « PROBABLE » EXIGE SA BASE\x1b[0m\n');
   v(
     'une base sans provenance est refusée',
     controlerPaire(
-      paire({ base: { nature: 'cas-rapporte', source: { ou: '', le: '2025-01-01' } } }),
+      paire({ base: { nature: 'cas-rapporte', source: source('', '2025-01-01') } }),
     ).length,
     1,
   );
@@ -189,7 +213,7 @@ console.log('\n\x1b[1mLE STATUT « PROBABLE » EXIGE SA BASE\x1b[0m\n');
     controlerPaire(
       paire({
         statut: 'theorique',
-        base: { nature: 'essai', source: { ou: 'x', le: '2025-01-01' } },
+        base: { nature: 'essai', source: source('x', '2025-01-01') },
       }),
     ).length,
     1,
@@ -224,12 +248,12 @@ console.log('\n\x1b[1mUNE LIMITE SANS SOURCE N’EST PAS AFFICHABLE\x1b[0m\n');
     valeur: 'Limite supérieure fixée par l’EFSA pour l’adulte : 400 mg par jour.',
     population: 'adulte',
     voie: 'orale',
-    source: { ou: 'EFSA 2015', le: '2015-05-27' },
+    source: source('EFSA 2015', '2015-05-27'),
     date: '2015-05-27',
     ...p,
   });
   v('une limite complète passe', controlerLimite(limite()), []);
-  v('sans source, refusée', controlerLimite(limite({ source: { ou: '', le: '' } })).length, 1);
+  v('sans source, refusée', controlerLimite(limite({ source: source('', '') })).length, 1);
   v('sans population, refusée', controlerLimite(limite({ population: '' })).length, 1);
   v('sans voie, refusée', controlerLimite(limite({ voie: '' })).length, 1);
 
@@ -308,14 +332,14 @@ console.log('\n\x1b[1mUNE LIGNE DE DOSE DÉCRIT UNE ÉTUDE, PAS UNE CONSIGNE\x1b
     effet: 'temps de réaction raccourci',
     indesirables: 'aucun rapporté',
     typeEtude: 'essai randomisé',
-    source: { ou: 'Rev. Exemple 2024;3:7', le: '2024-03-01' },
+    source: source('Rev. Exemple 2024;3:7', '2024-03-01'),
     ...p,
   });
   v('une ligne complète passe', controlerLigneDose(ligne()), []);
   v('sans effectif, refusée', controlerLigneDose(ligne({ effectif: '' })).length, 1);
   v('sans durée, refusée', controlerLigneDose(ligne({ duree: '' })).length, 1);
   v('sans type d’étude, refusée', controlerLigneDose(ligne({ typeEtude: '' })).length, 1);
-  v('sans source, refusée', controlerLigneDose(ligne({ source: { ou: '', le: '' } })).length, 1);
+  v('sans source, refusée', controlerLigneDose(ligne({ source: source('', '') })).length, 1);
   v(
     'une provenance animale est refusée comme dose',
     controlerLigneDose(ligne({ provenance: 'animal' as 'humain' })).some((p) =>
