@@ -308,7 +308,20 @@ console.log('\n\x1b[1m5. CE QUI RESTE EST DIT, ET CE QUI NE RESTE PAS SE TAIT\x1
   vrai('la mention des gestes en attente paraît', parue);
   const dit = (await page.textContent('#gestes-en-attente')) ?? '';
   vrai('elle compte ce qui attend', /\b1\b/.test(dit));
-  vrai('elle dit que rien n’est effacé', /gardés, pas effacés/.test(dit));
+  /*
+     LES DEUX NOMBRES, parce que l'écran les accorde et que cet essai en sème UN.
+
+     Ce motif exigeait le pluriel — `gardés, pas effacés` — alors que la ligne
+     juste au-dessus vient de vérifier que la mention compte « 1 ». Depuis que
+     l'accord passe par `noyau/accords.ts` (lot 9), l'écran dit au singulier
+     « Il est gardé, pas effacé », ce qui est juste : un pli illisible arrive
+     rarement par paires. C'était donc l'ESSAI qui était périmé, pas l'écran.
+
+     Le motif accepte les deux nombres plutôt que de figer le singulier : le
+     cas pluriel est éprouvé quelques lignes plus bas, avec deux plis, et il
+     doit continuer de passer par ici.
+  */
+  vrai('elle dit que rien n’est effacé', /gardés?, pas effacés?/.test(dit));
   /*
      Le § 2.3 vaut ici aussi : la mention compte, elle ne raconte pas. Ni
      le nom de la tâche semée, ni le jour.

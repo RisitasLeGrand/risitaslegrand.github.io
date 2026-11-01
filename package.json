@@ -75,6 +75,7 @@
     "essais:chemin-du-navigateur": "node scripts/essais-chemin-du-navigateur.mjs",
     "essais:bornes": "node scripts/essais-bornes.mjs",
     "essais:jour-logique": "tsx scripts/essais-jour-logique.mts",
+    "essais:horloge-de-nuit": "node scripts/essais-horloge-de-nuit.mjs",
     "essais:noyau": "tsx scripts/essais-noyau.mts",
     "essais:contexte": "tsx scripts/essais-contexte-personne.mts",
     "essais:qui-utilise:navigateur": "node scripts/essais-qui-utilise-navigateur.mjs",
