@@ -47,6 +47,30 @@ function mulberry32(graine: number) {
   };
 }
 
+/**
+ * UN REJEU QUI PANIQUE DOIT ROUGIR, PAS TUER L'ESSAI.
+ *
+ * `recalculer` passe chaque note à FSRS, qui REFUSE un intervalle négatif —
+ * « Invalid delta_t "-18" ». Un journal rejoué à rebours du calendrier ne
+ * rend donc pas un mauvais résultat : il lève, et l'exception emporte le
+ * processus au milieu du fichier.
+ *
+ * Mesuré en sabotant le tri de `recalculer` : l'essai mourait à la première
+ * assertion d'ordre, et les six sections suivantes ne tournaient plus du
+ * tout. C'est rouge, donc ce n'est pas un faux vert — mais c'est le pire des
+ * rouges, celui qui ne nomme pas ce qui a cassé et qui cache tout le reste.
+ *
+ * `tenter` rend la panne mesurable : l'appel qui lève donne `ok: false`, une
+ * assertion le dit par son nom, et le fichier continue.
+ */
+const tenter = <T,>(quoi: () => T): { ok: boolean; valeur: T | null } => {
+  try {
+    return { ok: true, valeur: quoi() };
+  } catch {
+    return { ok: false, valeur: null };
+  }
+};
+
 const NOTES: Note[] = ['oublie', 'difficile', 'correct', 'facile'];
 const JOUR = 86_400_000;
 const APPAREIL = 'AAAA1111';
@@ -110,17 +134,25 @@ console.log('\nRejeu du journal');
   for (const combien of [1, 2, 5, 40, 200]) {
     const { carte, journal } = parcourir(combien + 3, combien);
     const rejoue = recalculerCarte(journal);
-    v(`${combien} révision(s) : l’état rejoué est l’état tenu`, rejoue, carte);
+    v(
+      `${combien} ${combien >= 2 ? 'révisions' : 'révision'} : l’état rejoué est l’état tenu`,
+      rejoue,
+      carte,
+    );
   }
 
   // L'ordre de lecture du journal ne doit rien changer : la fusion le rendra
   // dans n'importe quel ordre, et c'est l'identifiant qui porte l'ordre vrai.
   const { carte, journal } = parcourir(99, 30);
   const melange = [...journal].reverse();
-  v('l’ordre de lecture ne change rien', recalculerCarte(melange), carte);
+  const aLEnvers = tenter(() => recalculerCarte(melange));
+  vrai('le journal lu à l’envers se rejoue sans panne', aLEnvers.ok);
+  v('l’ordre de lecture ne change rien', aLEnvers.valeur, carte);
   const hasard = mulberry32(5);
   const brasse = [...journal].sort(() => hasard() - 0.5);
-  v('un ordre quelconque ne change rien', recalculerCarte(brasse), carte);
+  const brassee = tenter(() => recalculerCarte(brasse));
+  vrai('un journal brassé se rejoue sans panne', brassee.ok);
+  v('un ordre quelconque ne change rien', brassee.valeur, carte);
 
   v('un journal vide ne rend rien, et surtout pas une carte neuve', recalculerCarte([]), null);
 }
@@ -327,14 +359,6 @@ console.log('\nCe qui ordonne le rejeu d’un journal de révisions');
      subir : si le rejeu passait à l'horloge, ces données ne seraient pas
      mal recalculées, elles seraient INREJOUABLES.
   */
-  const tenter = <T,>(quoi: () => T): { ok: boolean; valeur: T | null } => {
-    try {
-      return { ok: true, valeur: quoi() };
-    } catch {
-      return { ok: false, valeur: null };
-    }
-  };
-
   const direct = tenter(() => recalculerCarte([aa, bb]));
   const inverse = tenter(() => recalculerCarte([bb, aa]));
   vrai('le rejeu aboutit, sans panne', direct.ok && inverse.ok);
