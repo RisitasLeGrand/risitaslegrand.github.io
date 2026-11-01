@@ -221,7 +221,7 @@ existe. C'est la leçon des créneaux.
 Le relevé des orphelins est donc à zéro, et chacune des mesures ci-dessus est
 un code de sortie, non un compte de lignes vertes.
 
-### Et le garde-fou qui manque encore
+### Et le garde-fou qui ne manque plus
 
 Le relevé ci-dessus a été fait à la main, en croisant les fichiers
 `scripts/essais-*.m[jt]s` avec les scripts de `package.json`. **Cela devrait
@@ -229,12 +229,22 @@ Le relevé ci-dessus a été fait à la main, en croisant les fichiers
 `npm` ». Il coûterait une fraction de seconde et il attraperait le neuvième
 orphelin, celui qu'on écrira sans y penser.
 
-**La condition qui l'empêchait est levée** : les huit sont inscrits, donc ce
-balayage rendrait zéro aujourd'hui. Il reste à l'écrire, et il est proposé au
-pilote avec cette précision — un balayage qui part d'un dépôt à zéro est
-exactement celui qu'il faut écrire, puisque son premier rouge sera le neuvième
-orphelin et non une dette ancienne.
+**`essais:essais-branches` est écrit, et il est au socle** — quarante-cinquième
+ligne, le jour même où les huit ont été branchés. Un balayage qui part d'un
+dépôt à zéro est exactement celui qu'il faut écrire : son premier rouge sera le
+neuvième orphelin, et non une dette ancienne.
 
-Et il s'éprouve dans les deux sens, comme `essais:bornes` : un fichier d'essai
-fabriqué sans script doit être VU, sinon le balayage rendrait zéro parce qu'il
-ne sait plus chercher.
+Il s'éprouve dans les deux sens, comme `essais:bornes`, et son premier contrôle
+est ce qu'il DOIT voir — sans quoi un balayage qui ne trouve plus rien resterait
+vert sur tous les autres. Il refuse, code 2, s'il ne lit aucun fichier ou aucun
+script. Et il porte son contre-exemple sur les données réelles : un neuvième
+fichier fabriqué, absent du dossier, doit être vu comme non branché par les
+commandes réelles.
+
+**Il a trouvé quelque chose à son premier passage** : son propre fichier,
+qui n'était pas encore inscrit. C'est le genre de première mesure qui rassure
+sur la suite.
+
+À ne pas confondre avec `essais:orphelins`, qui garde l'inverse — un module
+livré que nul écran n'appelle. Les deux noms se ressemblent et les deux défauts
+sont symétriques : là, du code sans usage ; ici, un contrôle sans passage.

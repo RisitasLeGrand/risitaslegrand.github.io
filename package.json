@@ -314,6 +314,7 @@
     "essais:consentement-ecran": "node scripts/essais-consentement-ecran.mjs",
     "essais:semis": "node scripts/essais-semis.mjs",
     "essais:aucune-empreinte-publiee": "node scripts/essais-aucune-empreinte-publiee.mjs",
+    "essais:essais-branches": "node scripts/essais-essais-branches.mjs",
     "essais:bascule-coffre": "node scripts/essais-bascule-coffre.mjs",
     "essais:coffre-refus": "node scripts/essais-coffre-refus.mjs",
     "essais:enveloppe-du-coffre": "tsx scripts/essais-enveloppe-du-coffre.mts",

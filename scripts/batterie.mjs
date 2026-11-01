@@ -340,6 +340,30 @@ const SOCLE = [
   */
   ['essais:verrou-navigateur', 'un coffre laissé seul se referme vraiment, dans un navigateur'],
   /*
+     ET LE BALAYAGE QUI EMPÊCHE LE NEUVIÈME ORPHELIN, ajouté le 1er novembre
+     avec l'accord du pilote, le jour même où les huit ont été branchés.
+
+     Un essai rouge se voit. Un fichier d'essai qu'aucun script `npm` ne nomme
+     ne tourne PAS : la batterie joue les scripts, non les fichiers, et son
+     silence se lit comme une absence de défaut. Huit l'étaient — 118
+     assertions vertes et muettes, dont cinq qui gardaient la seule chose
+     qu'aucun autre essai ne garde.
+
+     Il entre au socle parce qu'il ne coûte rien — aucun navigateur, aucun
+     aperçu, un balayage de source — et parce que le défaut qu'il garde
+     s'introduit précisément au moment où l'on écrit un essai, c'est-à-dire
+     devant le socle et non devant la batterie complète.
+
+     Il refuse, code 2, s'il ne lit aucun fichier ou aucun script : zéro
+     orphelin et zéro fichier lu se rendraient sinon de la même façon. Et il
+     s'éprouve dans les deux sens, son premier contrôle étant ce qu'il DOIT
+     voir — sans quoi un balayage qui ne trouve plus rien resterait vert.
+
+     À ne pas confondre avec `essais:orphelins`, qui garde l'inverse : un
+     module livré que nul écran n'appelle.
+  */
+  ['essais:essais-branches', 'tout fichier d’essai est branché à un script npm'],
+  /*
      M5c entre au socle parce qu'il a trouvé un VRAI défaut du site le 25
      octobre — la position de défilement était lue à `pagehide`, après que
      le navigateur l'avait rabattue — et parce que sa tolérance de 80 px
