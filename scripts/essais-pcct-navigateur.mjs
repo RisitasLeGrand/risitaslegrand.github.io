@@ -57,7 +57,18 @@ const nav = await chromium.launch({
 async function ouvrirPcct(ctx) {
   const page = await ctx.newPage();
   const erreurs = [];
-  page.on('pageerror', (e) => erreurs.push(e.message.slice(0, 160)));
+  page.on('pageerror', (e) => {
+    const message = e.message.slice(0, 160);
+    erreurs.push(message);
+    /*
+       IMPRIMÉE TOUT DE SUITE, et non seulement rangée pour la garde finale.
+       Une erreur de page empêche souvent la suite de paraître : le script meurt
+       alors sur un sélecteur expiré, bien avant d'atteindre la garde, et la
+       sortie ne nomme pas la cause. C'est arrivé — il a fallu sonder la page à
+       la main pour lire « operationDeLEssai is not defined ».
+    */
+    console.log(`  ${rouge('‼')} erreur de page : ${message}`);
+  });
   await franchirInitialisation(page, RACINE, MDP);
   await page.goto(`${RACINE}/cog-training/pcct/`, { waitUntil: 'networkidle' });
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
@@ -650,6 +661,10 @@ async function ouvrirSeanceModules(ctx, poser) {
   await page.click('#decouvrir');
   await page.waitForSelector('[data-nombre]', { timeout: 10000 });
   await suivreLesNombres(page);
+  /* La garde est posée ICI, avant tout ce qui pourrait expirer : une séance qui
+     lève à la pose du premier essai doit rendre un rouge nommé, et non un
+     sélecteur introuvable quinze lignes plus bas. */
+  verifier('la séance s’ouvre sans erreur de page', erreurs.slice(0, 3), []);
   return { page, erreurs };
 }
 
@@ -802,12 +817,34 @@ verifier(
   true,
 );
 
-/* AU CLAVIER : la barre d'espace, sur un autre essai signalé. */
+/*
+   AU CLAVIER : LA BARRE D'ESPACE, LE FOCUS RENDU AU CORPS DU DOCUMENT.
+
+   LA PREMIÈRE VERSION DE CETTE GARDE ÉTAIT VIDE, et un sabotage l'a dit : en
+   retirant entièrement la branche de l'espace du gestionnaire de fenêtre, la
+   garde restait VERTE. La raison est que la mesure venait de TAPER sur
+   « Retenir », lequel gardait le focus — et un bouton focalisé s'active à
+   l'espace par le navigateur, sans qu'aucun gestionnaire de fenêtre existe.
+   Elle mesurait donc une propriété de tout bouton, pas la liaison du site.
+
+   Le focus est donc rendu au corps du document, avec une prémisse qui le dit :
+   sans elle, la garde pourrait redevenir vide en silence si l'ordre des
+   mesures changeait un jour.
+*/
 const rangSignale2 = await attendreUnEssai(pageInh, true);
 verifier('un second essai signalé paraît', rangSignale2 !== null, true);
+await pageInh.evaluate(() => {
+  const vise = document.activeElement;
+  if (vise instanceof HTMLElement) vise.blur();
+});
+verifier(
+  'prémisse : plus aucun contrôle n’a le focus',
+  await pageInh.evaluate(() => document.activeElement?.tagName ?? '(aucun)'),
+  'BODY',
+);
 await pageInh.keyboard.press(' ');
 verifier(
-  'au clavier, l’espace retient aussi',
+  'au clavier, l’espace retient aussi — sans passer par le bouton',
   await pageInh.getAttribute('[data-retenir]', 'aria-pressed'),
   'true',
 );
@@ -850,7 +887,24 @@ verifier(
   true,
 );
 
-/* LES CIBLES, SOUS POINTEUR GROSSIER. */
+/*
+   LES CIBLES, SOUS POINTEUR GROSSIER.
+
+   CE QUE CETTE GARDE PROUVE, ET CE QU'ELLE NE PROUVE PAS. Deux sabotages ont
+   précisé sa portée. Retirer `cible-tactile-pleine min-h-11 min-w-11` du
+   bouton « Retenir » la laisse VERTE : sous `pointer: coarse`, `global.css`
+   donne 2,75 rem de haut à TOUT `button` du site, et la largeur est atteinte
+   par les sept lettres de « Retenir ». Le même retrait sur les flèches la fait
+   rougir, par la LARGEUR : « Égal » fait quatre lettres et n'atteint pas 44 px
+   sans `min-w-11`.
+
+   La garde dit donc vrai — la cible atteint bien 44 px — mais pour la hauteur
+   c'est la règle générale qui la tient, non la classe. Ce qui est le bon
+   dispositif : la classe sert aux pointeurs fins, où la règle générale ne
+   s'applique pas. Un sabotage qui force la hauteur par-dessus la règle
+   générale (`style="min-height:0;height:20px"`) fait rougir cette garde, et
+   c'est ce qui en établit la moitié « hauteur ».
+*/
 verifier(
   '« Retenir » atteint 44 px dans les deux sens',
   await pageInh.evaluate(() => {
@@ -875,6 +929,54 @@ verifier(
   ]),
   [0, 0, 0, 0, 0],
 );
+
+/*
+   ET UN RÉGLAGE ÉTEINT NE COÛTE RIEN AU CLAVIER.
+
+   C'est une régression que j'avais introduite puis corrigée, et que rien ne
+   gardait : le gestionnaire appelait `preventDefault` sur l'espace et les trois
+   flèches dès qu'une séance courait, modules compris ou non. Les neuf
+   personnes sur dix qui ne jouent aucun module perdaient donc le défilement au
+   clavier pendant toute leur séance, sans contrepartie — l'espace n'avait
+   rien à retenir et les flèches rien à dire.
+
+   La mesure pose un écouteur de `keydown` APRÈS celui du composant, sur la
+   même cible et la même phase : il voit donc `defaultPrevented` tel que le
+   composant l'a laissé.
+*/
+const confisquees = [];
+for (const touche of [' ', 'ArrowLeft', 'ArrowDown', 'ArrowRight']) {
+  /* PAS DE `await` ICI : la promesse de la page ne se tient qu'à la frappe, et
+     l'attendre avant de frapper rendrait toujours le repli du minuteur. */
+  const empeche = pageSansInh.evaluate(
+    (t) =>
+      new Promise((resoudre) => {
+        window.addEventListener(
+          'keydown',
+          (e) => {
+            if (e.key === t) resoudre(e.defaultPrevented);
+          },
+          { once: true },
+        );
+        /* Le minuteur est le filet : si l'écouteur ne voit rien, la mesure
+           rendrait une promesse jamais tenue et l'essai mourrait en attente. */
+        setTimeout(() => resoudre('(aucune frappe vue)'), 3000);
+      }),
+    touche,
+  );
+  await pageSansInh.evaluate(() => {
+    const vise = document.activeElement;
+    if (vise instanceof HTMLElement) vise.blur();
+  });
+  await pageSansInh.keyboard.press(touche);
+  confisquees.push(await empeche);
+}
+verifier(
+  'modules éteints, ni l’espace ni les flèches ne sont confisqués',
+  confisquees,
+  [false, false, false, false],
+);
+
 await pageSansInh.close();
 await pageInh.close();
 
@@ -891,9 +993,19 @@ console.log('\nL3 — LA FLÈCHE VAUT AVANT COMME APRÈS LE NOMBRE');
    La mesure se lit sur `aria-pressed` ET sur la troisième région vocale :
    l'attribut dit que le geste a été REÇU, la région dit qu'il a été JUGÉ.
 */
+/*
+   LA CADENCE EST POSÉE À 3 000 MS, et ce n'est pas du confort.
+
+   Chaque mesure d'ordre doit tenir dans UN essai : laisser passer la fenêtre
+   de grâce (300 ms), répondre au nombre, taper la flèche, relire le rang. À
+   1 500 ms cela tient, mais le rythme s'accélère avec la précision — et une
+   mesure qui déborde sur l'essai suivant ne dit plus rien de l'écran. Trois
+   secondes mettent la fenêtre hors de portée de ce hasard.
+*/
 const { page: pageNdm } = await ouvrirSeanceModules(ctxModules, async (page) => {
   await page.check('#ndm');
   await reglerCurseur(page, 'n', 1);
+  await reglerCurseur(page, 'intervalle-depart', 3000);
 });
 
 /** Les trois sens, dans l'ordre du balisage. */
@@ -907,6 +1019,33 @@ const sensEntre = (valeur, reference) =>
 async function repondreAuNombre(page, valeur) {
   for (const c of String(valeur)) await page.keyboard.press(c === '-' ? '-' : c);
   await page.keyboard.press('Enter');
+}
+
+/** La fenêtre de grâce, en millisecondes, plus une marge. */
+const APRES_LA_GRACE = 450;
+
+/**
+ * Répond au nombre DE L'ESSAI COURANT, et rend ce que le site en a annoncé.
+ *
+ * POURQUOI L'ATTENTE, ET POURQUOI LA LECTURE DE L'ANNONCE. Un sabotage a
+ * montré que « ordre B » était vide : il refusait le sens dès que le nombre
+ * était répondu — le défaut même de la référence — et la garde restait VERTE.
+ *
+ * La cause est le délai de grâce. La mesure répondait dans les 300 ms qui
+ * suivent l'apparition, et `attribuer` portait alors la frappe sur l'essai
+ * PRÉCÉDENT : `courantRepondu` restait faux, le sabotage ne mordait pas, et la
+ * flèche était acceptée. La garde n'avait jamais mis l'écran dans l'état
+ * qu'elle prétendait éprouver.
+ *
+ * On laisse donc passer la fenêtre, puis on LIT l'annonce : le site écrit
+ * « (essai précédent, rattrapé) » quand il a rattrapé la frappe. Un
+ * « Juste. » nu prouve d'un coup que le nombre a été noté, jugé juste, et
+ * porté sur CET essai.
+ */
+async function repondreAuNombreDeCetEssai(page, valeur) {
+  await page.waitForTimeout(APRES_LA_GRACE);
+  await repondreAuNombre(page, valeur);
+  return (await page.locator('[data-annonce]').innerText()).trim();
 }
 
 /**
@@ -974,13 +1113,15 @@ async function surUnSeulEssai(page, jouer, tentatives = 6) {
 
 /* ORDRE A : la flèche d'abord, le nombre ensuite. */
 let recuA = null;
+let noteA = null;
 const tourA = await surUnSeulEssai(pageNdm, async (e) => {
   const sens = sensEntre(e.nombre, e.precedent);
   await pageNdm.tap(`[data-sens="${sens}"]`);
   recuA = await pageNdm.getAttribute(`[data-sens="${sens}"]`, 'aria-pressed');
-  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+  noteA = await repondreAuNombreDeCetEssai(pageNdm, e.nombre + e.precedent);
 });
 verifier('ordre A — une interaction a tenu dans un seul essai', tourA !== null, true);
+verifier('ordre A — prémisse : le nombre a été noté SUR CET ESSAI', noteA, 'Juste.');
 verifier('ordre A — la flèche AVANT le nombre est reçue', recuA, 'true');
 verifier(
   'ordre A — et rien n’est reproché à la clôture',
@@ -992,13 +1133,18 @@ verifier(
    perd : sa validation automatique clôt l'essai dès que le nombre est complet,
    et la flèche arrive sur un essai déjà noté. */
 let recuB = null;
+let noteB = null;
 const tourB = await surUnSeulEssai(pageNdm, async (e) => {
   const sens = sensEntre(e.nombre, e.precedent);
-  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+  noteB = await repondreAuNombreDeCetEssai(pageNdm, e.nombre + e.precedent);
   await pageNdm.tap(`[data-sens="${sens}"]`);
   recuB = await pageNdm.getAttribute(`[data-sens="${sens}"]`, 'aria-pressed');
 });
 verifier('ordre B — une interaction a tenu dans un seul essai', tourB !== null, true);
+/* LA PRÉMISSE QUI MANQUAIT. Sans elle, la frappe pouvait être rattrapée par
+   l'essai d'avant : `courantRepondu` restait faux, et « la flèche après le
+   nombre » n'était jamais éprouvée. C'est le sabotage S3 qui l'a dit. */
+verifier('ordre B — prémisse : le nombre a été noté SUR CET ESSAI', noteB, 'Juste.');
 verifier('ordre B — la flèche APRÈS le nombre est reçue elle aussi', recuB, 'true');
 verifier(
   'ordre B — et rien n’est reproché à la clôture',
@@ -1016,7 +1162,7 @@ const tourFaux = await surUnSeulEssai(pageNdm, async (e) => {
   const juste = sensEntre(e.nombre, e.precedent);
   const faux = SENS_POSSIBLES.find((x) => x !== juste);
   await pageNdm.tap(`[data-sens="${faux}"]`);
-  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+  await repondreAuNombreDeCetEssai(pageNdm, e.nombre + e.precedent);
 });
 verifier(
   'contrôle — un sens faux EST annoncé faux',
@@ -1025,7 +1171,7 @@ verifier(
 );
 
 const tourMuet = await surUnSeulEssai(pageNdm, async (e) => {
-  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+  await repondreAuNombreDeCetEssai(pageNdm, e.nombre + e.precedent);
 });
 verifier(
   'contrôle — le sens omis EST réclamé',
@@ -1043,13 +1189,61 @@ verifier(
 const tourApres = await surUnSeulEssai(pageNdm, async (e) => {
   const sens = sensEntre(e.nombre, e.precedent);
   await pageNdm.tap(`[data-sens="${sens}"]`);
-  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+  await repondreAuNombreDeCetEssai(pageNdm, e.nombre + e.precedent);
 });
 verifier(
   'un essai juste EFFACE le reproche du précédent',
   tourApres === null ? '(pas de tour)' : tourApres.annonce,
   '',
 );
+
+/*
+   LES TROIS FLÈCHES AU CLAVIER, et c'est une garde qui manquait entièrement :
+   le sens ne s'éprouvait qu'au doigt, alors que le composant lie `ArrowLeft`,
+   `ArrowDown` et `ArrowRight`. Le Pilote demandait l'équivalence des deux
+   voies pour les DEUX modules, pas seulement pour « Retenir ».
+
+   Le focus est rendu au corps du document avant chaque frappe, pour la raison
+   apprise sur l'espace : une flèche pressée sur un bouton focalisé pourrait
+   être lue par le navigateur, et la garde mesurerait autre chose que la
+   liaison du site.
+*/
+const FLECHE_DU_SENS = {
+  ArrowLeft: 'plus-petit',
+  ArrowDown: 'egal',
+  ArrowRight: 'plus-grand',
+};
+for (const [touche, sens] of Object.entries(FLECHE_DU_SENS)) {
+  /*
+     LA LECTURE SE FAIT DANS L'ESSAI, et non après sa clôture : `sensDonne` est
+     remis à zéro quand le suivant paraît, de sorte qu'un `aria-pressed` lu
+     après la clôture vaut « false » que la flèche ait agi ou non. Lu après
+     coup, l'attendu serait vrai de tout, et la garde serait vide — c'est
+     précisément l'erreur que les sabotages de l'espace et de l'ordre B m'ont
+     apprise, et je ne la refais pas ici.
+  */
+  let presse = null;
+  let autres = null;
+  const tour = await surUnSeulEssai(pageNdm, async () => {
+    await pageNdm.evaluate(() => {
+      const vise = document.activeElement;
+      if (vise instanceof HTMLElement) vise.blur();
+    });
+    await pageNdm.keyboard.press(touche);
+    presse = await pageNdm.getAttribute(`[data-sens="${sens}"]`, 'aria-pressed');
+    /* ET SEULEMENT CELUI-LÀ : une liaison qui allumerait les trois boutons, ou
+       le mauvais, passerait la lecture du seul bouton visé. */
+    autres = await pageNdm.evaluate(
+      (vise) =>
+        [...document.querySelectorAll('[data-sens]')]
+          .filter((e) => e.dataset.sens !== vise)
+          .map((e) => e.getAttribute('aria-pressed')),
+      sens,
+    );
+  });
+  verifier(`au clavier, ${touche} donne « ${sens} »`, presse, 'true');
+  verifier(`et ${touche} ne touche pas les deux autres`, autres, ['false', 'false']);
+}
 
 /* Les trois cibles de sens, sous pointeur grossier. */
 verifier(
@@ -1097,6 +1291,7 @@ console.log('\nL3 — SDM COMPARE LE RÉSULTAT ATTENDU, PAS LE NOMBRE');
 const { page: pageSdm } = await ouvrirSeanceModules(ctxModules, async (page) => {
   await page.check('#sdm');
   await reglerCurseur(page, 'n', 1);
+  await reglerCurseur(page, 'intervalle-depart', 3000);
 });
 
 let divergent = null;
@@ -1116,7 +1311,7 @@ while (Date.now() < butoirSdm && tourSdm === null) {
       if (sensResultat === sensNombre) return;
       divergent = { ...e, attendu, sensResultat, sensNombre };
       await pageSdm.tap(`[data-sens="${sensResultat}"]`);
-      await repondreAuNombre(pageSdm, attendu);
+      await repondreAuNombreDeCetEssai(pageSdm, attendu);
     },
     1,
   );
