@@ -113,7 +113,11 @@ if (!existsSync(path.join(racine, 'dist', 'index.html'))) {
    - `etranger` sert une autre page dès le départ : l'aperçu d'un autre arbre ;
    - `change` sert la vraie page À LA PREMIÈRE demande de « / » et une autre
      ensuite. C'est l'arbre qui bascule EN COURS DE COURSE, c'est-à-dire la
-     faute réelle, celle que le contrôle du départ seul ne peut pas voir.
+     faute réelle, celle que le contrôle du départ seul ne peut pas voir ;
+   - `meurt` sert la vraie page une fois, puis ferme. L'aperçu devient
+     injoignable à l'arrivée sans que rien n'ait basculé — et c'est le cas qui a
+     fait crier la garde à tort sur une course de dix-huit minutes entièrement
+     verte, avant qu'elle ne distingue « injoignable » de « différent ».
 */
 const PAGE = path.join(racine, 'dist', 'index.html');
 
@@ -128,7 +132,9 @@ async function apercuFactice(mode) {
         "const s=createServer((q,r)=>{" +
         "if(q.url==='/'){vues+=1;" +
         "const corps=mode==='etranger'||(mode==='change'&&vues>1)?autre:page;" +
-        "r.writeHead(200,{'content-type':'text/html'});r.end(corps);return}" +
+        "r.writeHead(200,{'content-type':'text/html'});r.end(corps);" +
+        "if(mode==='meurt'&&vues===1)setTimeout(()=>{try{s.closeAllConnections()}catch(e){}s.close()},50);" +
+        "return}" +
         "r.writeHead(200,{'content-type':'text/plain'});r.end('User-agent: *\\n')});" +
         "s.listen(0,'127.0.0.1',()=>console.log(s.address().port))",
       PAGE,
@@ -389,6 +395,34 @@ verifier(
    cran plus loin — un passage qui ne peut pas dire non ne garde rien.
 */
 verifier('et sans elle, cette course rendait zéro', bascule.code !== 0, true);
+
+/*
+   ET LE CAS INVERSE, QUI EST CELUI QUI A COÛTÉ UNE COURSE : l'aperçu devient
+   injoignable à l'arrivée, mais rien n'a basculé.
+
+   La première version de la garde rendait `null` à la moindre défaillance, et
+   un `null` ne vaut pas l'empreinte attendue : un seul `fetch` manqué annulait
+   donc dix-huit minutes et 43 essais verts. Vérifié après coup — le disque
+   inchangé depuis le début, le processus de l'aperçu vivant sans interruption,
+   les deux côtés identiques à l'arrivée. Rien n'avait bougé.
+
+   Une absence de preuve n'est pas une preuve du contraire. La garde le dit
+   maintenant — FIN NON CONFIRMÉE — et laisse le verdict debout, parce que les
+   essais, eux, ont bien tourné. C'est la distinction que ces trois contrôles
+   gardent.
+*/
+const finMuette = batterieAvec('  tout va bien', 0, await apercuFactice('meurt'));
+verifier('un aperçu injoignable à l’arrivée n’annule PAS la mesure', finMuette.code, 0);
+verifier(
+  'et la course est déclarée non confirmée, non pas nulle',
+  /FIN NON CONFIRMÉE/.test(finMuette.texte),
+  true,
+);
+verifier(
+  'et surtout : elle ne se dit pas nulle',
+  /MESURE NULLE/.test(finMuette.texte),
+  false,
+);
 
 /*
    ENFIN : un verdict nul ne renvoie PAS au tableau des anomalies. Y envoyer

@@ -496,26 +496,59 @@ function empreinteDuDisque() {
   }
 }
 
+/*
+   « INJOIGNABLE » N'EST PAS « DIFFÉRENT », et les confondre a coûté une course.
+
+   Première écriture, cette fonction rendait `null` à la moindre défaillance.
+   Un `null` ne vaut pas l'empreinte attendue, donc un seul `fetch` manqué
+   suffisait à annuler dix-huit minutes de mesure : 43 essais verts, et
+   « MESURE NULLE » quand même. Mesuré après coup — l'empreinte du disque
+   inchangée depuis le début de la course, le processus de l'aperçu vivant sans
+   interruption depuis 1167 secondes, et les deux côtés identiques à l'arrivée.
+   Rien n'avait bougé. C'était ma garde qui criait.
+
+   Un pari à un coup ne doit pas pouvoir annuler une mesure qui a duré : on
+   réessaie, borné, et la boucle RAPPORTE ce qu'elle a vu au lieu de trancher.
+
+   Et les deux états sont rendus séparément, parce qu'ils ne disent pas la même
+   chose. « L'aperçu répond autre chose » est une preuve que l'arbre a basculé.
+   « L'aperçu ne répond pas » n'en est pas une : c'est l'absence de preuve, et
+   une absence de preuve ne doit pas s'énoncer comme un verdict.
+*/
+const TENTATIVES = 3;
+
 async function empreinteServie() {
-  try {
-    const reponse = await fetch(`${ADRESSE}/`, { signal: AbortSignal.timeout(20_000) });
-    if (!reponse.ok) return null;
-    return createHash('sha256')
-      .update(Buffer.from(await reponse.arrayBuffer()))
-      .digest('hex');
-  } catch {
-    return null;
+  let derniere = 'aucune raison recueillie';
+  for (let tentative = 1; tentative <= TENTATIVES; tentative += 1) {
+    try {
+      const reponse = await fetch(`${ADRESSE}/`, { signal: AbortSignal.timeout(20_000) });
+      if (reponse.ok) {
+        return {
+          empreinte: createHash('sha256')
+            .update(Buffer.from(await reponse.arrayBuffer()))
+            .digest('hex'),
+        };
+      }
+      derniere = `réponse ${reponse.status}`;
+    } catch (erreur) {
+      derniere = erreur instanceof Error ? erreur.message : String(erreur);
+    }
+    if (tentative < TENTATIVES) await new Promise((suite) => setTimeout(suite, 1000));
   }
+  return { injoignable: derniere };
 }
 
 const empreinteAttendue = empreinteDuDisque();
-if (empreinteAttendue === null || (await empreinteServie()) !== empreinteAttendue) {
+const auDepart = await empreinteServie();
+if (empreinteAttendue === null || auDepart.empreinte !== empreinteAttendue) {
   console.error(
     `✗ REFUS — ${ADRESSE} répond, mais ne sert pas le « dist/ » de cet arbre.\n` +
       (empreinteAttendue === null
         ? '  « dist/index.html » n’existe pas : rien n’a encore été construit ici.\n'
-        : '  L’aperçu sert un AUTRE « dist/ » — un autre répertoire de travail, ou\n' +
-          '  une construction antérieure à vos derniers changements.\n') +
+        : auDepart.injoignable !== undefined
+          ? `  Et pourtant « / » ne se lit pas, après ${TENTATIVES} tentatives : ${auDepart.injoignable}\n`
+          : '  L’aperçu sert un AUTRE « dist/ » — un autre répertoire de travail, ou\n' +
+            '  une construction antérieure à vos derniers changements.\n') +
       '  Construisez, puis relancez l’aperçu sur CE répertoire :\n' +
       '    node scripts/build-content.mjs            (le manifeste chiffré)\n' +
       '    REVINSP_SANS_PODCAST=1 npx astro build    (avec .env.local, puis effacé)\n' +
@@ -946,9 +979,25 @@ if (nonMesurables.length > 0) {
    mourir ou être relancé sur un autre arbre, et « dist/ » peut être reconstruit
    sous un aperçu qui, lui, n'a pas bougé.
 */
-const mesureNulle =
-  (await empreinteServie()) !== empreinteAttendue ||
-  empreinteDuDisque() !== empreinteAttendue;
+const aLArrivee = await empreinteServie();
+const disqueALArrivee = empreinteDuDisque();
+
+/*
+   TROIS ÉTATS, ET UN SEUL ANNULE.
+
+   — l'aperçu répond AUTRE CHOSE, ou « dist/ » a changé sur le disque : l'arbre
+     a basculé en cours de course. La mesure est nulle.
+   — l'aperçu NE RÉPOND PAS, après trois tentatives : on ne sait pas. On le dit,
+     et on ne touche pas au verdict — les essais, eux, ont bien tourné, et c'est
+     d'eux que le verdict parle. Annuler ici reviendrait à faire dire à une
+     absence de preuve ce qu'elle ne dit pas.
+   — tout concorde : rien à signaler.
+*/
+const aBascule =
+  (aLArrivee.empreinte !== undefined && aLArrivee.empreinte !== empreinteAttendue) ||
+  (disqueALArrivee !== null && disqueALArrivee !== empreinteAttendue);
+const finNonConfirmee = !aBascule && aLArrivee.injoignable !== undefined;
+const mesureNulle = aBascule;
 
 if (rouges.length > 0) {
   console.log(`rouges : ${rouges.join(' ')}`);
@@ -959,6 +1008,16 @@ if (rouges.length > 0) {
     );
   }
 }
+if (finNonConfirmee) {
+  console.log(
+    `⚠ FIN NON CONFIRMÉE — « / » ne s’est pas lu à l’arrivée, après ${TENTATIVES} tentatives :\n` +
+      `  ${aLArrivee.injoignable}\n` +
+      '  Le verdict ci-dessus TIENT : « dist/ » n’a pas changé sur le disque, et les\n' +
+      '  essais ont bien tourné contre l’aperçu. Ce qui manque, c’est la preuve\n' +
+      '  qu’il servait encore le même arbre à la dernière seconde.\n' +
+      '  Si un rouge vous surprend, relancez-le seul avant de l’inscrire au tableau.',
+  );
+}
 if (mesureNulle) {
   console.log(
     '✗ MESURE NULLE — l’aperçu ou « dist/ » a changé PENDANT la course.\n' +
@@ -967,7 +1026,10 @@ if (mesureNulle) {
       '  pas des rouges : ce sont des mesures perdues, et le compte des verts ne\n' +
       '  vaut pas davantage.\n' +
       '  Ne comparez rien au tableau des anomalies. Recommencez sans toucher à\n' +
-      '  l’arbre de travail, à « dist/ », ni au port, pendant la course.',
+      '  l’arbre de travail, à « dist/ », ni au port, pendant la course.\n' +
+      (disqueALArrivee !== empreinteAttendue
+        ? '  Côté qui a bougé : « dist/ » sur le disque — quelque chose a reconstruit.'
+        : '  Côté qui a bougé : l’aperçu — il sert un autre « dist/ » que celui d’ici.'),
   );
 }
 console.log(`Journaux conservés : ${journal}\n`);
