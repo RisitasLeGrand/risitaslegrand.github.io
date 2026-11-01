@@ -99,7 +99,9 @@ for (let n = 0; n < 9; n += 1) {
 await page.click('[data-enregistrer="phq9"]');
 await page.waitForFunction(
   () => document.querySelector('[data-dernier="phq9"]').textContent.includes('Score'),
-  { timeout: 20000 });
+  undefined,
+  { timeout: 20000 },
+);
 {
   const dit = await page.textContent('[data-dernier="phq9"]');
   vrai('le score est affiché sur son maximum', dit.includes('Score : 18 sur 27'));
@@ -148,7 +150,9 @@ for (let n = 0; n < 5; n += 1) await page.check(`input[name="gad7-${n}"][value="
 await page.click('[data-enregistrer="gad7"]');
 await page.waitForFunction(
   () => document.querySelector('[data-dernier="gad7"]').textContent.includes('passation'),
-  { timeout: 20000 });
+  undefined,
+  { timeout: 20000 },
+);
 {
   const dit = await page.textContent('[data-dernier="gad7"]');
   vrai('la passation est conservée', dit.includes('Dernière passation'));
@@ -163,7 +167,9 @@ for (let n = 0; n < 5; n += 1) await page.check(`input[name="who5-${n}"][value="
 await page.click('[data-enregistrer="who5"]');
 await page.waitForFunction(
   () => document.querySelector('[data-dernier="who5"]').textContent.includes('Score'),
-  { timeout: 20000 });
+  undefined,
+  { timeout: 20000 },
+);
 {
   const dit = await page.textContent('[data-dernier="who5"]');
   vrai('le score est multiplié par quatre', dit.includes('Score : 60 sur 100'));
@@ -202,7 +208,9 @@ if (formulaireReparu) {
 }
 await page.waitForFunction(
   () => document.querySelector('[data-dernier="phq9"]').textContent.includes('Score'),
-  { timeout: 20000 });
+  undefined,
+  { timeout: 20000 },
+);
 v('trois passations enregistrées',
   (await page.$$('[data-passation]')).length, 3);
 

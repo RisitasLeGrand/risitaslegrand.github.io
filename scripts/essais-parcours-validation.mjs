@@ -63,11 +63,52 @@ const deverrouiller = async () => {
   }
 };
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET LA SEULE QUI RESTE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Six temporisations à
+   l'aveugle. Le bouton d'application qui PARAÎT et qui DISPARAÎT est la
+   post-condition de chaque choix, et c'est ce que les constats lisent.
+
+   DEUX CAS DEMANDENT DE L'ATTENTION. « La page ne s'est PAS rechargée » est
+   un invariant négatif : on attend la post-condition du geste — le bouton
+   paru — après quoi le marqueur a un sens. Et l'application, elle, RECHARGE
+   la page : on attend donc la préférence changée dans le stockage, puisque
+   c'est ce que le constat lit et que le marqueur, lui, doit avoir disparu.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
 const aller = async (chemin) => {
   await page.goto(`${RACINE}${chemin}`, { waitUntil: 'networkidle' });
   await deverrouiller();
-  await page.waitForTimeout(500);
+  /* Le sélecteur de parcours est construit par le script de l'en-tête : sa
+     présence est la marque que l'écran est prêt. */
+  await page
+    .waitForFunction(
+      () => document.getElementById('selecteur-parcours') !== null,
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
 };
+
+/** Attend que le bouton d'application soit là, ou parti. */
+const attendreLeBouton = (present) =>
+  page
+    .waitForFunction(
+      (veutPresent) => {
+        const b = document.getElementById('appliquer-parcours');
+        const vu = Boolean(b) && b.getBoundingClientRect().height > 0;
+        return vu === veutPresent;
+      },
+      present,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
 
 const parcoursStocke = () => page.evaluate((cle) => localStorage.getItem(cle), CLE);
 const poserLeMarqueur = () => page.evaluate(() => ((window).__marqueur = 'ici'));
@@ -96,7 +137,13 @@ try {
      focus, puis la flèche change la valeur. */
   await liste.focus();
   await liste.selectOption(autre);
-  await page.waitForTimeout(600);
+  /*
+     LE BOUTON PARU EST LA POST-CONDITION DU CHOIX, et il faut l'attendre
+     avant les trois constats : « la page ne s'est pas rechargée » et « la
+     préférence n'a pas bougé » sont des invariants négatifs, vrais tout de
+     suite, et qui ne prouvent quelque chose qu'une fois le geste abouti.
+  */
+  await attendreLeBouton(true);
 
   vrai('la page ne s’est PAS rechargée', await marqueurIntact());
   v('la préférence n’a pas bougé', await parcoursStocke(), depart);
@@ -113,13 +160,15 @@ try {
 
   console.log('\nE6 — REVENIR SUR SON CHOIX LE REFERME');
   await liste.selectOption(depart ?? options[0]);
-  await page.waitForTimeout(400);
+  await attendreLeBouton(false);
   faux('le bouton a disparu', await appliquer.isVisible().catch(() => false));
   vrai('et la page n’a toujours pas bougé', await marqueurIntact());
 
   console.log('\nE6 — QUITTER SANS VALIDER NE GARDE RIEN');
   await liste.selectOption(autre);
-  await page.waitForTimeout(300);
+  /* Le bouton paru dit que le choix a été pris en compte : c'est ce qu'on
+     quitte sans valider. */
+  await attendreLeBouton(true);
   await aller('/revisions/');
   v('la préférence est restée celle d’avant', await parcoursStocke(), depart);
   v(
@@ -131,9 +180,21 @@ try {
   console.log('\nE6 — C’EST LE BOUTON QUI APPLIQUE');
   await poserLeMarqueur();
   await page.locator('#selecteur-parcours').selectOption(autre);
-  await page.waitForTimeout(300);
+  await attendreLeBouton(true);
   await page.locator('#appliquer-parcours').click({ timeout: 3000 }).catch(() => {});
-  await page.waitForTimeout(1500);
+  /*
+     L'APPLICATION RECHARGE LA PAGE, donc le marqueur disparaît et le bouton
+     avec lui : ni l'un ni l'autre n'est une post-condition utilisable. Ce qui
+     l'est, c'est la PRÉFÉRENCE écrite dans le stockage — ce que le constat
+     suivant lit —, et elle est posée avant le rechargement.
+  */
+  await page
+    .waitForFunction(
+      ([cle, valeur]) => localStorage.getItem(cle) === valeur,
+      [CLE, autre],
+      { timeout: DELAI },
+    )
+    .catch(() => {});
   faux('la page s’est rechargée', await marqueurIntact());
   v('et la préférence a changé', await parcoursStocke(), autre);
   vrai(

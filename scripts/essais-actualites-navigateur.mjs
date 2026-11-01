@@ -60,7 +60,13 @@ async function ouvrir(adresse = '/actualites/') {
     undefined,
     { timeout: 40000 },
   );
-  await page.waitForTimeout(900);
+  /* L'archive peinte, et non neuf cents millisecondes : quarante semaines de
+     cartes mettent plus de temps sur une machine chargée. */
+  await page.waitForFunction(
+    () => document.querySelectorAll('#archive article').length > 0,
+    undefined,
+    { timeout: 40000 },
+  ).catch(() => {});
 }
 
 await ouvrir();
@@ -110,8 +116,21 @@ verifier('N2 — « Précédente » est actif', barre.precedenteDesactivee, fals
 verifier('N2 — la position est annoncée', /^1 sur \d+$/.test(barre.position), true);
 
 // N3 — « Précédente » recule dans le temps.
+/*
+   LA POSITION ANNONCÉE EST LA POST-CONDITION, et on la relève AVANT le clic.
+
+   « 1 sur 40 » devient « 2 sur 40 » : attendre un changement de cette chaîne
+   ne peut pas être satisfait par un passage antérieur, puisqu'on compare à ce
+   qu'elle valait à l'instant d'avant. Les cinq cents millisecondes couvraient
+   la peinture de l'archive, qui tient quarante semaines de cartes.
+*/
+const positionAvant = barre.position;
 await page.click('#periode-precedente');
-await page.waitForTimeout(500);
+await page.waitForFunction(
+  (avant) => (document.getElementById('position-periode')?.textContent ?? '') !== avant,
+  positionAvant,
+  { timeout: 15000 },
+);
 const apres = await page.evaluate(() => ({
   titre: document.querySelector('#archive section h2')?.textContent ?? '',
   position: document.getElementById('position-periode')?.textContent ?? '',
@@ -133,7 +152,24 @@ verifier(
 
 // N5 — la recherche traverse les périodes.
 await page.fill('#recherche-actu', 'budget');
-await page.waitForTimeout(700);
+/*
+   LA RECHERCHE EST AMORTIE DE 250 ms PAR LE SITE, puis peint d'un coup. Les
+   sept cents millisecondes couvraient l'amortissement ET la peinture de
+   quarante semaines de cartes ; sous charge, la seconde débordait.
+
+   Le compte annoncé — la région « status » de l'archive — est écrit par cette
+   peinture, et c'est lui qu'on lit. L'attendre non vide couvre donc
+   l'amortissement sans le chronométrer.
+*/
+await page.waitForFunction(
+  () => {
+    const barreCachee = document.getElementById('barre-periode')?.classList.contains('hidden');
+    const compte = document.querySelector('#archive [role="status"]')?.textContent ?? '';
+    return barreCachee === true && compte.trim().length > 0;
+  },
+  undefined,
+  { timeout: 15000 },
+);
 const cherche = await page.evaluate(() => ({
   sections: document.querySelectorAll('#archive section').length,
   cartes: document.querySelectorAll('#archive article').length,
@@ -148,14 +184,24 @@ verifier('N5 — la navigation période par période s’efface', cherche.barreC
 verifier('N5 — l’adresse porte la recherche', /q=budget/.test(cherche.adresse), true);
 
 await page.fill('#recherche-actu', 'zzzzzzzz');
-await page.waitForTimeout(700);
+await page.waitForFunction(
+  () => /Aucune actualité ne correspond/.test(document.getElementById('archive')?.textContent ?? ''),
+  undefined,
+  { timeout: 15000 },
+).catch(() => {});
 verifier(
   'N5 — une recherche sans réponse le dit',
   await page.evaluate(() => /Aucune actualité ne correspond/.test(document.getElementById('archive')?.textContent ?? '')),
   true,
 );
 await page.fill('#recherche-actu', '');
-await page.waitForTimeout(700);
+/* Le champ vidé rend la barre de période, masquée pendant la recherche : c'est
+   la marque que la peinture d'après l'amortissement a eu lieu. */
+await page.waitForFunction(
+  () => document.getElementById('barre-periode')?.classList.contains('hidden') === false,
+  undefined,
+  { timeout: 15000 },
+).catch(() => {});
 
 // N6 — les cartes sont repliées.
 const repli = await page.evaluate(() => {
@@ -186,7 +232,40 @@ verifier('N6 — chaque carte a son « Lire la suite »', repli.depliants, repli
 verifier('N6 — aucun bouton « Préparer une question » n’est visible tant que rien n’est déplié', repli.visiblesIa, 0);
 
 await page.click('#archive article details.depliant summary');
-await page.waitForTimeout(400);
+/*
+   ON ATTEND CE QUE LES ASSERTIONS LISENT, et non l'ouverture du dépliant.
+
+   Ma première conversion attendait « details[open] » — et elle était FAUSSE,
+   mesurée : les deux assertions tombaient. L'attribut « open » est posé par le
+   NAVIGATEUR au clic, donc avant que le script n'ait réagi. Les deux choses
+   lues ici — le résumé qui perd sa coupe à trois lignes, le bouton « Préparer
+   une question » qui paraît — sont peintes APRÈS, par le gestionnaire du
+   dépliant.
+
+   C'est le troisième piège exactement, et il m'a pris une fois de plus :
+   attendre une chose et en lire une autre. La post-condition juste est le
+   bouton visible, qui est écrit en dernier.
+*/
+await page
+  .waitForFunction(
+    () => {
+      const carte = document.querySelector('#archive article');
+      if (!carte) return false;
+      if (carte.querySelector('[data-resume].line-clamp-3')) return false;
+      return [...carte.querySelectorAll('button')].some(
+        (b) =>
+          (b.textContent ?? '').includes('Préparer une question') &&
+          b.checkVisibility({
+            contentVisibilityAuto: true,
+            visibilityProperty: true,
+            opacityProperty: true,
+          }),
+      );
+    },
+    undefined,
+    { timeout: 15000 },
+  )
+  .catch(() => {});
 const deplie = await page.evaluate(() => {
   const carte = document.querySelector('#archive article');
   return {
@@ -223,7 +302,13 @@ const titreLu = await page.evaluate(
   () => document.querySelector('#archive article h3')?.textContent ?? '',
 );
 await page.click('#archive article [data-bascule-lu]');
-await page.waitForTimeout(400);
+/* L'attribut « data-lu » de la carte est ce que l'assertion lit : c'est lui
+   qu'on attend, et non quatre cents millisecondes. */
+await page.waitForFunction(
+  () => document.querySelector('#archive article')?.dataset.lu === 'true',
+  undefined,
+  { timeout: 15000 },
+).catch(() => {});
 verifier(
   'L2 — la carte marquée le dit, et la bascule propose l’inverse',
   await page.evaluate(() => {
@@ -271,7 +356,11 @@ verifier(
 );
 
 await page.check('#non-lues');
-await page.waitForTimeout(500);
+await page.waitForFunction(
+  () => document.querySelectorAll('#archive article[data-lu="true"]').length === 0,
+  undefined,
+  { timeout: 15000 },
+).catch(() => {});
 verifier(
   'L4 — « Non lues seulement » retire la carte lue',
   await page.evaluate((titre) => ({
@@ -281,7 +370,11 @@ verifier(
   { luesAffichees: 0, laCarte: false },
 );
 await page.uncheck('#non-lues');
-await page.waitForTimeout(500);
+await page.waitForFunction(
+  () => document.querySelectorAll('#archive article[data-lu="true"]').length > 0,
+  undefined,
+  { timeout: 15000 },
+).catch(() => {});
 
 await page.evaluate((titre) => {
   const carte = [...document.querySelectorAll('#archive article')].find(
@@ -289,7 +382,14 @@ await page.evaluate((titre) => {
   );
   carte?.querySelector('[data-bascule-lu]')?.click();
 }, titreLu);
-await page.waitForTimeout(500);
+/* L'écriture doit avoir eu lieu AVANT le rechargement : une navigation qui
+   part trop tôt emporte l'état d'avant, et l'assertion d'après mesure alors
+   la vitesse de la machine. */
+await page.waitForFunction(
+  () => document.querySelectorAll('#archive article[data-lu="true"]').length === 0,
+  undefined,
+  { timeout: 15000 },
+).catch(() => {});
 await ouvrir('/actualites/');
 verifier(
   'L5 — démarquer efface vraiment la ligne, rechargement compris',
@@ -312,7 +412,13 @@ await pageTel
     timeout: 40000,
   })
   .catch(() => {});
-await pageTel.waitForTimeout(900);
+/* La mesure porte sur la hauteur du document : elle n'a de sens qu'une fois
+   les cartes peintes. */
+await pageTel.waitForFunction(
+  () => document.querySelectorAll('#archive article').length > 0,
+  undefined,
+  { timeout: 40000 },
+).catch(() => {});
 const surTel = await pageTel.evaluate(() => ({
   hauteur: document.documentElement.scrollHeight,
   large: document.documentElement.scrollWidth,
@@ -343,7 +449,13 @@ if (await pageEtroite.locator('#champ-mdp').isVisible().catch(() => false)) {
   await pageEtroite.fill('#champ-mdp', MDP);
   await pageEtroite.click('#bouton-verrou');
 }
-await pageEtroite.waitForTimeout(1500);
+/* Le sélecteur de période rempli est la post-condition : la mesure lit ses
+   options et son style, et ni l'un ni l'autre n'existe avant. */
+await pageEtroite.waitForFunction(
+  () => (document.getElementById('choix-periode')?.options.length ?? 0) > 0,
+  undefined,
+  { timeout: 40000 },
+).catch(() => {});
 const menu = await pageEtroite.evaluate(() => {
   const choix = document.getElementById('choix-periode');
   if (!choix || !choix.options.length) return null;

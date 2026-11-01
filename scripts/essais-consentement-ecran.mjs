@@ -50,6 +50,25 @@ const page = await contexte.newPage();
 const erreursDePage = [];
 page.on('pageerror', (e) => erreursDePage.push(e.message.slice(0, 200)));
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Cinq temporisations à
+   l'aveugle, toutes devant une lecture : l'état du consentement, les
+   paragraphes cités, le journal.
+
+   L'ÉTAT EST LE BON TÉMOIN, et il change de phrase à chaque geste —
+   « Autorisé depuis », « Révoqué le ». On attend donc que la phrase CHANGE,
+   en relevant celle d'avant : c'est indépendant de ce que les assertions
+   cherchent dedans, et aucun passage antérieur ne peut l'avoir rendue
+   différente d'elle-même.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
 const aller = async () => {
   await page.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
@@ -57,7 +76,29 @@ const aller = async () => {
     await page.click('#bouton-verrou');
     await page.waitForLoadState('networkidle');
   }
-  await page.waitForTimeout(1200);
+  /* L'écran du consentement est peint par le script du profil : son état part
+     vide, donc « non vide » est une vraie transition. */
+  await page
+    .waitForFunction(
+      () => (document.getElementById('consentement-etat')?.textContent ?? '').trim() !== '',
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+};
+
+/** Fait le geste, et attend que la phrase de l'état ait changé. */
+const apresLeGeste = async (selecteur) => {
+  const avant = await page.locator('#consentement-etat').innerText().catch(() => '');
+  await page.locator(selecteur).click();
+  await page
+    .waitForFunction(
+      (phraseDAvant) =>
+        (document.getElementById('consentement-etat')?.innerText ?? '') !== phraseDAvant,
+      avant,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
 };
 
 /** Les entrées du journal du consentement, lues comme un autre appareil. */
@@ -111,7 +152,15 @@ v(
 /* ── 3. Le texte est cité, pas résumé ──────────────────────────────────── */
 console.log('\n\x1b[1mLes trois paragraphes sont cités\x1b[0m');
 await page.locator('#consentement-texte').evaluate((d) => d.setAttribute('open', ''));
-await page.waitForTimeout(400);
+/*
+   LE DÉPLIANT EST OUVERT PAR L'ESSAI LUI-MÊME, et son contenu est écrit par le
+   script du profil au chargement — pas au dépliage. Ce qu'on attend, c'est
+   donc le premier paragraphe cité, qui est aussi la première assertion.
+*/
+await page
+  .locator('[data-paragraphe="ceQueCycladesLit"]')
+  .waitFor({ state: 'visible', timeout: DELAI })
+  .catch(() => {});
 for (const cle of ['ceQueCycladesLit', 'ceQuiNeChangeJamais', 'commentArreter']) {
   vrai(`« ${cle} » est présent`, await page.locator(`[data-paragraphe="${cle}"]`).isVisible());
 }
@@ -128,8 +177,7 @@ vrai(
 
 /* ── 4. Autoriser, puis révoquer ───────────────────────────────────────── */
 console.log('\n\x1b[1mAutoriser, puis révoquer\x1b[0m');
-await page.locator('#consentement-accorder').click();
-await page.waitForTimeout(1000);
+await apresLeGeste('#consentement-accorder');
 vrai(
   'l’état dit « autorisé »',
   (await page.locator('#consentement-etat').innerText()).includes('Autorisé depuis'),
@@ -145,8 +193,7 @@ vrai(
   !(await page.locator('#adaptation-etat').innerText()).includes('n’est pas autorisé'),
 );
 
-await page.locator('#consentement-revoquer').click();
-await page.waitForTimeout(1000);
+await apresLeGeste('#consentement-revoquer');
 vrai(
   'révoqué, l’état le dit avec sa date',
   (await page.locator('#consentement-etat').innerText()).includes('Révoqué le'),
@@ -158,8 +205,7 @@ v('et le journal garde les deux gestes', (await lireLeJournal()).map((e) => e.ty
 
 /* ── 5. Réautoriser NOMME la révocation ────────────────────────────────── */
 console.log('\n\x1b[1mRéautoriser nomme la révocation qu’on lève\x1b[0m');
-await page.locator('#consentement-accorder').click();
-await page.waitForTimeout(1000);
+await apresLeGeste('#consentement-accorder');
 const journal = await lireLeJournal();
 v('trois gestes au journal', journal.map((e) => e.type), ['accord', 'revocation', 'accord']);
 vrai(

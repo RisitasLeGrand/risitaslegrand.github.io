@@ -80,11 +80,103 @@ const ferme = (p = page) =>
     return Boolean(c) && c.getBoundingClientRect().height > 0;
   });
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Sept temporisations à
+   l'aveugle, dont une de vingt secondes et une de douze : ce sont les plus
+   longues du dépôt, et les plus coûteuses — elles s'ajoutent à chaque
+   batterie, qu'il y ait quelque chose à attendre ou non.
+
+   Toutes portent sur un travail dont l'écran ANNONCE la fin : « Lu et
+   vérifié », « Terminé », l'écran du coffre qui s'en va. On attend donc ces
+   annonces, ce qui est exact plutôt que généreux : la bascule prend le temps
+   qu'elle prend, et l'essai ne dort pas après.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes. Large, parce que 600 000 itérations de dérivation
+    dans un navigateur bridé prennent déjà plusieurs secondes. */
+const DELAI = 60_000;
+
+/** Attend qu'un élément porte un texte, selon le motif donné. */
+const attendreLeMessage = (selecteur, motif, p = page) =>
+  p
+    .waitForFunction(
+      ([s, source]) =>
+        new RegExp(source).test(document.querySelector(s)?.textContent ?? ''),
+      [selecteur, motif.source],
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
+/**
+ * Attend le VERDICT d'une étape, quel qu'il soit.
+ *
+ * L'étape de la preuve écrit « Ouverture du fichier… » avant de lire, puis son
+ * verdict — « Lu et vérifié », ou l'un des deux refus. Attendre un texte non
+ * vide rendrait la main sur le premier ; attendre un motif de succès ferait
+ * expirer la borne entière sur un refus, et l'essai lirait ensuite un écran
+ * dont il ne saurait rien.
+ *
+ * On attend donc que le texte soit non vide ET différent de l'annonce de
+ * travail. C'est le même raisonnement que « le texte a changé » : indépendant
+ * de ce qu'on affirme, et vrai pour les deux issues.
+ */
+const attendreLeVerdict = (selecteur, enCours, p = page) =>
+  p
+    .waitForFunction(
+      ([s, attente]) => {
+        const texte = (document.querySelector(s)?.textContent ?? '').trim();
+        return texte !== '' && !texte.startsWith(attente);
+      },
+      [selecteur, enCours],
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
 const saisirLeCoffre = async (motDePasse, p = page) => {
+  /*
+     ON EFFACE LE REFUS D'AVANT, et c'est la parade du § 3 : un essai qui
+     essaie deux fois sur la même page trouverait le message du premier refus
+     encore là, et l'attente ci-dessous rendrait la main avant que le second
+     essai n'ait abouti. Effacé ici, il ne peut venir que du geste qui suit.
+  */
+  await p.evaluate(() => {
+    const zone = document.getElementById('erreur-coffre');
+    if (zone) zone.textContent = '';
+  });
   await p.fill('#mdp-coffre', motDePasse);
   await p.click('#ouvrir-coffre');
-  /* 600 000 itérations dans un navigateur : il faut laisser le temps. */
-  await p.waitForTimeout(6000);
+  /*
+     SIX SECONDES ATTENDAIENT 600 000 ITÉRATIONS de dérivation, et il faut deux
+     post-conditions, non une : cette aide sert aussi bien là où le coffre
+     DOIT s'ouvrir que là où il doit REFUSER — « le mot de passe du site ne
+     l'ouvre plus » est tout l'objet de la bascule.
+
+     Ma première conversion n'attendait que la disparition du champ. Mesuré :
+     aux trois endroits où le refus est attendu, la borne entière se consommait
+     pour rien, et deux assertions d'une autre section tombaient parce que
+     l'essai y arrivait dans un état qu'il n'avait pas mesuré. L'original, lui,
+     passait.
+
+     On attend donc la PREMIÈRE des deux issues : le cadenas s'en va, ou il
+     dit son refus. L'assertion qui suit dit ensuite laquelle est arrivée, et
+     c'est elle qui juge.
+  */
+  await p
+    .waitForFunction(
+      () => {
+        const champ = document.getElementById('mdp-coffre');
+        const ouvert = champ === null || champ.getBoundingClientRect().height === 0;
+        const refus = (document.getElementById('erreur-coffre')?.textContent ?? '').trim();
+        return ouvert || refus !== '';
+      },
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
 };
 
 /** Une valeur du magasin « etat », lue directement dans IndexedDB. */
@@ -140,6 +232,29 @@ const premierScelle = (p = page) =>
       }),
   );
 
+/**
+ * Attend qu'il y ait du scellé dans la base, et rend ce qu'on y a trouvé.
+ *
+ * LE SCELLÉ N'APPARAÎT PAS AU CHARGEMENT : il est écrit quand l'écran, le
+ * coffre ouvert, scelle son premier enregistrement. Les six secondes de
+ * l'ancienne version du coffre couvraient cette écriture sans le dire, et ma
+ * première conversion l'a découvert en tombant — par intermittence, ce qui est
+ * le pire des cas : trois passages du même code ont rendu trois jeux de rouges
+ * différents.
+ *
+ * Il n'y a aucune marque à l'écran pour cela : c'est la BASE qui est la
+ * post-condition, et on l'interroge jusqu'à ce qu'elle réponde.
+ */
+const attendreDuScelle = async (p = page) => {
+  const fin = Date.now() + DELAI;
+  for (;;) {
+    const trouve = await premierScelle(p);
+    if (trouve !== null) return trouve;
+    if (Date.now() > fin) return null;
+    await p.waitForTimeout(100);
+  }
+};
+
 console.log('\nLA PRÉMISSE : UN COFFRE OUVERT, AVEC DU SCELLÉ DEDANS');
 
 await page.goto(`${BASE}/odyssee/corps/`, { waitUntil: 'networkidle' });
@@ -147,7 +262,7 @@ verifier('au départ, le coffre est fermé', await ferme(), true);
 await saisirLeCoffre(MDP);
 verifier('le mot de passe du site l’ouvre — c’est l’état d’avant la bascule', await ferme(), false);
 
-const avant = await premierScelle();
+const avant = await attendreDuScelle();
 console.log(`      premier scellé : ${JSON.stringify(avant)}`);
 verifier('il y a du scellé, sinon la bascule n’aurait rien à rechiffrer', avant !== null, true);
 verifier('et aucune enveloppe n’est encore posée', await lireEtat('coffre.enveloppe'), null);
@@ -171,7 +286,8 @@ verifier('et elle n’est pas vide', taille > 256, true);
 
 /* Étape 2 : la preuve, qui est une vraie lecture du fichier. */
 await page.setInputFiles('#fichier-preuve', chemin);
-await page.waitForTimeout(3000);
+/* L'étape 2 lit le fichier entier, puis écrit son verdict. */
+await attendreLeVerdict('#message-preuve', 'Ouverture du fichier');
 const direPreuve = await page.textContent('#message-preuve');
 console.log(`      message de l’étape 2 : ${direPreuve}`);
 verifier('elle est relue et acceptée comme preuve', /Lu et vérifié/.test(direPreuve), true);
@@ -179,7 +295,15 @@ verifier('elle est relue et acceptée comme preuve', /Lu et vérifié/.test(dire
 /* Étape 3 : le nouveau mot de passe, puis le départ. */
 await page.fill('#mdp-nouveau', MDP_COFFRE);
 await page.fill('#mdp-confirmation', MDP_COFFRE);
-await page.waitForTimeout(300);
+/* Le bouton s'active quand les deux champs concordent : c'est ce que
+   l'assertion lit, et l'attente est bornée. */
+await page
+  .waitForFunction(
+    () => document.getElementById('lancer-bascule')?.disabled === false,
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 verifier(
   'le bouton de bascule s’allume',
   await page.evaluate(() => document.getElementById('lancer-bascule')?.disabled),
@@ -188,7 +312,14 @@ verifier(
 
 const sessionAvant = await page.evaluate(() => sessionStorage.getItem('cyclades.coffre'));
 await page.click('#lancer-bascule');
-await page.waitForTimeout(20000);
+/*
+   VINGT SECONDES, et c'était le plus gros pari du dépôt : la bascule rechiffre
+   tout le magasin, et sa durée dépend de la machine autant que des données.
+   L'écran dit « Terminé » quand elle l'est — et dit autre chose quand elle
+   échoue, ce que le motif prend aussi, faute de quoi un échec attendrait la
+   borne entière avant de se dire.
+*/
+await attendreLeMessage('#message-bascule', /Terminé|Échec|Erreur|impossible|interrompue/);
 const direBascule = await page.textContent('#message-bascule');
 console.log(`      message de la bascule : ${direBascule}`);
 verifier('la bascule s’annonce terminée', /Terminé/.test(direBascule), true);
@@ -248,7 +379,7 @@ await franchirInitialisation(page, BASE, MDP);
 await page.goto(`${BASE}/odyssee/corps/`, { waitUntil: 'networkidle' });
 await saisirLeCoffre(MDP);
 verifier('prémisse : un coffre ouvert au mot de passe du site', await ferme(), false);
-verifier('prémisse : du scellé dedans', (await premierScelle()) !== null, true);
+verifier('prémisse : du scellé dedans', (await attendreDuScelle()) !== null, true);
 
 await page.evaluate(async (motDePasse) => {
   const sel = crypto.getRandomValues(new Uint8Array(16));
@@ -328,13 +459,50 @@ const t2 = await attendu2;
 const chemin2 = path.join(await mkdtemp(path.join(tmpdir(), 'bascule2-')), t2.suggestedFilename());
 await t2.saveAs(chemin2);
 await page.setInputFiles('#fichier-preuve', chemin2);
-await page.waitForTimeout(3000);
+await attendreLeVerdict('#message-preuve', 'Ouverture du fichier');
+/*
+   LA PREUVE DE LA RELANCE EST DITE, et non supposée : le gestionnaire de
+   « Lancer » rend la main EN SILENCE quand la preuve n'est pas faite —
+   « if (!preuveFaite || !motDePasseValide) return; » — et le message reste
+   alors vide. Sans cette ligne, un rouge plus bas ne dirait pas lequel des
+   trois chemins a été pris.
+*/
+console.log(`      preuve de la relance : ${await page.textContent('#message-preuve')}`);
 const autre = 'un tout autre mot de passe de coffre';
 await page.fill('#mdp-nouveau', autre);
 await page.fill('#mdp-confirmation', autre);
-await page.waitForTimeout(300);
+await page
+  .waitForFunction(
+    () => document.getElementById('lancer-bascule')?.disabled === false,
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
+console.log(
+  `      bouton de relance : ${
+    (await page.evaluate(() => document.getElementById('lancer-bascule')?.disabled)) ? 'éteint' : 'allumé'
+  }`,
+);
+/*
+   ET LE GESTE LUI-MÊME. Je l'avais PERDU en convertissant ce bloc : le
+   remplacement portait sur les trois lignes « attendre, cliquer, attendre »,
+   et la nouvelle n'en remettait que les attentes. L'essai a rendu un rouge
+   parfaitement cohérent — « le refus n'est pas dit » — sur un refus qu'on
+   n'avait jamais demandé.
+
+   La leçon vaut pour tout le chantier, et elle n'a rien à voir avec les
+   post-conditions : quand on remplace un bloc, on vérifie que le GESTE y est
+   encore. Ce sont les deux lignes de diagnostic ci-dessus qui l'ont montré,
+   en disant que la preuve était faite et le bouton allumé — donc que rien ne
+   s'opposait au geste, donc qu'il n'avait pas eu lieu.
+*/
 await page.click('#lancer-bascule');
-await page.waitForTimeout(12000);
+/*
+   LE REFUS EST UN MESSAGE, pas une absence : la bascule déjà commencée le dit.
+   Le gestionnaire écrit d'abord « Rechiffrement en cours », puis son verdict ;
+   le motif ne prend donc que les verdicts, et non l'annonce de travail.
+*/
+await attendreLeMessage('#message-bascule', /déjà été commencée|Échec|Erreur|impossible/);
 const refus = await page.textContent('#message-bascule');
 console.log(`      message de la relance : ${refus}`);
 verifier('un AUTRE mot de passe est refusé plutôt que posé par-dessus', /déjà été commencée/.test(refus), true);

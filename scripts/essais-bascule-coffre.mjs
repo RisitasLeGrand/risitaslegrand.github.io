@@ -55,6 +55,40 @@ await page.goto(`${BASE}/coffre/bascule/`, { waitUntil: 'networkidle' });
 
 const desactive = () => page.evaluate(() => document.getElementById('lancer-bascule')?.disabled);
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Quatre temporisations à
+   l'aveugle devant quatre constats dont trois sont NÉGATIFS : « le bouton
+   reste désactivé ». Un invariant négatif ne s'attend pas ; on attend le
+   message du mot de passe, écrit à chaque frappe, qui est la trace POSITIVE
+   que le réévaluateur du site est passé.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
+/**
+ * Attend le message du mot de passe — non vide, ou conforme à un motif.
+ *
+ * Sans motif, « non vide » suffit : le message est réécrit à chaque frappe et
+ * part vide du serveur.
+ */
+const attendreLeMessageDuMotDePasse = (motif = null) =>
+  page
+    .waitForFunction(
+      (source) => {
+        const texte = (document.getElementById('message-mdp')?.textContent ?? '').trim();
+        if (texte === '') return false;
+        return source === null || new RegExp(source).test(texte);
+      },
+      motif === null ? null : motif.source,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
 console.log('\nAU DÉPART, LA PORTE EST FERMÉE');
 
 verifier('le bouton de bascule est désactivé', await desactive(), true);
@@ -100,7 +134,22 @@ console.log('\nUN MOT DE PASSE SEUL NE SUFFIT PAS : LA SAUVEGARDE MANQUE');
   const phrase = 'une phrase de plus de quinze signes';
   await page.fill('#mdp-nouveau', phrase);
   await page.fill('#mdp-confirmation', phrase);
-  await page.waitForTimeout(200);
+  /*
+     ──────────────────────────────────────────────────────────────────────
+     CE CONSTAT EST NÉGATIF, ET IL N'A PAS DE POST-CONDITION PROPRE.
+
+     « Le bouton reste désactivé » est vrai tout de suite, et le resterait si
+     le bouton s'allumait une seconde plus tard. Ce qu'on attend est que le
+     réévaluateur du site ait tourné — et il ne laisse aucune marque quand il
+     ne change rien : la preuve manque, donc il n'écrit ni message ni état.
+
+     On attend donc le MESSAGE du mot de passe, qui est écrit à chaque frappe
+     et qui dit le compte de signes : c'est la trace que le réévaluateur est
+     passé, et elle est positive. Les trois sections suivantes le lisent
+     d'ailleurs directement.
+     ──────────────────────────────────────────────────────────────────────
+  */
+  await attendreLeMessageDuMotDePasse();
   verifier('le bouton reste désactivé', await desactive(), true);
 }
 
@@ -109,7 +158,7 @@ console.log('\nUN MOT DE PASSE TROP COURT NE PASSE PAS NON PLUS');
 {
   await page.fill('#mdp-nouveau', 'court');
   await page.fill('#mdp-confirmation', 'court');
-  await page.waitForTimeout(200);
+  await attendreLeMessageDuMotDePasse(/5 signes sur 15/);
   const message = await page.evaluate(
     () => document.getElementById('message-mdp')?.textContent ?? '',
   );
@@ -122,7 +171,7 @@ console.log('\nDEUX SAISIES QUI DIFFÈRENT SONT SIGNALÉES');
 {
   await page.fill('#mdp-nouveau', 'une phrase de plus de quinze signes');
   await page.fill('#mdp-confirmation', 'une phrase de plus de quinze signe');
-  await page.waitForTimeout(200);
+  await attendreLeMessageDuMotDePasse(/diffèrent/);
   const message = await page.evaluate(
     () => document.getElementById('message-mdp')?.textContent ?? '',
   );
@@ -143,7 +192,22 @@ console.log('\nUN FICHIER QUI N’EST PAS UNE SAUVEGARDE EST REFUSÉ');
     mimeType: 'application/octet-stream',
     buffer: Buffer.from('ceci n’est pas une sauvegarde Cyclades'),
   });
-  await page.waitForTimeout(1200);
+  /*
+     LA PREUVE EST LUE PUIS REFUSÉE : l'écran annonce d'abord « Ouverture du
+     fichier… », donc attendre un texte non vide rendrait la main sur
+     l'annonce. On attend un texte qui n'est pas l'annonce — vrai pour les
+     deux issues, et indépendant du motif que le constat cherche.
+  */
+  await page
+    .waitForFunction(
+      () => {
+        const texte = (document.getElementById('message-preuve')?.textContent ?? '').trim();
+        return texte !== '' && !texte.startsWith('Ouverture du fichier');
+      },
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
   const message = await page.evaluate(
     () => document.getElementById('message-preuve')?.textContent ?? '',
   );

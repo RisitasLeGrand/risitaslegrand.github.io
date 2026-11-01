@@ -91,18 +91,21 @@ const SOCLE = [
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
   /*
-     LA DESCRIPTION DISAIT TROIS CHOSES, L'ESSAI N'EN MESURE QU'UNE.
+     LE LIBELLÉ A ÉTÉ CORRIGÉ LE 31 OCTOBRE, et la correction mérite sa raison.
 
-     Elle annonçait « apostrophes, espaces insécables, accords sans "(s)" ».
-     L'essai éprouve la seule fonction « insecables », sur onze cas, et ne
-     regarde aucune page : ni les apostrophes, ni les accords. Le balayage des
-     accords n'existe pas — c'est ainsi que quatre phrases de
-     « progression.astro » ont porté des « (s) » sous un socle vert.
+     Il annonçait « accords sans « (s) » ». Cet essai ne fait rien de tel : il
+     éprouve `insecables` sur onze cas, et ne lit aucune source. Mesuré le même
+     jour, `src/` porte **246 « (s) »** dans 47 fichiers — 48 dans
+     `appareils.astro` — et le socle était vert.
 
-     Une description qui promet un contrôle absent est pire qu'une ligne
-     manquante : on relit le socle pour savoir ce qui est gardé.
+     Un libellé qui promet un garde-fou absent est pire qu'un silence : on le
+     lit, on le croit, et l'on cherche ailleurs. C'est le mot de la doctrine sur
+     le chemin du navigateur, et il s'applique aussi aux descriptions de cette
+     liste-ci. Le balayage des accords reste à écrire, et il est remonté au
+     pilote : il rougirait 246 fois, donc son entrée au socle suppose que les
+     246 soient traitées d'abord.
   */
-  ['essais:typographie', 'la fonction « insecables » : ce qu’elle pose, et ce qu’elle laisse tranquille — URL, anglais, code cité'],
+  ['essais:typographie', 'ce que « insecables » pose, et ce qu’elle laisse tranquille'],
   /*
      0.1 DU 43 — le seul essai qui garde la copie de secours des paramètres
      publics, et le seul qui passe par `deverrouiller` sans réseau.
@@ -338,6 +341,25 @@ const SOCLE = [
      appelant et refuse celui qu'on ajouterait sans le classer.
   */
   ['essais:manifeste-filtre', 'qui voit le corpus entier, et qui ne voit que son parcours'],
+  /*
+     Celui-ci entre parce que la faute qu'il garde est INVISIBLE à la
+     relecture. `waitForFunction(fonction, valeur, options)` : une borne écrite
+     au second rang part comme valeur, la fonction ne la lit pas, et l'attente
+     retombe sur les trente secondes par défaut. Les deux formes se
+     ressemblent assez pour que personne ne les distingue, et une borne qu'on
+     croit avoir fixée est pire qu'une borne absente — absente, elle se voit.
+
+     Et il garde une seconde chose, qui est la raison de son volume : le
+     balayage découpe les arguments à la main, parce qu'une fonction fléchée
+     passée en premier porte ses propres virgules. Or un analyseur cassé ne
+     lève pas, il rend ZÉRO FAUTE — ce qu'un dépôt propre rend aussi. L'essai
+     l'éprouve donc dans les deux sens, et il refuse de se taire quand il ne
+     lit aucun appel. Cela s'est payé le jour même : la forme sur plusieurs
+     lignes n'était pas vue, et trente-quatre bornes étaient au mauvais rang
+     dans huit essais derrière un « 0 borne ». Il coûte trois secondes et ne
+     demande ni navigateur ni aperçu.
+  */
+  ['essais:bornes', 'les bornes de « waitForFunction » au bon rang, et le balayage qui le voit'],
 ];
 
 /**
