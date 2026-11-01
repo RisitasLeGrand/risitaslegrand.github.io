@@ -13,7 +13,7 @@
  * tête sans toucher à la mesure — ce que le cahier des charges demande
  * précisément : une difficulté indépendante du seuil perceptif.
  */
-import { PAS, borner, ecartEnPas, type Dimension, type Famille } from './dimensions';
+import { PAS, borner, ecartEnPas, pasDuZ, type Dimension, type Famille } from './dimensions';
 import { arbreCouvrant, aretesDeFamille, aretesHorsFamille, idArete, type Arete } from './hub';
 import { stimulus, superposables, superposer, type Stimulus } from './stimulus';
 
@@ -240,6 +240,25 @@ export function chargeAdmise(arete: Arete, charge: number): number {
  * La référence est choisie avec une marge suffisante pour que le leurre reste
  * dans la plage — sauf sur une dimension circulaire, où il n'y a pas de bord.
  */
+/**
+ * LA COUTURE ENTRE LA MESURE ET LE DESSIN, et elle tient en une ligne.
+ *
+ * `delta` arrive **en z** — c'est l'unité de l'escalier depuis le
+ * 31 octobre — et un stimulus se dessine sur la grille de 120 points. C'est
+ * ici, et nulle part ailleurs, que la quantification `qz` a lieu.
+ *
+ * Le plancher d'un pas est ce qui empêche un écart de s'annuler : z = 0,002
+ * arrondirait à 0, les deux candidats seraient identiques, et l'essai
+ * mesurerait un tirage au sort en se présentant comme une discrimination. La
+ * borne basse de l'escalier (z = 0,02, soit deux pas et demi) est au-dessus,
+ * mais le plancher reste, parce qu'il garde l'invariant plutôt que la valeur
+ * d'un réglage.
+ *
+ * **Si l'on voulait un jour des dimensions vraiment continues**, c'est cette
+ * fonction-ci qui changerait, et rien dans la mesure n'en dépend.
+ */
+const ecartEnPasDuZ = (z: number): number => Math.max(1, pasDuZ(z));
+
 export function tirerEssai(
   arete: Arete,
   delta: number,
@@ -251,7 +270,7 @@ export function tirerEssai(
     return tirerModulaire(arete, delta, reglages, hasard);
   }
 
-  const ecart = Math.max(1, Math.round(delta));
+  const ecart = ecartEnPasDuZ(delta);
   const charge = chargeAdmise(arete, reglages.charge);
   const sousEssais: SousEssai[] = [];
 
@@ -303,7 +322,7 @@ export function tirerEssai(
  * convergence de l'escalier, et donc la comparabilité des seuils, est préservé.
  */
 function tirerPlan(arete: Arete, delta: number, reglages: Reglages, hasard: Hasard): Essai {
-  const ecart = Math.max(1, Math.round(delta));
+  const ecart = ecartEnPasDuZ(delta);
 
   // La seconde paire est cherchée dans le vivier de la **tâche de base** : la
   // restriction propre à « plan » ne s'applique qu'à l'arête principale, celle
@@ -388,7 +407,7 @@ function tirerPlan(arete: Arete, delta: number, reglages: Reglages, hasard: Hasa
  * comparer.
  */
 function tirerModulaire(arete: Arete, delta: number, reglages: Reglages, hasard: Hasard): Essai {
-  const ecart = Math.max(1, Math.round(delta));
+  const ecart = ecartEnPasDuZ(delta);
   // L'intervalle à reproduire : au moins trois fois l'erreur, pour que le leurre
   // ne soit pas identifiable à sa dégénérescence.
   const minimum = Math.min(Math.floor(PAS / 3), 3 * ecart + 2);

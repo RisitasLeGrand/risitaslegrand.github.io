@@ -36,20 +36,28 @@
  * une dispersion faible sur six inversions peut venir d'un escalier coincé
  * contre sa borne, ce qui se lit « stabilisé » alors que rien ne l'est.
  *
- * ## L'échelle
+ * ## L'échelle est z, et non les pas
  *
- * Les écarts sont ici **en pas**, sur l'échelle `PAS` de `dimensions.ts`. Le
- * passage à `z ∈ [0 ; 1]` est le second temps du L1 : il touche le tirage des
- * stimuli autant que l'escalier, et les mêler aurait rendu un rouge muet sur
- * sa cause.
+ * Les écarts sont **en z**, c'est-à-dire en part de l'étendue utile de la
+ * dimension, de 0 à 1. Ils étaient en pas jusqu'au 31 octobre — un seuil
+ * dépendait donc du découpage choisi, et changer `PAS` aurait changé tous les
+ * seuils enregistrés sans que la personne ait rien appris.
+ *
+ * La grille de 120 points reste, mais au moment de DESSINER : `pasDuZ` y
+ * ramène le z du tirage, et c'est la quantification `qz`. L'escalier, lui,
+ * ignore la grille.
+ *
+ * Les trois valeurs viennent de la référence de comportement : départ 0,18,
+ * bornes 0,02 et 0,45. Nos anciennes bornes, 1 et 60 pas, valaient 0,0084 et
+ * 0,504 : le resserrement est réel, et il est voulu — un écart de la moitié de
+ * l'étendue ne mesure plus rien, et un écart de 0,0084 est sous le
+ * discriminable de presque tout le monde.
  */
-import { PAS } from './dimensions';
-
 export const REGLAGES = {
-  /** Écart initial, en pas : largement au-dessus de tout seuil plausible. */
-  departDelta: 36,
-  deltaMinimum: 1,
-  deltaMaximum: Math.floor(PAS / 2),
+  /** Écart initial, en z : largement au-dessus de tout seuil plausible. */
+  departDelta: 0.18,
+  deltaMinimum: 0.02,
+  deltaMaximum: 0.45,
   /** Bonnes réponses consécutives avant de resserrer. Trois : « 3-down ». */
   bonnesRequises: 3,
   /**
@@ -74,11 +82,11 @@ export const REGLAGES = {
 export type Statut = 'jamais' | 'en-cours' | 'converge';
 
 export interface EtatEscalier {
-  /** Écart courant entre le bon candidat et le leurre, en pas. */
+  /** Écart courant entre le bon candidat et le leurre, en z. */
   delta: number;
   /** Bonnes réponses consécutives depuis le dernier changement d'écart. */
   bonnesDeSuite: number;
-  /** Écarts relevés à chaque inversion, dans l'ordre. */
+  /** Écarts relevés à chaque inversion, en z, dans l'ordre. */
   inversions: number[];
   /** Sens du dernier changement d'écart. */
   derniereDirection: 'resserre' | 'elargit' | null;
@@ -137,9 +145,9 @@ function dernieres(etat: EtatEscalier): number[] {
 }
 
 /**
- * Le seuil, en pas — donc directement comparable d'une dimension à l'autre,
- * puisque la normalisation est dans le jeu de stimuli. Rend `null` tant que les
- * inversions requises ne sont pas atteintes.
+ * Le seuil, **en z** — donc comparable d'une dimension à l'autre, et d'une
+ * version du logiciel à l'autre, puisqu'il ne dépend plus du découpage de la
+ * grille. Rend `null` tant que les inversions requises ne sont pas atteintes.
  */
 export function seuil(etat: EtatEscalier): number | null {
   if (etat.inversions.length < REGLAGES.inversionsRequises) return null;

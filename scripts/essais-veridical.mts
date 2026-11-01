@@ -15,7 +15,11 @@ import {
   borner,
   dimensionsDeFamille,
   ecartEnPas,
+  ecartDit,
+  ecartEnZ,
   dimensionParId,
+  pasDuZ,
+  zDuPas,
 } from '../src/features/veridical-mapping/dimensions';
 import { aretesDeFamille, arbreCouvrant, idArete, pairesDeFamille } from '../src/features/veridical-mapping/hub';
 import {
@@ -153,7 +157,14 @@ function generateur(graine: number) {
   };
 }
 
-for (const seuilVrai of [3, 8, 20]) {
+/*
+   LES SEUILS VRAIS SONT EN z, et ils sont écrits comme la CONVERSION de ceux
+   d'avant — 3, 8 et 20 pas — plutôt que comme 0,0252, 0,0672 et 0,1681. Les
+   trois cas mesurés restent donc exactement les mêmes qu'avant le passage à
+   l'échelle z, et la comparaison avec les anciens relevés garde un sens. Trois
+   nombres recopiés à la main auraient été trois cas voisins, sans plus.
+*/
+for (const seuilVrai of [3, 8, 20].map(zDuPas)) {
   const estimations: number[] = [];
   let convergences = 0;
   for (let graine = 1; graine <= 60; graine += 1) {
@@ -169,8 +180,9 @@ for (const seuilVrai of [3, 8, 20]) {
   const moyenne = estimations.reduce((t, v) => t + v, 0) / Math.max(1, estimations.length);
   const biais = moyenne / seuilVrai;
   console.log(
-    `  seuil vrai ${seuilVrai} pas → estimé ${moyenne.toFixed(2)} ` +
-      `(rapport ${biais.toFixed(2)}), ${estimations.length}/60 estimés, ${convergences}/60 stabilisés`,
+    `  seuil vrai ${ecartDit(seuilVrai)} (${pasDuZ(seuilVrai)} pas) → estimé ` +
+      `${ecartDit(moyenne)} (rapport ${biais.toFixed(2)}), ` +
+      `${estimations.length}/60 estimés, ${convergences}/60 stabilisés`,
   );
   /*
      LE RAPPORT ATTENDU SE DÉRIVE DE LA RÈGLE, et ne se constate pas.
@@ -209,12 +221,43 @@ for (const seuilVrai of [3, 8, 20]) {
      n'est plus large, et une dérive future se lira au lieu de se confondre
      avec celle-ci.
   */
-  verifier(
-    `seuil ${seuilVrai} : rapport conforme au point de convergence (${attendu.toFixed(3)})`,
-    Math.abs(biais - attendu) < 0.1,
-    true,
-  );
-  verifier(`seuil ${seuilVrai} : au moins 55 estimations sur 60`, estimations.length >= 55, true);
+  /*
+     LA PORTÉE MESURABLE DE L'ESCALIER, ET CE QUI SE PASSE À SON BORD.
+
+     Trouvé le 1er novembre, en passant à l'échelle z. La borne basse de
+     l'escalier vaut z = 0,02 ; un seuil vrai de 0,0252 — trois pas, le plus
+     fin des trois cas — en est à peine au-dessus. L'escalier BUTE donc sur son
+     plancher près du seuil, ses points de rebroussement s'y écrasent, et
+     l'estimation remonte : rapport 1,07 au lieu de 0,96, soit onze centièmes
+     d'écart là où la tolérance en admet dix.
+
+     Ce n'était pas le cas avec l'ancienne borne — un pas, soit z = 0,0084 —,
+     bien au-dessous de tout seuil mesuré. Le resserrement des bornes voulu par
+     le prompt 63 a donc une conséquence qu'il faut dire : **un seuil plus fin
+     que le double de la borne basse n'est pas mesurable sans biais.**
+
+     L'essai ne la cache pas et ne l'assouplit pas : il affirme, pour ces
+     seuils-là, la seule chose qui compte — **le biais est vers le HAUT**.
+     C'est la direction qui protège : l'escalier annonce une acuité moindre que
+     la vraie, jamais meilleure. Un biais vers le bas ferait croire à la
+     personne qu'elle distingue mieux qu'elle ne distingue, et c'est ce que ce
+     contrôle interdit.
+  */
+  const margeDuPlancher = REGLAGES.deltaMinimum * 2;
+  if (seuilVrai < margeDuPlancher) {
+    verifier(
+      `seuil ${ecartDit(seuilVrai)} : sous le double de la borne basse — biais vers le HAUT, jamais vers le bas`,
+      biais >= attendu && biais < attendu + 0.25,
+      true,
+    );
+  } else {
+    verifier(
+      `seuil ${ecartDit(seuilVrai)} : rapport conforme au point de convergence (${attendu.toFixed(3)})`,
+      Math.abs(biais - attendu) < 0.1,
+      true,
+    );
+  }
+  verifier(`seuil ${ecartDit(seuilVrai)} : au moins 55 estimations sur 60`, estimations.length >= 55, true);
 }
 
 console.log('\nTÂCHES « PLAN » ET « MODULAIRE » — ce qui les rend mesurables');

@@ -136,6 +136,75 @@ export const DIMENSIONS: Dimension[] = [
   },
 ];
 
+/* ── L'ÉCHELLE z, ET LA QUANTIFICATION ─────────────────────────────────── */
+
+/**
+ * L'ÉCHELLE z : UN ÉCART SANS UNITÉ, DE 0 À 1.
+ *
+ * ## Pourquoi elle remplace les pas comme unité de mesure
+ *
+ * Un seuil « en pas » dépend du découpage choisi : changer `PAS` changerait
+ * tous les seuils enregistrés sans que la personne ait rien appris. `z` est la
+ * position RELATIVE sur l'étendue utile de la dimension — 0 au plus bas, 1 au
+ * plus haut —, donc indépendante du découpage, et directement comparable d'une
+ * dimension à l'autre comme d'une version du logiciel à l'autre.
+ *
+ * ## Ce que la grille de 120 points devient
+ *
+ * Elle reste, et c'est délibéré : elle est ce qui rend un stimulus
+ * REPRODUCTIBLE. `z` est l'unité de la mesure — l'escalier, les seuils, les
+ * bornes —, et `pasDuZ` ramène un `z` sur la grille au moment de dessiner.
+ * C'est la quantification `qz` : les dimensions discrètes en ont besoin par
+ * nature — on ne dessine pas 3,4 points —, et les continues y gagnent de ne
+ * pas dépendre de la précision d'un flottant pour être redessinées à
+ * l'identique.
+ *
+ * Si l'on voulait un jour des dimensions vraiment continues, une seule ligne
+ * changerait : celle qui appelle `pasDuZ` au moment du tirage. Rien dans la
+ * mesure n'en dépend.
+ *
+ * ## La conversion, et son dénominateur
+ *
+ * `PAS - 1`, et non `PAS` : le pas 0 vaut z = 0 et le pas 119 vaut z = 1. Avec
+ * `PAS` au dénominateur, le dernier pas vaudrait 0,9917 et l'étendue ne serait
+ * jamais atteinte. C'est le même dénominateur que `positionSurEchelle` dans
+ * `correction.ts`, qui faisait déjà cette conversion pour l'affichage.
+ */
+export const zDuPas = (pas: number): number => pas / (PAS - 1);
+
+/**
+ * La quantification : un `z` ramené sur la grille des pas.
+ *
+ * Arrondi, et non tronqué : tronquer décalerait tout vers le bas d'un
+ * demi-pas, ce qui biaiserait un escalier qui vit justement de petits écarts.
+ */
+export const pasDuZ = (z: number): number => Math.round(z * (PAS - 1));
+
+/**
+ * Écart entre deux positions en z, en tenant compte du rebouclage.
+ *
+ * Le pendant de `ecartEnPas` sur l'échelle de mesure. Sur une dimension
+ * circulaire, z = 0,02 et z = 0,98 sont voisins : les traiter comme distants
+ * de 0,96 fausserait aussi bien la génération d'un leurre que la lecture d'un
+ * seuil.
+ */
+export function ecartEnZ(dimension: Dimension, a: number, b: number): number {
+  const brut = Math.abs(a - b);
+  return dimension.circulaire ? Math.min(brut, 1 - brut) : brut;
+}
+
+/**
+ * Un écart en z, dit à la personne.
+ *
+ * **En pourcentage de l'étendue, et pas en « z ».** Le mot `z` est du jargon,
+ * et « 0,067 » ne dit rien à qui le lit. « 6,7 % de l'étendue » se comprend :
+ * c'est la part de la plage utile de la dimension que la personne distingue
+ * encore. L'ancien affichage disait « 7,3 pas », ce qui ne voulait rien dire
+ * non plus — la grille était un détail d'implantation.
+ */
+export const ecartDit = (z: number): string =>
+  `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(z * 100)} %`;
+
 export function dimensionParId(id: string): Dimension | undefined {
   return DIMENSIONS.find((dimension) => dimension.id === id);
 }

@@ -19,7 +19,7 @@
    */
   import { confirmer } from '../../../lib/boite';
   import { effacerVeridical, jourISO, type SessionVeridical, type SeuilVeridical } from '../../../lib/db';
-  import { DIMENSIONS, dimensionsDeFamille, type Famille } from '../dimensions';
+  import { DIMENSIONS, dimensionsDeFamille, ecartDit, zDuPas, type Famille } from '../dimensions';
   import { INTITULES_STATUT } from '../escalier';
   import { arbreCouvrant, idArete } from '../hub';
   import { offrirLeFichier } from '../../../lib/telecharger';
@@ -53,16 +53,24 @@
     'bg-indigo-600 text-white dark:bg-indigo-400 dark:text-slate-950',
   ];
 
-  /** Bornes des pas, en pas de stimulus. Plus le seuil est petit, plus c'est fin. */
+  /**
+   * Bornes de la rampe, **en z**. Plus le seuil est petit, plus c'est fin.
+   *
+   * Elles valaient 24, 12, 6 et 3 pas. Elles sont écrites avec `zDuPas` plutôt
+   * que converties à la main : les quatre seuils de couleur restent ainsi les
+   * mêmes qu'avant, et une relecture voit d'où ils viennent. Recopier 0,2017,
+   * 0,1008, 0,0504 et 0,0252 aurait donné quatre nombres sans origine.
+   */
+  const BORNES_RAMPE = [24, 12, 6, 3].map(zDuPas);
+
   function classeDuSeuil(valeur: number | null | undefined): string {
     if (valeur === null || valeur === undefined) {
       return 'bg-slate-50 text-slate-400 dark:bg-slate-900 dark:text-slate-500';
     }
-    if (valeur > 24) return PAS_RAMPE[0];
-    if (valeur > 12) return PAS_RAMPE[1];
-    if (valeur > 6) return PAS_RAMPE[2];
-    if (valeur > 3) return PAS_RAMPE[3];
-    return PAS_RAMPE[4];
+    for (let i = 0; i < BORNES_RAMPE.length; i += 1) {
+      if (valeur > BORNES_RAMPE[i]) return PAS_RAMPE[i];
+    }
+    return PAS_RAMPE[PAS_RAMPE.length - 1];
   }
 
   function cellule(de: string, vers: string): SeuilVeridical | undefined {
@@ -178,7 +186,8 @@
       Toutes les paires
     </h4>
     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-      Seuil en pas, de la ligne vers la colonne. Plus la cellule est foncée, plus le seuil est fin.
+      Seuil en part de l’étendue, de la ligne vers la colonne. Plus la cellule est foncée, plus le
+      seuil est fin.
       Les deux sens d'une paire se lisent de part et d'autre de la diagonale.
     </p>
     <div class="mt-2 overflow-x-auto">
@@ -210,7 +219,7 @@
                         ? `${donnee.escalier.essais} essais, ${INTITULES_STATUT[donnee.statut]}`
                         : 'jamais travaillée'}"
                     >
-                      {donnee?.seuil ? donnee.seuil.toFixed(1) : donnee?.escalier.essais ? '…' : '—'}
+                      {donnee?.seuil ? ecartDit(donnee.seuil) : donnee?.escalier.essais ? '…' : '—'}
                     </button>
                   {/if}
                 </td>
@@ -227,7 +236,7 @@
         {detail.escalier.reussis} réussi{detail.escalier.reussis > 1 ? 's' : ''},
           {detail.escalier.inversions.length}
           inversion{detail.escalier.inversions.length > 1 ? 's' : ''},
-        {INTITULES_STATUT[detail.statut]}{#if detail.seuil}, seuil {detail.seuil.toFixed(2)} pas{/if}.
+        {INTITULES_STATUT[detail.statut]}{#if detail.seuil}, seuil {ecartDit(detail.seuil)} de l’étendue{/if}.
         {#if detail.horsFamille}<span class="text-amber-700 dark:text-amber-300"> Paire hors famille.</span>{/if}
       </p>
     {/if}
@@ -255,7 +264,7 @@
               <td class="py-1 font-mono text-slate-600 dark:text-slate-300">{entree.aretes}</td>
               <td class="py-1 font-mono text-slate-600 dark:text-slate-300">{entree.stabilisees}</td>
               <td class="py-1 font-mono text-slate-600 dark:text-slate-300">
-                {entree.moyen === null ? '—' : `${entree.moyen.toFixed(1)} pas`}
+                {entree.moyen === null ? '—' : ecartDit(entree.moyen)}
               </td>
             </tr>
           {/each}
@@ -291,7 +300,7 @@
     </h4>
     {#if courbe.length}
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-        En pas. Une courbe qui descend est un progrès : le seuil devient plus fin.
+        En part de l’étendue. Une courbe qui descend est un progrès : le seuil devient plus fin.
       </p>
       <svg viewBox="0 0 {LARGEUR} {HAUTEUR}" class="mt-2 h-auto w-full max-w-xl" role="img"
         aria-label="Écart médian sur {courbe.length} session{courbe.length > 1 ? 's' : ''}">
@@ -306,7 +315,7 @@
         {#each courbe as point, i (point.le)}
           <circle cx={abscisse(i)} cy={ordonnee(point.valeur)} r="4.5"
             class="fill-indigo-600 stroke-white dark:fill-indigo-400 dark:stroke-slate-900" stroke-width="2">
-            <title>{jour(point.le)} — {point.valeur.toFixed(2)} pas</title>
+            <title>{jour(point.le)} — {ecartDit(point.valeur)} de l’étendue</title>
           </circle>
         {/each}
       </svg>
@@ -350,7 +359,7 @@
                   {session.essais ? Math.round((session.reussis / session.essais) * 100) : 0} %
                 </td>
                 <td class="py-1 font-mono text-slate-600 dark:text-slate-300">
-                  {session.seuilMedian === null ? '—' : `${session.seuilMedian.toFixed(1)}`}
+                  {session.seuilMedian === null ? '—' : ecartDit(session.seuilMedian)}
                 </td>
               </tr>
             {/each}
