@@ -41,8 +41,13 @@ import {
 } from '../src/features/veridical-mapping/stimulus';
 import { readFileSync } from 'node:fs';
 import {
+  DEPART_MAXIMUM,
+  DEPART_MINIMUM,
+  RATIO_DE_DEPART,
   REGLAGES,
+  departPour,
   escalierNeuf,
+  ratioDeDepart,
   repondre,
   reprendreUnSeuil,
   seuil,
@@ -1039,6 +1044,150 @@ console.log('\nRENOMMAGE COMPLET — plus un seul site dans les sources');
     (reprises[0] ?? '').includes('clefNormalisee'), true);
   const seuilsLus = base.split('\n').filter((l) => l.includes('return seuilsRelus('));
   verifier('et les seuils passent par la réduction', seuilsLus.length, 1);
+}
+
+
+
+/* ── LE DÉPART D'UN ESCALIER, D'APRÈS UN SEUIL DÉJÀ MESURÉ ─────────────── */
+
+console.log('\nDÉPART — la règle, et ses refus');
+{
+  verifier('une tâche nommée porte son facteur', ratioDeDepart('matching'), 0.5);
+  verifier('et une autre le sien', ratioDeDepart('one_to_many'), 1.3);
+  // CE QU'IL NE DOIT PAS FAIRE : lever, ou rendre zéro, sur un nom absent.
+  // Une tâche nouvelle part du seuil de référence lui-même.
+  verifier('une tâche absente de la table vaut 1', ratioDeDepart('une-tache-a-venir'), 1);
+  verifier('la table n’est pas vide', Object.keys(RATIO_DE_DEPART).length > 0, true);
+
+  verifier('sans seuil de référence, le départ général s’applique',
+    departPour('matching', null), REGLAGES.departDelta);
+  /*
+     UN SEUIL ABSENT N'EST PAS UN SEUIL NUL. Le confondre avec zéro ferait
+     partir l'escalier contre sa borne basse — où rien ne lèverait, 0,02 étant
+     un écart parfaitement valide. Les trois formes d'absence sont éprouvées.
+  */
+  verifier('un seuil nul est traité comme absent',
+    departPour('matching', 0), REGLAGES.departDelta);
+  verifier('un seuil négatif aussi',
+    departPour('matching', -0.1), REGLAGES.departDelta);
+  verifier('un seuil non fini aussi',
+    departPour('matching', Number.NaN), REGLAGES.departDelta);
+
+  verifier('un seuil de 10 % sur une tâche à 1,2 part à 12 %',
+    Number(departPour('coherence', 0.1).toFixed(6)), 0.12);
+  verifier('et la même sur une tâche non nommée part du seuil',
+    Number(departPour('couple', 0.1).toFixed(6)), 0.1);
+  // Les deux bornes du départ, dans les deux sens.
+  verifier('un seuil très fin est retenu par la borne basse',
+    departPour('matching', 0.021), DEPART_MINIMUM);
+  verifier('un seuil très grossier est retenu par la borne haute',
+    departPour('one_to_many', 0.44), DEPART_MAXIMUM);
+  /*
+     LA BORNE BASSE DU DÉPART EST AU-DESSUS DE CELLE DE L'ESCALIER, et c'est
+     ce qui donne à l'escalier la place de resserrer au moins une fois. Partis
+     à égalité, sa première inversion ne serait pas un rebroussement mais un
+     effet de bord.
+  */
+  verifier('le départ ne touche pas la borne basse de l’escalier',
+    DEPART_MINIMUM > REGLAGES.deltaMinimum, true);
+  verifier('un départ hors bornes est ramené',
+    escalierNeuf(9).delta, REGLAGES.deltaMaximum);
+  verifier('et par le bas aussi', escalierNeuf(0.0001).delta, REGLAGES.deltaMinimum);
+  verifier('sans argument, le départ général', escalierNeuf().delta, REGLAGES.departDelta);
+}
+
+console.log('\nDÉPART — il épargne des essais SANS déplacer le seuil');
+{
+  /*
+     CE CONTRÔLE EST LE SEUL QUI COMPTE VRAIMENT.
+
+     Partir près du seuil échange des essais contre du temps. Si le départ
+     DÉPLAÇAIT la valeur mesurée, l'échange serait un biais : les seuils d'une
+     tâche partie basse ne seraient plus comparables à ceux d'une tâche partie
+     haute, et toute la comparabilité — qui est la raison d'être de l'échelle z
+     — tomberait. Rien ne le dirait : on lirait deux seuils plausibles.
+
+     On mesure donc le même observateur simulé depuis trois départs : le départ
+     général, un départ volontairement trop bas et un trop haut. Les trois
+     estimations doivent coïncider, et le départ juste doit atteindre la
+     quatrième inversion plus vite.
+  */
+  const seuilVrai = 0.06;
+  const depuis = (depart: number) => {
+    const estimations: number[] = [];
+    const essaisJusquAuSeuil: number[] = [];
+    for (let graine = 1; graine <= 60; graine += 1) {
+      const hasard = generateur(graine * 7919 + Math.round(depart * 1000));
+      let etat: EtatEscalier = escalierNeuf(depart);
+      let vu = 0;
+      for (let essai = 0; essai < 200; essai += 1) {
+        etat = repondre(etat, observateur(etat.delta, seuilVrai, hasard));
+        if (!vu && etat.inversions.length >= REGLAGES.inversionsRequises) vu = etat.essais;
+      }
+      const estime = seuil(etat);
+      if (estime !== null) estimations.push(estime);
+      if (vu) essaisJusquAuSeuil.push(vu);
+    }
+    const moyenne = (xs: number[]) => xs.reduce((t, v) => t + v, 0) / Math.max(1, xs.length);
+    return {
+      estimations: estimations.length,
+      biais: moyenne(estimations) / seuilVrai,
+      essais: moyenne(essaisJusquAuSeuil),
+    };
+  };
+
+  const general = depuis(REGLAGES.departDelta);
+  const juste = depuis(departPour('couple', seuilVrai));
+  const tropBas = depuis(REGLAGES.deltaMinimum * 1.5);
+
+  for (const [nom, m] of [
+    ['départ général', general],
+    ['départ juste', juste],
+    ['départ trop bas', tropBas],
+  ] as const) {
+    console.log(
+      `    ${nom.padEnd(16)} biais ${m.biais.toFixed(3)} · ` +
+        `${m.essais.toFixed(0)} essais jusqu’au seuil · ${m.estimations}/60 estimations`,
+    );
+  }
+  verifier('les trois départs rendent des estimations',
+    [general.estimations, juste.estimations, tropBas.estimations].every((n) => n >= 55), true);
+  // Le biais attendu de la règle 3-down sur une Weibull de pente 3 vaut 0,96 ;
+  // l'excès mesuré vient de l'asymétrie des facteurs. On borne, on ne devine pas.
+  for (const [nom, mesure] of [
+    ['le départ général', general],
+    ['un départ juste', juste],
+    ['un départ trop bas', tropBas],
+  ] as const) {
+    verifier(`${nom} : le seuil reste dans ±8 %`,
+      Math.abs(mesure.biais - 1) < 0.08, true);
+  }
+  // LES TROIS COÏNCIDENT ENTRE EUX, et pas seulement chacun avec la vérité :
+  // deux écarts de 7 % en sens opposés passeraient le contrôle ci-dessus.
+  const biais = [general.biais, juste.biais, tropBas.biais];
+  verifier('et les trois coïncident entre eux à 5 %',
+    Math.max(...biais) / Math.min(...biais) - 1 < 0.05, true);
+  // LE GAIN, mesuré et non supposé.
+  verifier('un départ juste atteint le seuil plus vite que le départ général',
+    juste.essais < general.essais, true);
+
+  /*
+     ET LE BRANCHEMENT, QUE CET ESSAI NE VOIT PAS AUTREMENT.
+
+     Tout ce qui précède éprouve `departPour` et `escalierNeuf`, qui sont purs.
+     Mais la règle ne sert à rien si l'écran crée ses escaliers sans elle, et
+     ce site-là est dans un composant : aucune des assertions ci-dessus ne
+     rougirait si le composant appelait « escalierNeuf() » tout court. Le site
+     se garde donc dans la source, comme le diviseur du passé.
+  */
+  const ecran = lireSource('src/features/veridical-mapping/composants/VeridicalMapping.svelte');
+  const creations = ecran.split('\n').filter((l) => l.includes('escalier: escalierNeuf('));
+  verifier('l’écran crée son escalier en un seul endroit', creations.length, 1);
+  verifier('et il y applique la règle de départ',
+    (creations[0] ?? '').includes('departPour('), true);
+  // CONTRE-ÉPREUVE DU PRÉDICAT : la forme fautive est bien reconnue comme telle.
+  verifier('le prédicat distingue la forme sans règle',
+    'escalier: escalierNeuf(),'.includes('departPour('), false);
 }
 
 

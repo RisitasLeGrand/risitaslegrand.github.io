@@ -36,7 +36,13 @@
   import { gagnerXp, xpVeridical } from '../../../lib/gamification';
   import { debloquer, disponible } from '../audio';
   import { NOMS_FAMILLES, dimensionParId, type Famille } from '../dimensions';
-  import { escalierNeuf, repondre, seuil as seuilDe, statut as statutDe } from '../escalier';
+  import {
+    departPour,
+    escalierNeuf,
+    repondre,
+    seuil as seuilDe,
+    statut as statutDe,
+  } from '../escalier';
   import CorrectionPerceptive from '../../correction/composants/CorrectionPerceptive.svelte';
   import { aCorrectionDetaillee } from '../../correction/registre';
   import { ouvrirAssistant } from '../../assistant/monter';
@@ -234,10 +240,31 @@
     return tache === 'point' ? arete.id : `${arete.id}|${tache}`;
   }
 
-  /** Le seuil d'une arête, créé à la volée s'il n'existe pas encore. */
+  /**
+   * Le seuil d'une arête, créé à la volée s'il n'existe pas encore.
+   *
+   * UN ESCALIER NEUF NE PART PLUS DE ZÉRO DE CONNAISSANCE. Quand la tâche en
+   * jeu n'est pas la tâche de base et que celle-ci a déjà un seuil sur la même
+   * arête, l'escalier part de ce seuil multiplié par le facteur de la tâche.
+   * C'est la vingtaine d'essais que l'escalier passait à descendre depuis un
+   * écart trivialement visible — des essais qui ne mesuraient rien et qui
+   * fatiguaient.
+   *
+   * La référence est cherchée dans LE MÊME magasin, découverte comprise : une
+   * découverte ne doit pas se nourrir des seuils réels, ni l'inverse. C'est
+   * déjà la règle de la ligne au-dessus, et le départ la suit.
+   */
   function seuilDArete(arete: Arete): SeuilVeridical {
     const clef = clefSeuil(arete);
     const magasin = decouverte ? seuilsDecouverte : seuils;
+    /*
+       `arete.id` est la clef de la TÂCHE DE BASE — « clefSeuil » la laisse
+       nue. Pour la tâche de base elle-même, cette ligne est celle qu'on est en
+       train de créer, donc absente : la référence est nulle et le départ
+       général s'applique. C'est le bon comportement, et il vient de la
+       structure plutôt que d'un test sur le nom de la tâche.
+    */
+    const reference = magasin[arete.id]?.seuil ?? null;
     return (
       magasin[clef] ?? {
         id: clef,
@@ -246,7 +273,7 @@
         vers: arete.vers.id,
         horsFamille: arete.de.famille !== arete.vers.famille,
         transmodale: arete.transmodale,
-        escalier: escalierNeuf(),
+        escalier: escalierNeuf(departPour(enJeu.tache, reference)),
         seuil: null,
         statut: 'jamais' as const,
         majLe: new Date().toISOString(),

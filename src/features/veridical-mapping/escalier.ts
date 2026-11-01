@@ -94,9 +94,85 @@ export interface EtatEscalier {
   reussis: number;
 }
 
-export function escalierNeuf(): EtatEscalier {
+/* ── LE DÉPART D'UN ESCALIER NEUF ──────────────────────────────────────── */
+
+/**
+ * LE RAPPORT ENTRE LA DIFFICULTÉ D'UNE TÂCHE ET CELLE DE LA TÂCHE DE BASE.
+ *
+ * Une personne qui distingue un écart de 4 % sur la tâche de base n'a aucune
+ * raison de repartir de 18 % sur une autre : son seuil y sera du même ordre, à
+ * un facteur près que la référence de comportement donne par tâche. Partir du
+ * seuil connu multiplié par ce facteur épargne la vingtaine d'essais que
+ * l'escalier passait à descendre depuis un écart trivialement visible — des
+ * essais qui ne mesuraient rien et qui fatiguaient.
+ *
+ * Les valeurs viennent de la table `RATIO` de la référence (l. 1349), relevée
+ * au L0. **Toute tâche absente de la table vaut 1**, et c'est délibéré : une
+ * tâche nouvelle part du seuil de référence lui-même, ce qui est l'hypothèse
+ * la plus neutre. Une table qui lèverait sur un nom inconnu obligerait à la
+ * compléter avant d'ajouter une tâche, et c'est exactement la frontière que ce
+ * prompt supprime ailleurs.
+ */
+export const RATIO_DE_DEPART: Record<string, number> = {
+  matching: 0.5,
+  coherence: 1.2,
+  one_to_many: 1.3,
+  sequence: 1.1,
+  transposition: 1.2,
+  completion: 1.1,
+};
+
+/**
+ * Les bornes du DÉPART, plus serrées que celles de l'escalier, et pour cause.
+ *
+ * L'escalier vit entre 0,02 et 0,45. Un départ posé pile sur une de ces bornes
+ * laisserait l'escalier sans place : parti à 0,02, il ne peut que remonter, et
+ * la première inversion ne serait pas un rebroussement mais un effet de bord.
+ * Le départ est donc tenu à l'intérieur — 0,03 en bas, ce qui laisse un cran
+ * de resserrement, 0,45 en haut où la borne est déjà celle de l'escalier.
+ */
+export const DEPART_MINIMUM = 0.03;
+export const DEPART_MAXIMUM = REGLAGES.deltaMaximum;
+
+/** Le facteur d'une tâche, ou 1 si la table ne la nomme pas. */
+export function ratioDeDepart(exercice: string): number {
+  return RATIO_DE_DEPART[exercice] ?? 1;
+}
+
+/**
+ * L'écart de départ d'un escalier neuf, d'après un seuil déjà mesuré.
+ *
+ * Sans seuil de référence — personne n'a encore travaillé la tâche de base —
+ * on repart du départ général. **Un seuil absent n'est pas un seuil nul** : le
+ * confondre avec zéro ferait partir l'escalier contre sa borne basse, où tout
+ * est faux et où rien ne lèverait, puisque 0,02 est un écart parfaitement
+ * valide.
+ *
+ * Un seuil non fini ou négatif est traité comme absent. Il ne peut pas venir
+ * de `seuil()`, qui rend une moyenne géométrique de valeurs positives ; il
+ * peut venir d'un magasin, d'un import, ou d'une version future — et c'est
+ * précisément ce qu'on ne veut pas voir arriver jusqu'au départ d'une mesure.
+ */
+export function departPour(exercice: string, seuilDeReference: number | null): number {
+  if (seuilDeReference === null || !Number.isFinite(seuilDeReference) || seuilDeReference <= 0) {
+    return REGLAGES.departDelta;
+  }
+  const vise = seuilDeReference * ratioDeDepart(exercice);
+  return Math.min(DEPART_MAXIMUM, Math.max(DEPART_MINIMUM, vise));
+}
+
+/**
+ * Un escalier neuf, parti de l'écart donné — ou du départ général.
+ *
+ * L'écart est ramené dans les bornes de l'escalier, et non seulement dans
+ * celles du départ : `departPour` rend déjà une valeur admissible, mais un
+ * appelant qui calculerait son départ autrement ne doit pas pouvoir poser un
+ * escalier hors bornes. Le premier `repondre` l'y ramènerait de toute façon,
+ * en silence et une réponse trop tard.
+ */
+export function escalierNeuf(depart: number = REGLAGES.departDelta): EtatEscalier {
   return {
-    delta: REGLAGES.departDelta,
+    delta: Math.min(REGLAGES.deltaMaximum, Math.max(REGLAGES.deltaMinimum, depart)),
     bonnesDeSuite: 0,
     inversions: [],
     derniereDirection: null,
