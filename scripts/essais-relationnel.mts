@@ -31,6 +31,13 @@ import {
   couplesPourEntrainement,
   echelonDeMoteur,
   systemesSansPalier,
+  /*
+     « Trace » était NOMMÉ sans être importé, et le fichier tournait quand
+     même : tsx retire les annotations de type sans les résoudre, donc
+     « const historique: Trace[] = [] » devient « const historique = [] ».
+     Le tableau était juste, et son type n'existait pas.
+  */
+  type Trace,
 } from '../src/features/relational-reasoning/progression';
 import { plusPetitSuffisant, type Contexte } from '../src/features/relational-reasoning/noyaux/mus';
 import { poset } from '../src/features/relational-reasoning/systemes/poset';
@@ -49,7 +56,15 @@ function verifier(titre: string, obtenu: unknown, attendu: unknown) {
   if (!ok) echecs += 1;
   console.log(`${ok ? '  ✓' : '  ✗'} ${titre}${ok ? '' : `\n      obtenu  ${a}\n      attendu ${b}`}`);
 }
-const tri = (e: Set<string>) => [...e].sort();
+/*
+   « ReadonlySet », parce que cette aide ne fait que LIRE.
+
+   Elle exigeait un « Set » mutable, et les sept ensembles que l'algèbre rend
+   sont en lecture seule — c'est leur contrat, et il est juste : composer deux
+   relations ne donne pas un ensemble qu'on modifie. Demander plus que ce dont
+   on a besoin ferme la porte à l'appelant le plus prudent.
+*/
+const tri = (e: ReadonlySet<string>) => [...e].sort();
 
 console.log('\nALGÈBRE DE POINTS — line (axe strict, pas d\'égalité)');
 const al = algebreDe(line);

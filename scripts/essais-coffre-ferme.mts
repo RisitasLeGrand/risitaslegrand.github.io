@@ -45,6 +45,21 @@ const tache = (action?: string, id = 'T1'): Tache => ({
   titre: 'Quelque chose',
   domaine: 'odyssee',
   faiteLe: null,
+  /*
+     LES QUATRE CHAMPS QUE « Tache » EXIGE ET QUE CETTE FABRIQUE OMETTAIT.
+
+     « echeance », « abandonneeLe », « motifAbandon » et « note » sont tous
+     obligatoires, et le type explique pourquoi pour les deux du milieu : une
+     tâche abandonnée « quitte l'arriéré SANS être supprimée », parce que la
+     supprimer « ferait remonter le taux de réalisation à chaque
+     renoncement ». Une fabrique qui les omet éprouve donc une tâche que le
+     programme ne peut pas écrire, et dont le suivi du plan tenu ne saurait
+     que faire.
+  */
+  echeance: null,
+  abandonneeLe: null,
+  motifAbandon: null,
+  note: '',
   creeeLe: '2026-10-12T08:00:00.000Z',
   majLe: '2026-10-12T08:00:00.000Z',
   lien: action ? { branche: 'x', action } : null,

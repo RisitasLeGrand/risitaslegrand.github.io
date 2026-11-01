@@ -250,7 +250,14 @@ console.log('\n\x1b[1mLa jointure : déplacement ET dérivation ensemble — ano
   const liee = tache({
     id: '01J',
     titre: 'Courir',
-    lien: { action: ACTIONS_LIABLES[0].id, cible: null },
+    /*
+       LA BRANCHE MANQUAIT, et « LienDeBranche » l'exige : c'est
+       « l'identifiant de la branche, tel que les faits le portent ». Un lien
+       sans branche ne désigne aucun registre de faits ; le pointage ne
+       saurait pas où écrire. On la lit sur l'action elle-même plutôt que de
+       l'écrire à la main, pour que les deux ne puissent pas diverger.
+    */
+    lien: { branche: ACTIONS_LIABLES[0].branche, action: ACTIONS_LIABLES[0].id, cible: null },
     /* La série commence AVANT le jour prévu, sinon il n'y a rien à déplacer. */
     serie: {
       depuis: '2026-09-01',
