@@ -59,6 +59,56 @@ la relecture, qui trancheraient entre le transport et la bâtisse.
 
 ---
 
+### `essais:parametres-navigateur` — l'ancre `#sport` n'emmène nulle part, une fois sur six
+
+**Mesuré, et la cause est dans l'écran, pas dans l'essai.** Inscrit le
+1er novembre 2026 par le constructeur.
+
+L'assertion « `#sport` amène la section dans l'écran » rougit par
+intermittence : cinq rouges de suite, puis un vert, sur le même code. Elle est
+rouge à `bc02395a`, à `f64a4cdb` et à `7af82285` — donc AVANT les fusions de
+branches `src/` du jour, qui n'y sont pour rien. L'essai est hors socle : rien
+ne le surveillait.
+
+**Ce que la sonde a relevé**, en faisant imprimer à l'essai ce qu'il lit :
+
+    ancre=11420 puis {"top":11420,"hauteur":761,"defilement":190,"hauteurDoc":15309}
+
+La page a défilé de **190 px**, et la section se trouve à **11 420 px**. Les
+deux mesures, prises à cinquante millisecondes d'intervalle, sont identiques :
+rien ne bougeait plus, donc `attendreLaFinDuDefilement` a vu juste. **La page
+n'a simplement jamais défilé jusqu'à l'ancre.** Sur la course verte, le même
+relevé donnait `defilement: 11499`.
+
+**Le mécanisme, lu ensuite.** `src/lib/defilement.ts:242` s'écarte
+délibérément quand l'adresse porte une ancre — « Une ancre dans l'adresse a
+toujours raison : c'est une position demandée ». Le défilement est donc laissé
+au navigateur, qui le fait à l'analyse du document, quand les blocs situés
+au-dessus n'ont pas encore reçu leurs commandes et que la page est deux fois
+plus courte. Les blocs grandissent ensuite, la section descend, et plus rien ne
+repose la position. Le 190 px est le défilement natif vers l'endroit où la
+section se trouvait alors.
+
+**Ce n'est pas qu'un défaut d'essai : c'est un défaut d'écran.** Ouvrir
+`/parametres/#sport` dépose la personne au mauvais endroit, et l'intermittence
+ne fait que suivre l'ordre d'arrivée des commandes. Le correctif de l'ancre du
+prompt 43 (`p43-e3-ancres`) traitait un autre point — une ancre qui atterrit
+SOUS ce qui est collé en haut — et ne couvre pas la croissance qui suit.
+
+**Et la machinerie du correctif existe déjà, dans ce même module.**
+`rendreLaPosition` repose la position à CHAQUE changement de hauteur pendant
+une fenêtre de grâce, avec `overflow-anchor: none` et un abandon au premier
+geste de la personne. C'est exactement ce dont une ancre a besoin ; elle en est
+seulement exclue par le retour anticipé de la ligne 242. Proposition, à
+arbitrer par le pilote puisque le lot des ancres n'est pas le mien : traiter la
+cible d'une ancre comme une position demandée — donc la reposer de la même
+façon — au lieu de s'en remettre au seul défilement natif.
+
+**Ce qui retire cette ligne.** Que l'ancre reste en place après la croissance
+de la page, mesuré sur dix courses de suite.
+
+---
+
 ## Les rouges connus au 31 octobre — tous retirés le 1er novembre
 
 Et c'est une information, non une page blanche : les trois entrées qu'a portées
