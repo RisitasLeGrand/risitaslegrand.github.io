@@ -191,6 +191,40 @@ import LienReglages from '../components/LienReglages.astro';
         </span>
       </label>
 
+      <fieldset id="role-appareil" class="mt-4 text-sm">
+        <legend class="font-medium">Cet appareil remplace-t-il celui de la sauvegarde ?</legend>
+        <span class="mt-1 block text-xs text-slate-400">
+          Personne d'autre que vous ne peut le savoir, et la réponse change ce qui est
+          restauré : l'identité de cet appareil et son horloge, dont vos autres
+          appareils se servent pour reconnaître qui a écrit quoi.
+        </span>
+        <label class="mt-2 flex items-start gap-2">
+          <input id="role-remplace" type="radio" name="role" value="remplace-l-ancien" class="mt-1" />
+          <span>
+            Il remplace l'ancien
+            <span class="block text-xs text-slate-400">
+              Un téléphone neuf après une perte, par exemple. Cet appareil reprend
+              l'identité de l'ancien, pour que vos autres appareils le reconnaissent.
+            </span>
+          </span>
+        </label>
+        <label class="mt-2 flex items-start gap-2">
+          <input id="role-ajoute" type="radio" name="role" value="s-ajoute" class="mt-1" />
+          <span>
+            Il s'ajoute à mes appareils
+            <span class="block text-xs text-slate-400">
+              Une tablette à côté du téléphone, par exemple. Cet appareil garde son
+              identité, pour que les deux ne se confondent pas.
+            </span>
+          </span>
+        </label>
+        <span class="mt-2 block text-xs text-slate-400">
+          Dans les deux cas, l'appairage avec vos autres appareils est à refaire :
+          les clés de votre boîte aux lettres ne sont jamais reprises d'une
+          sauvegarde.
+        </span>
+      </fieldset>
+
       <label class="mt-3 flex items-start gap-2 text-sm">
         <input id="avec-instantane" type="checkbox" checked class="mt-1" />
         <span>
@@ -205,6 +239,13 @@ import LienReglages from '../components/LienReglages.astro';
       <button id="appliquer-cyclades" class="mt-4 rounded-lg bg-red-600 px-5 py-2.5 font-medium text-white transition hover:bg-red-700">
         Remplacer ma progression par cette sauvegarde
       </button>
+
+      <!--
+         Ce que la restauration a décidé de l'IDENTITÉ de cet appareil — B-7.
+         Au bout de la section qui restaure, et non dans celle qui sauvegarde :
+         c'est le résultat de ce geste-ci.
+      -->
+      <dl id="identite-restauree" class="mt-4 hidden grid-cols-2 gap-3 text-sm sm:grid"></dl>
     </div>
   </section>
 
@@ -296,6 +337,10 @@ import LienReglages from '../components/LienReglages.astro';
     toutesLesCartes,
   } from '../lib/db';
   import { apercu, etatSauvegarde, fabriquer, noterSauvegardeReussie, restaurer } from '../lib/sauvegarde/service';
+  import {
+    ceQueLEcranDoitDire,
+    type RoleDeLAppareil,
+  } from '../lib/sauvegarde/politique-de-l-identite';
   import { toutEffacerSurCetAppareil } from '../lib/sauvegarde/effacement-total';
   import { compterParGroupe, direLesGroupes } from '../lib/sauvegarde/effacement';
   import { appairageMemorise, oublierAppairage } from '../lib/sync/appairage';
@@ -702,6 +747,32 @@ import LienReglages from '../components/LienReglages.astro';
     const avecInstantane = ($('avec-instantane') as HTMLInputElement).checked;
 
     /*
+       B-7 — LA QUESTION N'A PAS DE RÉPONSE PAR DÉFAUT, ET C'EST VOULU.
+
+       Aucun des deux boutons n'est coché au départ. Un défaut choisirait à la
+       place de la personne, et les deux réponses sont justes selon le cas :
+       reprendre l'identité de l'ancien appareil quand celui-ci le remplace, pour
+       que les pairs le reconnaissent ; la garder sienne quand il s'ajoute, pour
+       que deux appareils ne se confondent pas. La décision 3 du 26/10 demande de
+       la poser à CHAQUE restauration, donc rien n'est mémorisé.
+
+       Et on REFUSE en disant quoi faire, plutôt que de désactiver le bouton : un
+       bouton grisé n'explique rien, et la personne cherche ce qui manque.
+    */
+    const choisi = document.querySelector<HTMLInputElement>('input[name="role"]:checked');
+    if (!choisi) {
+      dire(
+        'message-cyclades',
+        'Indiquez si cet appareil remplace celui de la sauvegarde ou s\'y ajoute : ' +
+          'la réponse change ce qui est restauré.',
+        'echec',
+      );
+      ($('role-remplace') as HTMLInputElement).focus();
+      return;
+    }
+    const role = choisi.value as RoleDeLAppareil;
+
+    /*
        A6 DU 43 — LA CONFIRMATION DIT CE QU'ON PERD, ET CE QU'ON PREND.
 
        L'ancien texte disait « Ce qui est enregistré ici sera écrasé par le
@@ -769,6 +840,7 @@ import LienReglages from '../components/LienReglages.astro';
         octets: aRestaurer,
         motDePasse: mdp || undefined,
         instantane: avecInstantane,
+        role,
       });
 
       // L'instantané part en fichier avant que l'écran ne change d'état.
@@ -796,6 +868,25 @@ import LienReglages from '../components/LienReglages.astro';
             : '') +
           '.',
         'succes',
+      );
+      /*
+         B-7 — ON DIT CE QUI A ÉTÉ DÉCIDÉ DE L'IDENTITÉ, et pas une phrase
+         générale. La description du groupe « Réglages et profil » a déjà montré
+         ce que coûte une promesse générale : elle affirmait que l'identité de
+         l'appareil n'est pas touchée, ce qui était vrai de l'effacement à la
+         carte et faux de la restauration complète. Ici, les phrases viennent de
+         la politique elle-même, donc elles ne peuvent pas la contredire.
+
+         L'appairage à refaire est dit dans les DEUX cas, parce que les clés de
+         boîte ne se reprennent jamais. Le taire ferait découvrir la panne au
+         premier pli perdu, c'est-à-dire au moment où la personne croit que tout
+         est revenu.
+      */
+      definition(
+        'identite-restauree',
+        ceQueLEcranDoitDire(r.identite.role).map(
+          ({ intitule, phrase }) => [intitule, phrase] as [string, string],
+        ),
       );
       notifier('Progression restaurée', 'succes');
       aRestaurer = null;

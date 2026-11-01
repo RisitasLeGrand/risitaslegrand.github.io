@@ -214,21 +214,120 @@ export function clefsNonClassees(clefs: readonly string[]): string[] {
  * se reprennent jamais. Le taire ferait découvrir la panne au premier pli
  * perdu, c'est-à-dire au moment où la personne croit que tout est revenu.
  */
-export function ceQueLEcranDoitDire(role: RoleDeLAppareil): readonly string[] {
-  const commun = [
-    'L’appairage avec vos autres appareils est à refaire : les clés de votre ' +
-      'boîte aux lettres ne sont jamais reprises d’une sauvegarde.',
-  ];
+export function ceQueLEcranDoitDire(
+  role: RoleDeLAppareil,
+): readonly { readonly intitule: string; readonly phrase: string }[] {
+  const appairage = {
+    intitule: 'Appairage',
+    phrase:
+      'À refaire avec vos autres appareils : les clés de votre boîte aux lettres ' +
+      'ne sont jamais reprises d’une sauvegarde.',
+  };
   return role === 'remplace-l-ancien'
     ? [
-        'Cet appareil reprend l’identité de celui qui a écrit la sauvegarde, pour ' +
-          'que vos autres appareils le reconnaissent.',
-        ...commun,
-        'Pensez à délier l’ancien appareil, qui porte encore la même identité.',
+        {
+          intitule: 'Identité de cet appareil',
+          phrase:
+            'Reprise de la sauvegarde, pour que vos autres appareils reconnaissent ' +
+            'celui-ci.',
+        },
+        appairage,
+        {
+          intitule: 'À faire ensuite',
+          phrase: 'Délier l’ancien appareil, qui porte encore la même identité.',
+        },
       ]
     : [
-        'Cet appareil garde sa propre identité : vos autres appareils continuent ' +
-          'de le distinguer de celui qui a écrit la sauvegarde.',
-        ...commun,
+        {
+          intitule: 'Identité de cet appareil',
+          phrase:
+            'Gardée : vos autres appareils continuent de distinguer celui-ci de ' +
+            'celui qui a écrit la sauvegarde.',
+        },
+        appairage,
       ];
+}
+
+/** Un enregistrement d'`etat` : la clé vit hors de l'objet. */
+export interface EntreeDEtat {
+  clef: string;
+  valeur: unknown;
+}
+
+/** Ce que la fusion a décidé, pour que l'écran puisse le dire. */
+export interface EtatFusionne {
+  /** Ce qui sera écrit dans `etat`, et rien d'autre. */
+  etat: EntreeDEtat[];
+  /** Les clés reprises du fichier parce que l'appareil remplace l'ancien. */
+  reprisesDuFichier: string[];
+  /** Les clés que le fichier portait et que l'appareil garde siennes. */
+  gardeesLocales: string[];
+  /**
+   * Les clés techniques qu'aucune liste ne classe.
+   *
+   * Elles sont gardées LOCALES, qui est le choix conservateur — une clé
+   * technique inconnue laissée locale peut au pire faire recalculer quelque
+   * chose, tandis que la reprendre du fichier pourrait forger une identité. Mais
+   * ce choix n'est pas une politique : c'est un filet. La politique, c'est que
+   * cette liste soit vide, et un essai le garde en balayant les sources.
+   *
+   * On ne refuse pas la restauration pour autant. Quelqu'un qui restaure a déjà
+   * perdu quelque chose ; lui refuser son fichier pour une clé mal rangée par
+   * nous serait lui faire payer notre oubli au pire moment.
+   */
+  nonClassees: string[];
+}
+
+/**
+ * Ce que `etat` doit porter après la restauration.
+ *
+ * PURE, et c'est voulu : toute la décision de B-7 s'éprouve ainsi sans
+ * navigateur, sans base et sans mot de passe. Le module ne lit rien et n'écrit
+ * rien — on lui donne les deux états et le rôle, il rend le troisième.
+ *
+ * `estTechnique` est passé en paramètre plutôt qu'importé : ce module n'a alors
+ * aucune dépendance, et l'essai peut lui donner un critère de son choix pour
+ * éprouver le filet des clés non classées, qui serait autrement inatteignable.
+ *
+ * LA SÉMANTIQUE EST CELLE DU REMPLACEMENT, des deux côtés. Une clé qui vient du
+ * fichier et que le fichier ne porte pas DISPARAÎT — c'est le sens de
+ * « Remplacer » : si la personne n'avait pas ce réglage, elle ne l'a pas après.
+ * Et une clé qui reste locale et que l'appareil ne porte pas ne s'invente pas.
+ */
+export function etatARestaurer(
+  duFichier: readonly EntreeDEtat[],
+  duLocal: readonly EntreeDEtat[],
+  role: RoleDeLAppareil,
+  estTechnique: (clef: string) => boolean,
+): EtatFusionne {
+  const fichier = new Map(duFichier.map((e) => [e.clef, e.valeur]));
+  const local = new Map(duLocal.map((e) => [e.clef, e.valeur]));
+
+  const etat: EntreeDEtat[] = [];
+  const reprisesDuFichier: string[] = [];
+  const gardeesLocales: string[] = [];
+  const nonClassees: string[] = [];
+
+  for (const clef of [...new Set([...fichier.keys(), ...local.keys()])].sort()) {
+    const ou = source(clef, role, estTechnique);
+    if (ou === 'non-classee') nonClassees.push(clef);
+
+    if (ou === 'fichier') {
+      if (fichier.has(clef)) {
+        etat.push({ clef, valeur: fichier.get(clef) });
+        if (!local.has(clef) || clef in SELON_LE_ROLE) reprisesDuFichier.push(clef);
+      }
+      continue;
+    }
+    if (local.has(clef)) etat.push({ clef, valeur: local.get(clef) });
+    /*
+       Et on ne la compte « gardée » que si le FICHIER la portait : une clé
+       locale que le fichier n'a jamais eue n'a pas été gardée contre quoi que ce
+       soit, et l'annoncer à la personne ferait du bruit là où il n'y a pas de
+       décision.
+    */
+    if (fichier.has(clef)) gardeesLocales.push(clef);
+  }
+
+  return { etat, reprisesDuFichier, gardeesLocales, nonClassees };
 }

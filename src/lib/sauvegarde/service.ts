@@ -21,6 +21,13 @@ import { VERSION as VERSION_DE_LA_BASE } from '../db';
 import { BRANCHES, ID_BRANCHE_PAR_DEFAUT } from '../branches';
 import { PARCOURS } from '../parcours/registre';
 import { estScelle } from '../noyau/coffre';
+import { estTechnique } from './groupes';
+import {
+  etatARestaurer,
+  type EntreeDEtat,
+  type EtatFusionne,
+  type RoleDeLAppareil,
+} from './politique-de-l-identite';
 import {
   ecrire,
   nomDeFichier,
@@ -238,10 +245,34 @@ export interface ResultatRestauration {
   inconnus: string[];
   /** L'instantané de sécurité pris juste avant, s'il a été pris. */
   instantane: ResultatSauvegarde | null;
+  /**
+   * Ce que la politique d'identité a décidé, pour que l'écran puisse le DIRE.
+   *
+   * Sans cela l'écran ne pourrait qu'annoncer une phrase générale, et la
+   * description du groupe « Réglages et profil » a déjà montré ce que coûte une
+   * promesse générale : elle disait que l'identité n'est pas touchée, ce qui
+   * était vrai de l'effacement à la carte et faux de la restauration complète.
+   */
+  identite: EtatFusionne & { role: RoleDeLAppareil };
 }
 
 export interface OptionsRestauration {
   octets: Uint8Array;
+  /**
+   * Cet appareil remplace-t-il celui qui a écrit la sauvegarde, ou s'y ajoute-t-il ?
+   *
+   * OBLIGATOIRE, et sans valeur par défaut — B-7. Un défaut choisirait à la
+   * place de la personne, et les deux réponses sont justes selon le cas :
+   * reprendre l'identité quand l'appareil remplace l'ancien, pour que les pairs
+   * le reconnaissent ; la garder sienne quand il s'ajoute, pour que deux
+   * appareils ne se confondent pas. Seule la personne sait lequel des deux elle
+   * tient en main, et la décision 3 du 26/10 demande de le lui demander à
+   * CHAQUE restauration.
+   *
+   * Le rendre obligatoire fait que le compilateur réclame la réponse à chaque
+   * appelant, présent et futur. C'est le seul garde qui ne s'oublie pas.
+   */
+  role: RoleDeLAppareil;
   /** Le mot de passe **du fichier**, qui peut différer de celui du site. */
   motDePasse?: string;
   /**
@@ -291,6 +322,28 @@ export async function restaurer(
   */
   const inconnus = magasinsInconnus(Object.keys(relecture.magasins));
 
+  /*
+     L'IDENTITÉ SE DÉCIDE ICI, AVANT L'INSTANTANÉ — B-7.
+
+     Avant l'instantané pour une raison précise : « fabriquer() » écrit la date
+     de dernière sauvegarde. Lire l'état local APRÈS lui ferait garder une date
+     que l'instantané vient de poser, et non celle que l'appareil portait. La
+     question « que portait cet appareil » doit être posée avant qu'on y touche.
+
+     Et « relecture » n'est pas modifiée : elle décrit le FICHIER, fidèlement, et
+     c'est elle qu'on rend à l'appelant. Ce qu'on a DÉCIDÉ d'écrire est autre
+     chose, et confondre les deux ferait raconter à l'écran le fichier qu'il
+     aurait voulu plutôt que celui qu'il a reçu.
+  */
+  const etatLocal = ((await exporterMagasins(['etat'])).etat ?? []) as EntreeDEtat[];
+  const identite = etatARestaurer(
+    (relecture.magasins.etat ?? []) as EntreeDEtat[],
+    etatLocal,
+    options.role,
+    estTechnique,
+  );
+  const aEcrire = { ...relecture.magasins, etat: identite.etat };
+
   let instantane: ResultatSauvegarde | null = null;
   if (options.instantane !== false) {
     const mdp =
@@ -300,8 +353,8 @@ export async function restaurer(
     instantane = await fabriquer(mdp);
   }
 
-  const { ecrits } = await remplacerMagasins(relecture.magasins);
-  return { relecture, ecrits, inconnus, instantane };
+  const { ecrits } = await remplacerMagasins(aEcrire);
+  return { relecture, ecrits, inconnus, instantane, identite: { ...identite, role: options.role } };
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
