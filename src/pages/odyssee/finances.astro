@@ -143,7 +143,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
   import { iconeDuGabarit } from '../../lib/icone-gabarit';
-  import { pluriel } from '../../lib/ui';
+  import { accorde, pluriel } from '../../lib/ui';
   import { messageDUneErreur } from '../../lib/agir';
   import { euros, type OperationBancaire } from '../../lib/odyssee/finances';
   import { lireReleve, empreintesDOperations, type CompteLu, type Lecture } from '../../lib/odyssee/releve';
@@ -274,12 +274,16 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     const verdict = $('verdict');
     verdict.dataset.importable = String(lecture.importable);
     if (lecture.importable) {
-      verdict.textContent = `Les ${lecture.controles.length} compte(s) bouclent au centime.`;
+      verdict.textContent =
+        `${pluriel(lecture.controles.length, 'compte')} ` +
+        `${accorde(lecture.controles.length, 'boucle', 'bouclent')} au centime.`;
       verdict.className = 'mt-1 text-sm text-emerald-800 dark:text-emerald-200';
     } else {
       verdict.textContent =
-        `Import refusé — ${lecture.controles.length - bouclent.length} compte(s) sur ` +
-        `${lecture.controles.length} ne bouclent pas. Rien n’a été enregistré. ` +
+        `Import refusé — ${pluriel(lecture.controles.length - bouclent.length, 'compte')} sur ` +
+        `${lecture.controles.length} ` +
+        `${accorde(lecture.controles.length - bouclent.length, 'ne boucle', 'ne bouclent')} pas. ` +
+        'Rien n’a été enregistré. ' +
         'Un relevé dont le solde ne se recompose pas contient une erreur de lecture, ' +
         'et une opération mal signée fausse tout ce qui suit.';
       verdict.className = 'mt-1 text-sm text-rose-800 dark:text-rose-200';
@@ -325,7 +329,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           className: 'sr-only',
           textContent: `${sens} : `,
         }),
-        document.createTextNode(` ${c.nom} — ${c.operations} opération(s)`),
+        document.createTextNode(` ${c.nom} — ${pluriel(c.operations, 'opération')}`),
       );
       li.querySelectorAll('p')[1].textContent = c.message;
       liste.appendChild(li);
@@ -362,9 +366,14 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
     $('gabarit').textContent = `Gabarit reconnu : ${lecture.empreinte.slice(0, 120)}`;
     ($('enregistrer') as HTMLButtonElement).disabled = bouclent.length === 0;
+    /* Nommé plutôt que recalculé : il sert au libellé ET à son accord. */
+    const aEnregistrer = premieres.length
+      ? lecture.comptes.reduce((s, c) => s + c.operations.length, 0)
+      : 0;
     ($('enregistrer') as HTMLButtonElement).textContent = lecture.importable
-      ? `Enregistrer ${premieres.length ? lecture.comptes.reduce((s, c) => s + c.operations.length, 0) : 0} opération(s)`
-      : `Enregistrer les ${bouclent.length} compte(s) qui bouclent`;
+      ? `Enregistrer ${pluriel(aEnregistrer, 'opération')}`
+      : `Enregistrer les ${pluriel(bouclent.length, 'compte')} qui ` +
+        `${accorde(bouclent.length, 'boucle', 'bouclent')}`;
   }
 
   /* ── Lire un fichier ──────────────────────────────────────────────────── */
@@ -451,8 +460,10 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     const resultat = $('resultat');
     resultat.classList.remove('hidden');
     resultat.textContent =
-      `${ecrites} opération(s) enregistrée(s)` +
-      (dejaLa ? `, ${dejaLa} déjà présente(s) et ignorée(s).` : '.');
+      `${pluriel(ecrites, 'opération')} ${accorde(ecrites, 'enregistrée')}` +
+      (dejaLa
+        ? `, ${dejaLa} déjà ${accorde(dejaLa, 'présente')} et ${accorde(dejaLa, 'ignorée')}.`
+        : '.');
     await peindreEtat();
   }
 
@@ -524,8 +535,11 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
     const neufs = nouveaux(contenu);
     $('etat-dossier').textContent = neufs.length
-      ? `Dossier « ${poignee.name} » : ${neufs.length} nouveau(x) relevé(s) sur ${contenu.length}.`
-      : `Dossier « ${poignee.name} » : rien de nouveau sur ${contenu.length} fichier(s).`;
+      ? `Dossier « ${poignee.name} » : ${neufs.length} ` +
+        `${accorde(neufs.length, 'nouveau', 'nouveaux')} ` +
+        `${accorde(neufs.length, 'relevé')} sur ${contenu.length}.`
+      : `Dossier « ${poignee.name} » : rien de nouveau sur ` +
+        `${pluriel(contenu.length, 'fichier')}.`;
 
     const liste = $('nouveaux-releves');
     liste.innerHTML = '';

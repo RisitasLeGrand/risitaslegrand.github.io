@@ -7,6 +7,7 @@
  * répondre. Le tirage, lui, ne reproduit pas l'épreuve : il s'appuie sur
  * l'historique local pour ramener plus souvent ce qui est mal su.
  */
+import { nombreFr } from './noyau/accords';
 import type { BanqueDgfip, QuestionDgfip, RubriqueDgfip } from './contenu';
 import { indexerLesExclusions, tirerSansDeuxDuMemeLien } from './qcm-familles';
 import { estExpiree, questionsServables } from './qcm-temporalite';
@@ -361,6 +362,6 @@ export function formaterPoints(valeur: number): string {
   const arrondi = Math.round(valeur * 2) / 2;
   const texte = Number.isInteger(arrondi)
     ? String(arrondi)
-    : arrondi.toFixed(1).replace('.', ',');
+    : nombreFr(arrondi, 1);
   return texte.replace('-', '−');
 }

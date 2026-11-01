@@ -17,6 +17,7 @@
    * Le mode sombre a ses propres pas, choisis contre le fond sombre, et non la
    * rampe claire inversée.
    */
+  import { nombreFr } from '../../../lib/noyau/accords';
   import { confirmer } from '../../../lib/boite';
   import { effacerVeridical, jourISO, type SessionVeridical, type SeuilVeridical } from '../../../lib/db';
   import { DIMENSIONS, dimensionsDeFamille, type Famille } from '../dimensions';
@@ -210,7 +211,7 @@
                         ? `${donnee.escalier.essais} essais, ${INTITULES_STATUT[donnee.statut]}`
                         : 'jamais travaillée'}"
                     >
-                      {donnee?.seuil ? donnee.seuil.toFixed(1) : donnee?.escalier.essais ? '…' : '—'}
+                      {donnee?.seuil ? nombreFr(donnee.seuil, 1) : donnee?.escalier.essais ? '…' : '—'}
                     </button>
                   {/if}
                 </td>
@@ -227,7 +228,7 @@
         {detail.escalier.reussis} réussi{detail.escalier.reussis > 1 ? 's' : ''},
           {detail.escalier.inversions.length}
           inversion{detail.escalier.inversions.length > 1 ? 's' : ''},
-        {INTITULES_STATUT[detail.statut]}{#if detail.seuil}, seuil {detail.seuil.toFixed(2)} pas{/if}.
+        {INTITULES_STATUT[detail.statut]}{#if detail.seuil}, seuil {nombreFr(detail.seuil, 2)} pas{/if}.
         {#if detail.horsFamille}<span class="text-amber-700 dark:text-amber-300"> Paire hors famille.</span>{/if}
       </p>
     {/if}
@@ -255,7 +256,7 @@
               <td class="py-1 font-mono text-slate-600 dark:text-slate-300">{entree.aretes}</td>
               <td class="py-1 font-mono text-slate-600 dark:text-slate-300">{entree.stabilisees}</td>
               <td class="py-1 font-mono text-slate-600 dark:text-slate-300">
-                {entree.moyen === null ? '—' : `${entree.moyen.toFixed(1)} pas`}
+                {entree.moyen === null ? '—' : `${nombreFr(entree.moyen, 1)} pas`}
               </td>
             </tr>
           {/each}
@@ -297,6 +298,7 @@
         aria-label="Écart médian sur {courbe.length} session{courbe.length > 1 ? 's' : ''}">
         <line x1={MARGE.gauche} y1={ordonnee(0)} x2={LARGEUR - MARGE.droite} y2={ordonnee(0)}
           class="stroke-slate-200 dark:stroke-slate-700" stroke-width="1" />
+        <!-- nombre non affiché en phrase : libellé d'AXE, où la place manque. -->
         <text x="4" y={ordonnee(maximum) + 4} class="fill-slate-400 text-xs">{maximum.toFixed(0)}</text>
         <text x="4" y={ordonnee(0) + 4} class="fill-slate-400 text-xs">0</text>
         {#if courbe.length > 1}
@@ -306,7 +308,7 @@
         {#each courbe as point, i (point.le)}
           <circle cx={abscisse(i)} cy={ordonnee(point.valeur)} r="4.5"
             class="fill-indigo-600 stroke-white dark:fill-indigo-400 dark:stroke-slate-900" stroke-width="2">
-            <title>{jour(point.le)} — {point.valeur.toFixed(2)} pas</title>
+            <title>{jour(point.le)} — {nombreFr(point.valeur, 2)} pas</title>
           </circle>
         {/each}
       </svg>
@@ -350,7 +352,7 @@
                   {session.essais ? Math.round((session.reussis / session.essais) * 100) : 0} %
                 </td>
                 <td class="py-1 font-mono text-slate-600 dark:text-slate-300">
-                  {session.seuilMedian === null ? '—' : `${session.seuilMedian.toFixed(1)}`}
+                  {session.seuilMedian === null ? '—' : nombreFr(session.seuilMedian, 1)}
                 </td>
               </tr>
             {/each}

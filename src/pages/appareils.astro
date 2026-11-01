@@ -523,6 +523,7 @@ import LienReglages from '../components/LienReglages.astro';
   import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper } from '../lib/ui';
+  import { accorde, nombreFr, pluriel } from '../lib/noyau/accords';
   import { empreinteLisible } from '../lib/noyau/empreinte';
   import { fusionInachevee, reprendreLaFusion } from '../lib/sync/reprise';
   import {
@@ -760,9 +761,9 @@ import LienReglages from '../components/LienReglages.astro';
     const qui = marque.nomAppareil ?? 'un appareil sans nom';
     $('fusion-interrompue-detail').textContent =
       `Paquet reçu de ${qui}, le ${quand} : ` +
-      `${marque.cibles.length.toLocaleString('fr-FR')} rubrique(s) à ranger` +
+      `${nombreFr(marque.cibles.length)} ${accorde(marque.cibles.length, 'rubrique')} à ranger` +
       (marque.cartes.length
-        ? ` et ${marque.cartes.length.toLocaleString('fr-FR')} carte(s) à recalculer.`
+        ? ` et ${nombreFr(marque.cartes.length)} ${accorde(marque.cartes.length, 'carte')} à recalculer.`
         : '.');
   }
 
@@ -905,8 +906,9 @@ import LienReglages from '../components/LienReglages.astro';
               ? 'border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20'
               : 'border-slate-200 dark:border-slate-800'
           }">` +
-          `<span>${marque}Le ${quand}, de « ${venu} » : ${lot.operations} opération(s), ` +
-          `${lot.revisions} révision(s), ${lot.cartes.length} carte(s) recalculée(s).` +
+          `<span>${marque}Le ${quand}, de « ${venu} » : ${pluriel(lot.operations, 'opération')}, ` +
+          `${pluriel(lot.revisions, 'révision')}, ${pluriel(lot.cartes.length, 'carte')} ` +
+          `${accorde(lot.cartes.length, 'recalculée')}.` +
           (encore
             ? `<br><span class="text-slate-500 dark:text-slate-400">Annulable jusqu’au ` +
               `${limite.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}.</span>`
@@ -923,9 +925,12 @@ import LienReglages from '../components/LienReglages.astro';
         const confirme = await confirmer({
           titre: `Annuler la synchronisation du ${new Date(details.le).toLocaleString('fr-FR')} ?`,
           texte:
-            `Seront retirées ${details.operations} opération(s) et ${details.revisions} ` +
-            'révision(s) reçues dans cette synchronisation, et elles seules. ' +
-            `${details.cartes.length} carte(s) seront recalculées. ` +
+            `${accorde(details.operations + details.revisions, 'Sera retirée', 'Seront retirées')} ` +
+            `${pluriel(details.operations, 'opération')} et ${pluriel(details.revisions, 'révision')} ` +
+            `${accorde(details.operations + details.revisions, 'reçue')} dans cette ` +
+            'synchronisation, et elles seules. ' +
+            `${pluriel(details.cartes.length, 'carte')} ` +
+            `${accorde(details.cartes.length, 'sera recalculée', 'seront recalculées')}. ` +
             'Ce que vous avez saisi ici depuis n’est pas touché.',
           action: 'Annuler cette synchronisation',
           destructrice: true,
@@ -936,10 +941,14 @@ import LienReglages from '../components/LienReglages.astro';
           const rapport = await annulerFusion(lot);
           dire(
             'message-annulation',
-            `Annulée : ${rapport.retirees} opération(s) et ${rapport.revisionsRetirees} ` +
-              `révision(s) retirées, ${rapport.cartesRecalculees} carte(s) recalculée(s)` +
+            `Annulée : ${pluriel(rapport.retirees, 'opération')} et ` +
+              `${pluriel(rapport.revisionsRetirees, 'révision')} ` +
+              `${accorde(rapport.retirees + rapport.revisionsRetirees, 'retirée')}, ` +
+              `${pluriel(rapport.cartesRecalculees, 'carte')} ` +
+              `${accorde(rapport.cartesRecalculees, 'recalculée')}` +
               (rapport.domaineEffaces
-                ? `, ${rapport.domaineEffaces} enregistrement(s) repartis`
+                ? `, ${pluriel(rapport.domaineEffaces, 'enregistrement')} ` +
+                  `${accorde(rapport.domaineEffaces, 'reparti')}`
                 : '') +
               '.',
             'succes',
@@ -990,7 +999,7 @@ import LienReglages from '../components/LienReglages.astro';
         return (
           `${echapper(debut)}${note.trim().length > 120 ? '…' : ''} ` +
           `<span class="text-slate-500 dark:text-slate-400">(${note.trim().length} signes, ` +
-          `${restitutions} restitution(s))</span>`
+          `${pluriel(restitutions, 'restitution')})</span>`
         );
       }
       const brut = JSON.stringify(enregistrement) ?? '';
@@ -1169,11 +1178,15 @@ import LienReglages from '../components/LienReglages.astro';
         */
         direReconstruction(
           fait
-            ? `Reconstruction faite : ${fait.ecrits.toLocaleString('fr-FR')} ` +
-                `enregistrement(s) écrit(s)` +
-                (fait.effaces ? `, ${fait.effaces.toLocaleString('fr-FR')} effacé(s)` : '') +
+            ? `Reconstruction faite : ${nombreFr(fait.ecrits)} ` +
+                `${accorde(fait.ecrits, 'enregistrement')} ${accorde(fait.ecrits, 'écrit')}` +
+                (fait.effaces
+                  ? `, ${nombreFr(fait.effaces)} ${accorde(fait.effaces, 'effacé')}`
+                  : '') +
                 (fait.cartesRecalculees
-                  ? `, ${fait.cartesRecalculees.toLocaleString('fr-FR')} carte(s) recalculée(s)`
+                  ? `, ${nombreFr(fait.cartesRecalculees)} ` +
+                    `${accorde(fait.cartesRecalculees, 'carte')} ` +
+                    `${accorde(fait.cartesRecalculees, 'recalculée')}`
                   : '') +
                 '.'
             : 'Il n’y avait plus rien à reconstruire : le travail avait déjà été fini.',
@@ -1347,7 +1360,10 @@ import LienReglages from '../components/LienReglages.astro';
         dire(
           'message-dossier',
           `Déposé : ${paquet.nom} (${Math.round(paquet.tailleFichier / 1024)} Kio)` +
-            (retires.length ? `, ${retires.length} ancien(s) paquet(s) retiré(s)` : '') +
+            (retires.length
+              ? `, ${retires.length} ${accorde(retires.length, 'ancien')} ` +
+                `${accorde(retires.length, 'paquet')} ${accorde(retires.length, 'retiré')}`
+              : '') +
             '.',
           'succes',
         );
@@ -1372,10 +1388,16 @@ import LienReglages from '../components/LienReglages.astro';
         ($('mdp-dossier') as HTMLInputElement).value = '';
         dire(
           'message-dossier',
-          `${rapport.recues} opération(s) et ${rapport.revisionsRecues} révision(s) reçues ; ` +
-            `${rapport.cartesRecalculees} carte(s) recalculée(s)` +
-            (rapport.domaineEcrits ? ` ; ${rapport.domaineEcrits} enregistrement(s) écrit(s)` : '') +
-            (rapport.conflits ? ` ; ${rapport.conflits} conflit(s) à traiter` : '') +
+          `${pluriel(rapport.recues, 'opération')} et ` +
+            `${pluriel(rapport.revisionsRecues, 'révision')} ` +
+            `${accorde(rapport.recues + rapport.revisionsRecues, 'reçue')} ; ` +
+            `${pluriel(rapport.cartesRecalculees, 'carte')} ` +
+            `${accorde(rapport.cartesRecalculees, 'recalculée')}` +
+            (rapport.domaineEcrits
+              ? ` ; ${pluriel(rapport.domaineEcrits, 'enregistrement')} ` +
+                `${accorde(rapport.domaineEcrits, 'écrit')}`
+              : '') +
+            (rapport.conflits ? ` ; ${pluriel(rapport.conflits, 'conflit')} à traiter` : '') +
             '.',
           'succes',
         );
@@ -1416,8 +1438,15 @@ import LienReglages from '../components/LienReglages.astro';
         ($('mdp-envoi') as HTMLInputElement).value = '';
         dire(
           'message-envoi',
-          `Paquet créé : ${paquet.operations} opération(s), ${paquet.revisions} révision(s), ` +
-            `${(paquet.tailleFichier / 1024).toFixed(1)} Kio. Transportez-le sur l’autre appareil.`,
+          `Paquet créé : ${pluriel(paquet.operations, 'opération')}, ` +
+          `${pluriel(paquet.revisions, 'révision')}, ` +
+            /*
+               UNE TAILLE EST UN NOMBRE AFFICHÉ. `toFixed(1)` écrivait
+               « 12.3 Kio » — un point décimal dans une phrase française — et
+               ne séparait pas les milliers, donc « 1024.0 Kio » là où un œil
+               attend « 1 024,0 Kio ».
+            */
+            `${nombreFr(paquet.tailleFichier / 1024, 1)} Kio. Transportez-le sur l’autre appareil.`,
           'succes',
         );
       } catch (erreur) {
@@ -1561,17 +1590,30 @@ import LienReglages from '../components/LienReglages.astro';
         const rapport = await reconstruireEtatsDerives();
         dire(
           'message-reconstruction',
-          `${rapport.cartes} carte(s) recalculée(s) depuis le journal.` +
+          `${pluriel(rapport.cartes, 'carte')} ` +
+            `${accorde(rapport.cartes, 'recalculée')} depuis le journal.` +
             (rapport.sansJournal
-              ? ` ${rapport.sansJournal} carte(s) n’ont pas d’entrée au journal : leur état est ` +
-                'laissé tel quel, parce qu’on ne sait pas le reconstituer.'
+              ? /*
+                   LE VERBE S'ACCORDE AUSSI, et « n'ont pas » au singulier
+                   devient « n'a pas ». Un « (s) » ne couvrait que le nom et
+                   laissait le verbe au pluriel : « 1 carte(s) n'ont pas »
+                   était faux des deux côtés à la fois.
+                */
+                ` ${pluriel(rapport.sansJournal, 'carte')} ` +
+                `${accorde(rapport.sansJournal, 'n’a', 'n’ont')} pas d’entrée au ` +
+                'journal : leur état est laissé tel quel, parce qu’on ne sait pas le ' +
+                'reconstituer.'
               : '') +
             (rapport.domaineSocles
-              ? ` ${rapport.domaineSocles} enregistrement(s) de domaine sont entrés au journal.`
+              ? ` ${pluriel(rapport.domaineSocles, 'enregistrement')} de domaine ` +
+                `${accorde(rapport.domaineSocles, 'est entré', 'sont entrés')} au journal.`
               : '') +
             (rapport.domaineEcrits || rapport.domaineEffaces
-              ? ` ${rapport.domaineEcrits} réécrit(s) depuis le journal` +
-                (rapport.domaineEffaces ? `, ${rapport.domaineEffaces} effacé(s).` : '.')
+              ? ` ${rapport.domaineEcrits} ${accorde(rapport.domaineEcrits, 'réécrit')} ` +
+                'depuis le journal' +
+                (rapport.domaineEffaces
+                  ? `, ${rapport.domaineEffaces} ${accorde(rapport.domaineEffaces, 'effacé')}.`
+                  : '.')
               : ''),
           'succes',
         );
@@ -1600,7 +1642,7 @@ import LienReglages from '../components/LienReglages.astro';
         $('apercu-detail').innerHTML = definitions([
           ['Venu de', vu.metadonnees.nomAppareil ?? vu.metadonnees.appareil],
           ['Empreinte annoncée', empreinteLisible(vu.metadonnees.empreinte)],
-          ['Taille', `${(vu.tailleFichier / 1024).toFixed(1)} Kio`],
+          ['Taille', `${nombreFr(vu.tailleFichier / 1024, 1)} Kio`],
           ['Intégrité', vu.intact ? 'intact ✓' : 'abîmé'],
         ]);
         const avertissements: string[] = [];
@@ -1664,8 +1706,11 @@ import LienReglages from '../components/LienReglages.astro';
         dire('apercu-avertissement', rapport.diagnostic.message, 'neutre');
         ($('mdp-fusion') as HTMLInputElement).value = '';
         const parties = [
-          `${rapport.recues} opération(s) et ${rapport.revisionsRecues} révision(s) reçues`,
-          `${rapport.cartesRecalculees} carte(s) recalculée(s)`,
+          `${pluriel(rapport.recues, 'opération')} et ` +
+            `${pluriel(rapport.revisionsRecues, 'révision')} ` +
+            accorde(rapport.recues + rapport.revisionsRecues, 'reçue'),
+          `${pluriel(rapport.cartesRecalculees, 'carte')} ` +
+            `${accorde(rapport.cartesRecalculees, 'recalculée')}`,
         ];
         /*
            Les enregistrements de domaine ont leur propre ligne : « deux QCM
@@ -1673,20 +1718,25 @@ import LienReglages from '../components/LienReglages.astro';
         */
         if (rapport.domaineEcrits || rapport.domaineEffaces) {
           parties.push(
-            `${rapport.domaineEcrits} enregistrement(s) écrit(s)` +
-              (rapport.domaineEffaces ? `, ${rapport.domaineEffaces} effacé(s)` : ''),
+            `${pluriel(rapport.domaineEcrits, 'enregistrement')} ` +
+              `${accorde(rapport.domaineEcrits, 'écrit')}` +
+              (rapport.domaineEffaces
+                ? `, ${rapport.domaineEffaces} ${accorde(rapport.domaineEffaces, 'effacé')}`
+                : ''),
           );
         }
         if (rapport.reglagesChanges.length) {
           parties.push(
-            `${rapport.reglagesChanges.length} réglage(s) mis à jour ` +
+            `${pluriel(rapport.reglagesChanges.length, 'réglage')} ` +
+              `${accorde(rapport.reglagesChanges.length, 'mis')} à jour ` +
               `(${rapport.reglagesChanges.join(', ')})`,
           );
         }
-        if (rapport.conflits) parties.push(`${rapport.conflits} conflit(s) à traiter`);
+        if (rapport.conflits) parties.push(`${pluriel(rapport.conflits, 'conflit')} à traiter`);
         if (rapport.collisions) {
           parties.push(
-            `${rapport.collisions} collision(s) d’identifiants — ce paquet est peut-être abîmé`,
+            `${pluriel(rapport.collisions, 'collision')} d’identifiants — ce paquet est ` +
+              'peut-être abîmé',
           );
         }
         parties.push(

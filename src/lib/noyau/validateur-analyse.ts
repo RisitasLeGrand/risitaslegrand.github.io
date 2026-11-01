@@ -33,6 +33,7 @@
  * tomber dans la période. Ces quatre contrôles sont ceux qui attrapent une IA
  * qui a inventé — et c'est pour eux que la validation est faite.
  */
+import { accorde, pluriel } from './accords';
 import {
   FORMAT_ANALYSE,
   PLAFONDS,
@@ -271,10 +272,15 @@ function controlerForme(
     case 'liste': {
       if (!Array.isArray(valeur)) return e('une liste est attendue.');
       if (valeur.length > forme.max) {
-        return e(`liste trop longue : ${valeur.length} entrées pour ${forme.max} au plus.`);
+        return e(
+          `liste trop longue : ${pluriel(valeur.length, 'entrée')} pour ${forme.max} au plus.`,
+        );
       }
       if (forme.min && valeur.length < forme.min) {
-        return e(`liste trop courte : ${forme.min} entrée(s) au moins sont attendues.`);
+        return e(
+          `liste trop courte : ${pluriel(forme.min, 'entrée')} au moins ` +
+            `${accorde(forme.min, 'est', 'sont')} ${accorde(forme.min, 'attendue')}.`,
+        );
       }
       return valeur.flatMap((x, i) => controlerForme(x, forme.de, `${chemin}[${i}]`, contexte));
     }

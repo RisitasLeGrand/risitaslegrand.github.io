@@ -308,8 +308,23 @@ v('le seuil Veridical est intact', await compter('vmSeuils'), 1);
 v('la carte d’un autre domaine est intacte', await compter('cartes'), 1);
 
 const message = (await page.locator('#message-effacement').textContent()) ?? '';
-v('le message donne le compte effacé', /11 enregistrement\(s\) effacés/.test(message), true);
-v('et signale le magasin laissé entier', /laissés entiers/.test(message), true);
+console.log(`      le message dit : « ${message.slice(0, 120)} »`);
+/*
+   CES DEUX EXPRESSIONS ATTENDAIENT LA FAUTE, et le lot 9 leur a retiré leur
+   objet. Il faut le leur rendre, pas les affaiblir.
+
+   La première exigeait « 11 enregistrement(s) effacés » — la forme
+   parenthésée que la règle G proscrit. Elle ne décrivait donc pas le français
+   attendu mais le français écrit, et elle aurait empêché toute correction.
+
+   La seconde est plus instructive : elle exigeait « laissés entiers », au
+   pluriel, alors que son propre intitulé dit « LE magasin laissé entier », au
+   singulier — et qu'un seul magasin est refusé dans ce cas. Elle attendait une
+   faute d'accord, et l'accordement l'a révélée. Le compte vaut un, donc le
+   singulier est la bonne réponse, et c'est lui qu'on exige maintenant.
+*/
+v('le message donne le compte effacé', /11 enregistrements effacés/.test(message), true);
+v('et signale le magasin laissé entier', /1 magasin laissé entier/.test(message), true);
 
 /* ── Sans période, tout le domaine part ───────────────────────────────── */
 

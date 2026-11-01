@@ -201,7 +201,12 @@ egal('4.14 et un score complet n’en produit pas', noter(WHO5, [2, 2, 2, 2, 2])
   const trouves = controlerEchelles([truque]);
   verifier(
     '4.19 une étiquette déduite sans mention est refusée',
-    trouves.some((m) => /déduite\(s\)/.test(m)),
+    /*
+       Le motif cherchait « déduite(s) », c'est-à-dire la forme que le lot 9
+       interdit. Ce que cet essai doit tenir, c'est que le contrôle PARLE
+       d'étiquettes déduites, non qu'il les écrive avec une parenthèse.
+    */
+    trouves.some((m) => /étiquettes? déduites?/.test(m)),
     `obtenu : ${JSON.stringify(trouves)}`,
   );
 

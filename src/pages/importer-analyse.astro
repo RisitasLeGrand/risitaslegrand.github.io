@@ -157,6 +157,7 @@ import Base from '../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
+  import { accorde, pluriel } from '../lib/noyau/accords';
   import {
     analysesConservees,
     apercevoir,
@@ -501,7 +502,7 @@ import Base from '../layouts/Base.astro';
         ligne(analyse.etiquette, 'mt-1 text-xs text-amber-800 dark:text-amber-300'),
         ligne(
           `Importée le ${new Date(analyse.importeeLe).toLocaleDateString('fr-FR')} · ` +
-            `${analyse.verifications.length} constat(s)` +
+            `${pluriel(analyse.verifications.length, 'constat')}` +
             (analyse.exportInconnu ? ' · export d’origine inconnu' : ''),
           'mt-1 text-xs text-slate-500 dark:text-slate-400',
         ),
@@ -559,8 +560,11 @@ import Base from '../layouts/Base.astro';
 
       const comptes = apercu.comptes ?? {};
       $('comptes').textContent =
-        `Chiffres cités : ${comptes.confirme ?? 0} confirmé(s), ${comptes.approche ?? 0} approché(s), ` +
-        `${comptes['non-retrouve'] ?? 0} non retrouvé(s), ${comptes['non-verifiable'] ?? 0} non vérifiable(s).`;
+        `Chiffres cités : ${comptes.confirme ?? 0} ${accorde(comptes.confirme ?? 0, 'confirmé')}, ` +
+        `${comptes.approche ?? 0} ${accorde(comptes.approche ?? 0, 'approché')}, ` +
+        `${comptes['non-retrouve'] ?? 0} non ${accorde(comptes['non-retrouve'] ?? 0, 'retrouvé')}, ` +
+        `${comptes['non-verifiable'] ?? 0} non ` +
+        `${accorde(comptes['non-verifiable'] ?? 0, 'vérifiable')}.`;
       $('banniere').textContent = BANNIERE_ANALYSE;
       $('resume-analyse').textContent = String(apercu.analyse?.resume ?? '');
 
@@ -601,7 +605,9 @@ import Base from '../layouts/Base.astro';
     const gardes = Object.values(tri.constats).filter((s) => s === 'garde').length;
     message.textContent =
       `Analyse conservée, étiquetée « ${conservee.etiquette} ». ` +
-      `${gardes} constat(s) gardé(s), ${verdict.adoptees.length} proposition(s) adoptée(s) ` +
+      `${pluriel(gardes, 'constat')} ${accorde(gardes, 'gardé')}, ` +
+      `${pluriel(verdict.adoptees.length, 'proposition')} ` +
+      `${accorde(verdict.adoptees.length, 'adoptée')} ` +
       `sur un plafond de ${TRAJECTOIRES_ACTIVES}.`;
     message.classList.remove('hidden');
     await peindreConservees();

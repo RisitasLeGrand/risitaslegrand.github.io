@@ -31,6 +31,7 @@
  * politique, et elle vit ailleurs — mélanger la reconnaissance et la
  * décision rendrait impossible de rejouer l'une sans toucher à l'autre.
  */
+import { pluriel } from '../noyau/accords';
 import { normaliser } from './appariement';
 import { typeDe, type TypeDeVendeur } from './taxonomie';
 
@@ -556,7 +557,7 @@ export function examinerLeMotif(
     acceptable: true,
     deTrop,
     avertissement: deTrop.length
-      ? `Ce motif attraperait aussi ${deTrop.length} libellé(s) d’un autre commerçant.`
+      ? `Ce motif attraperait aussi ${pluriel(deTrop.length, 'libellé')} d’un autre commerçant.`
       : '',
   };
 }

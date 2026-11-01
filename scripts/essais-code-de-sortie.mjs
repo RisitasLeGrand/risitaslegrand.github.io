@@ -37,7 +37,7 @@
  *    exactement la forme qui a trompé, et la batterie a deux juges pour elle.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -60,6 +60,23 @@ function verifier(quoi, obtenu, attendu) {
 console.log('\nLE CODE DE SORTIE DE LA BATTERIE\n');
 
 /*
+   SANS « dist/index.html », CET ESSAI NE MESURE RIEN, et il le dit.
+
+   Son aperçu factice en a besoin pour servir « / ». S'il manque, les trois cas
+   ne tomberaient pas sur le code de sortie, qui est leur objet, mais sur le
+   refus d'une batterie qui ne trouve pas de construction — trois croix qui
+   accuseraient le code de sortie d'un défaut qu'il n'a pas. Non mesurable est
+   la seule réponse vraie.
+*/
+if (!existsSync(path.join(racine, 'dist', 'index.html'))) {
+  console.log(
+    `${INTITULE_NON_MESURABLE} « dist/index.html » n’existe pas : l’aperçu factice\n` +
+      '  n’a rien à servir sur « / ». Construisez avant de mesurer le code de sortie.',
+  );
+  process.exit(CODE_NON_MESURABLE);
+}
+
+/*
    L'APERÇU FACTICE VIT DANS UN PROCESSUS À LUI, ET IL LE FAUT.
 
    Première version : un `createServer` dans CE processus. Les trois contrôles
@@ -77,31 +94,75 @@ console.log('\nLE CODE DE SORTIE DE LA BATTERIE\n');
    zéro : le système choisit, et on ne se dispute pas le 4321 avec l'aperçu
    réel qui tourne peut-être à côté.
 */
-const serveur = spawn(
-  process.execPath,
-  [
-    '-e',
-    "const{createServer}=require('node:http');" +
-      "const s=createServer((_,r)=>{r.writeHead(200,{'content-type':'text/plain'});r.end('User-agent: *\\n')});" +
-      "s.listen(0,'127.0.0.1',()=>console.log(s.address().port))",
-  ],
-  { stdio: ['ignore', 'pipe', 'inherit'] },
-);
-process.once('exit', () => serveur.kill());
+/*
+   ET IL SERT « / » AVEC LE VRAI « dist/index.html », parce que la batterie ne
+   se contente plus d'un port qui répond : elle compare l'empreinte du fichier
+   sur le disque à celle que l'aperçu rend, pour refuser de mesurer un site qui
+   n'est pas celui de cet arbre.
 
-const port = await new Promise((resoudre, rejeter) => {
-  const minuteur = setTimeout(() => rejeter(new Error('l’aperçu factice n’a pas annoncé son port')), 20_000);
-  let vu = '';
-  serveur.stdout.on('data', (morceau) => {
-    vu += morceau;
-    const ligne = /^(\d+)\s*$/m.exec(vu);
-    if (ligne) {
-      clearTimeout(minuteur);
-      resoudre(Number(ligne[1]));
-    }
+   Quelques lignes de plus ici, et le décor redevient honnête. L'alternative
+   était une échappatoire dans la batterie — une variable qui désarme le
+   contrôle, que cet essai aurait posée — c'est-à-dire un chemin par lequel une
+   vraie course peut passer au vert sans avoir rien mesuré. On ne désarme pas le
+   contrôle qu'on garde : on donne au décor ce qui lui manquait.
+
+   TROIS MODES, parce que les trois états que le contrôle distingue doivent
+   exister pour qu'on puisse vérifier qu'il les distingue :
+
+   - `fidele` sert la vraie page, et c'est le décor des trois cas d'origine ;
+   - `etranger` sert une autre page dès le départ : l'aperçu d'un autre arbre ;
+   - `change` sert la vraie page À LA PREMIÈRE demande de « / » et une autre
+     ensuite. C'est l'arbre qui bascule EN COURS DE COURSE, c'est-à-dire la
+     faute réelle, celle que le contrôle du départ seul ne peut pas voir ;
+   - `meurt` sert la vraie page une fois, puis ferme. L'aperçu devient
+     injoignable à l'arrivée sans que rien n'ait basculé — et c'est le cas qui a
+     fait crier la garde à tort sur une course de dix-huit minutes entièrement
+     verte, avant qu'elle ne distingue « injoignable » de « différent ».
+*/
+const PAGE = path.join(racine, 'dist', 'index.html');
+
+async function apercuFactice(mode) {
+  const serveur = spawn(
+    process.execPath,
+    [
+      '-e',
+      "const{createServer}=require('node:http');const{readFileSync}=require('node:fs');" +
+        "const page=readFileSync(process.argv[1]);const mode=process.argv[2];let vues=0;" +
+        "const autre=Buffer.from('<!doctype html><title>un autre arbre</title>');" +
+        "const s=createServer((q,r)=>{" +
+        "if(q.url==='/'){vues+=1;" +
+        "const corps=mode==='etranger'||(mode==='change'&&vues>1)?autre:page;" +
+        "r.writeHead(200,{'content-type':'text/html'});r.end(corps);" +
+        "if(mode==='meurt'&&vues===1)setTimeout(()=>{try{s.closeAllConnections()}catch(e){}s.close()},50);" +
+        "return}" +
+        "r.writeHead(200,{'content-type':'text/plain'});r.end('User-agent: *\\n')});" +
+        "s.listen(0,'127.0.0.1',()=>console.log(s.address().port))",
+      PAGE,
+      mode,
+    ],
+    { stdio: ['ignore', 'pipe', 'inherit'] },
+  );
+  process.once('exit', () => serveur.kill());
+
+  const port = await new Promise((resoudre, rejeter) => {
+    const minuteur = setTimeout(
+      () => rejeter(new Error(`l’aperçu factice « ${mode} » n’a pas annoncé son port`)),
+      20_000,
+    );
+    let vu = '';
+    serveur.stdout.on('data', (morceau) => {
+      vu += morceau;
+      const ligne = /^(\d+)\s*$/m.exec(vu);
+      if (ligne) {
+        clearTimeout(minuteur);
+        resoudre(Number(ligne[1]));
+      }
+    });
   });
-});
-const adresse = `http://127.0.0.1:${port}`;
+  return `http://127.0.0.1:${port}`;
+}
+
+const adresse = await apercuFactice('fidele');
 
 /* Et on vérifie qu'il répond VRAIMENT, avant d'en déduire quoi que ce soit. */
 const repond = await fetch(`${adresse}/robots.txt`, { signal: AbortSignal.timeout(10_000) })
@@ -113,7 +174,7 @@ verifier('l’aperçu factice répond avant la mesure', repond, true);
  * Fait tourner la batterie contre un faux `npm` qui écrit `sortie` et rend
  * `code`, et renvoie le code que la BATTERIE rend.
  */
-function batterieAvec(sortie, code) {
+function batterieAvec(sortie, code, ou = adresse) {
   const bac = mkdtempSync(path.join(tmpdir(), 'faux-npm-'));
   const faux = path.join(bac, 'npm');
   writeFileSync(
@@ -128,7 +189,7 @@ function batterieAvec(sortie, code) {
     env: {
       ...process.env,
       PATH: `${bac}:${process.env.PATH}`,
-      RACINE: adresse,
+      RACINE: ou,
       SITE_PASSWORD: 'mot-de-passe-factice-du-faux-npm',
       /* Un journal neuf à chaque fois : sinon la reprise relirait un verdict. */
       BATTERIE_JOURNAL: mkdtempSync(path.join(tmpdir(), 'journal-faux-')),
@@ -159,7 +220,7 @@ verifier('une croix avec un code nul : la batterie rend un', croixAvecZero.code,
 */
 verifier(
   'le récapitulatif s’affiche malgré le rouge',
-  /socle : \d+ verts ; \d+ rouges/.test(croixAvecZero.texte),
+  /socle : \d+ verts? ; \d+ rouges?/.test(croixAvecZero.texte),
   true,
 );
 verifier('la liste des rouges est nommée', croixAvecZero.texte.includes('rouges : essais:'), true);
@@ -209,7 +270,7 @@ const nonMesurable = batterieAvec(`${INTITULE_NON_MESURABLE} ${RAISON}`, CODE_NO
 verifier('un essai non mesurable : la batterie rend zéro', nonMesurable.code, 0);
 verifier(
   'et le verdict les compte à part',
-  /socle : 0 verts ; 0 rouges ; \d+ non mesurables/.test(nonMesurable.texte),
+  /socle : 0 vert ; 0 rouge ; \d+ non mesurables?/.test(nonMesurable.texte),
   true,
 );
 verifier(
@@ -281,7 +342,111 @@ const sansApercu = (() => {
 })();
 verifier('sans aperçu, le refus rend un', sansApercu.status, 1);
 
-serveur.kill();
+/*
+   ── L'APERÇU DOIT SERVIR CET ARBRE-CI ─────────────────────────────────────
+
+   Le refus ci-dessus garde « on a oublié de servir ». Il ne gardait pas « on
+   sert, mais autre chose », qui est la faute coûteuse : elle laisse la batterie
+   aller au bout et rendre un verdict d'apparence normale.
+
+   Elle s'est produite. Un socle de treize minutes, l'arbre de travail passé sur
+   une autre branche et « dist/ » reconstruit pendant la course : trente-huit
+   essais sur le bon arbre, cinq sur un autre, et « cinq rouges » au
+   récapitulatif, sans rien qui distingue les deux. Les cinq se lisaient comme
+   des défauts du lot mesuré ; ils étaient mes propres ruines.
+*/
+
+const etranger = await apercuFactice('etranger');
+const autreArbre = batterieAvec('  tout va bien', 0, etranger);
+verifier('un aperçu qui sert un AUTRE arbre : la batterie refuse', autreArbre.code, 1);
+verifier(
+  'et elle dit lequel des deux manque',
+  /ne sert pas le « dist\/ » de cet arbre/.test(autreArbre.texte),
+  true,
+);
+/*
+   ET ELLE REFUSE AVANT DE MESURER, ce qui est le but : un refus qui arrive
+   après vingt minutes a déjà coûté les vingt minutes. Le récapitulatif est la
+   preuve qu'une course a eu lieu — son absence, la preuve qu'il n'y en a pas eu.
+*/
+verifier(
+  'et elle refuse AVANT de mesurer quoi que ce soit',
+  /socle : \d+ verts?/.test(autreArbre.texte),
+  false,
+);
+
+/*
+   ET LA BASCULE EN COURS DE COURSE, qui est celle qui est arrivée. Le contrôle
+   du départ ne peut pas la voir : au départ, tout était juste. Seule la reprise
+   à l'arrivée la voit — et ce qu'elle doit produire n'est pas un rouge de plus,
+   c'est l'annulation du verdict.
+*/
+const bascule = batterieAvec('  tout va bien', 0, await apercuFactice('change'));
+verifier('l’arbre bascule en cours de course : la batterie rend un', bascule.code, 1);
+verifier(
+  'et elle annule la mesure au lieu de la rapporter',
+  /MESURE NULLE/.test(bascule.texte),
+  true,
+);
+/*
+   LE CONTRÔLE QUI COMPTE VRAIMENT. Tout était vert : sans la reprise, cette
+   course rendait zéro, et un « npm run socle && git push » poussait sur une
+   mesure qui ne valait rien. C'est le même défaut que celui de ce fichier, un
+   cran plus loin — un passage qui ne peut pas dire non ne garde rien.
+*/
+verifier('et sans elle, cette course rendait zéro', bascule.code !== 0, true);
+
+/*
+   ET LE CAS INVERSE, QUI EST CELUI QUI A COÛTÉ UNE COURSE : l'aperçu devient
+   injoignable à l'arrivée, mais rien n'a basculé.
+
+   La première version de la garde rendait `null` à la moindre défaillance, et
+   un `null` ne vaut pas l'empreinte attendue : un seul `fetch` manqué annulait
+   donc dix-huit minutes et 43 essais verts. Vérifié après coup — le disque
+   inchangé depuis le début, le processus de l'aperçu vivant sans interruption,
+   les deux côtés identiques à l'arrivée. Rien n'avait bougé.
+
+   Une absence de preuve n'est pas une preuve du contraire. La garde le dit
+   maintenant — FIN NON CONFIRMÉE — et laisse le verdict debout, parce que les
+   essais, eux, ont bien tourné. C'est la distinction que ces trois contrôles
+   gardent.
+*/
+const finMuette = batterieAvec('  tout va bien', 0, await apercuFactice('meurt'));
+verifier('un aperçu injoignable à l’arrivée n’annule PAS la mesure', finMuette.code, 0);
+verifier(
+  'et la course est déclarée non confirmée, non pas nulle',
+  /FIN NON CONFIRMÉE/.test(finMuette.texte),
+  true,
+);
+verifier(
+  'et surtout : elle ne se dit pas nulle',
+  /MESURE NULLE/.test(finMuette.texte),
+  false,
+);
+
+/*
+   ENFIN : un verdict nul ne renvoie PAS au tableau des anomalies. Y envoyer
+   quelqu'un avec des croix qui ne sont pas des rouges, c'est lui faire chercher
+   des défauts qui n'existent pas, ou pire, en inscrire au tableau.
+*/
+const basculeAvecRouge = batterieAvec('✗ un essai qui échoue', 1, await apercuFactice('change'));
+/*
+   Et ce contrôle porte sur LES MOTS DU CONSEIL, non sur « tableau des
+   anomalies » : le message de mesure nulle contient lui-même ces trois mots,
+   pour dire de ne pas y aller. Première écriture, il les cherchait — il comptait
+   donc ce qu'il décrivait, et tombait sur la phrase qui lui donne raison.
+*/
+verifier(
+  'un verdict nul ne conseille pas de comparer au tableau',
+  /un rouge NOUVEAU/.test(basculeAvecRouge.texte),
+  false,
+);
+verifier(
+  'et il dit à la place de ne rien y comparer',
+  /Ne comparez rien au tableau des anomalies/.test(basculeAvecRouge.texte),
+  true,
+);
+
 
 console.log(
   rouges === 0

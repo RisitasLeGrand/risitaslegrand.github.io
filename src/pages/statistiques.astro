@@ -324,7 +324,7 @@ import Base from '../layouts/Base.astro';
   import { masquerDebordement } from '../lib/defilement';
   import { construireVue } from '../lib/agregats';
   import { ajouterJours, jourISO, tousLesJours, tousLesResultatsQuiz, toutesLesCartes } from '../lib/db';
-  import { formaterDuree, lien, pluriel } from '../lib/ui';
+  import { accorde, formaterDuree, lien, pluriel } from '../lib/ui';
   import { chargerManifesteComplet, MATIERE_CAS_PRATIQUE } from '../lib/contenu';
   import { comptesParMatiere } from '../lib/journal';
   import { visitesComptees } from '../lib/visites';
@@ -364,14 +364,17 @@ import Base from '../layouts/Base.astro';
 
     const revisions = cartes.reduce((n, c) => n + c.revisions, 0);
     $('total-revisions').textContent = String(revisions);
+    const acquises = cartes.filter((c) => c.intervalle >= 21).length;
+    const oublis = cartes.reduce((n, c) => n + c.oublis, 0);
     $('detail-cartes').textContent =
-      `${cartes.filter((c) => c.intervalle >= 21).length} acquise(s) · ${cartes.reduce((n, c) => n + c.oublis, 0)} oubli(s)`;
+      `${pluriel(acquises, 'acquise')} · ${pluriel(oublis, 'oubli')}`;
 
     const totalQuestions = quiz.reduce((n, q) => n + q.total, 0);
     const totalBonnes = quiz.reduce((n, q) => n + q.bonnes, 0);
     $('taux-quiz').textContent = totalQuestions ? `${Math.round((totalBonnes / totalQuestions) * 100)} %` : '—';
     $('detail-quiz').textContent = totalQuestions
-      ? `${totalBonnes} bonne(s) réponse(s) sur ${totalQuestions}`
+      ? `${totalBonnes} ${accorde(totalBonnes, 'bonne')} ${accorde(totalBonnes, 'réponse')} ` +
+        `sur ${totalQuestions}`
       : 'Aucun quiz passé';
 
     $('jours-actifs').textContent = String(joursActifs.length);
@@ -714,7 +717,7 @@ import Base from '../layouts/Base.astro';
             : n.fiable
               ? String(n.note)
               : `pas encore assez de données (${n.observations}/${OBSERVATIONS_MINIMALES})`) +
-          (ouvertes ? ` · ${ouvertes} erreur(s)` : '');
+          (ouvertes ? ` · ${pluriel(ouvertes, 'erreur')}` : '');
         ligne.append(titre, detail);
         corps.appendChild(ligne);
       }
@@ -848,8 +851,9 @@ import Base from '../layouts/Base.astro';
     }
     $('activite-reste').textContent = lignes.length
       ? lignes.length > LIGNES_AFFICHEES
-        ? `${lignes.length} ligne(s) au journal, les ${LIGNES_AFFICHEES} dernières sont affichées.`
-        : `${lignes.length} ligne(s) au journal.`
+        ? `${pluriel(lignes.length, 'ligne')} au journal, les ${LIGNES_AFFICHEES} ` +
+          'dernières sont affichées.'
+        : `${pluriel(lignes.length, 'ligne')} au journal.`
       : 'Aucun fait crédité sur cette fenêtre.';
 
     const manques = $('activite-manques');
@@ -896,7 +900,7 @@ import Base from '../layouts/Base.astro';
     const { ouverts, tranches } = trierDesaccords(tous, await toutesLesOperations());
 
     $('desaccords-etat').textContent = ouverts.length
-      ? `${pluriel(ouverts.length, 'désaccord')} non tranché(s)` +
+      ? `${pluriel(ouverts.length, 'désaccord')} non ${accorde(ouverts.length, 'tranché')}` +
         (tranches.length ? `, et ${pluriel(tranches.length, 'autre déjà tranché', 'autres déjà tranchés')}.` : '.')
       : tranches.length
         ? `Aucun désaccord ouvert ; ${pluriel(tranches.length, 'a été tranché', 'ont été tranchés')}.`
