@@ -626,6 +626,23 @@ console.log('\nLA ZONE EST RENDUE AU SUIVANT');
     const apres = await releve();
 
     verifier('après la réussite, le rôle d’alerte est repris', apres?.role, null);
+    /*
+       CE QUE CET ESSAI NE MESURE PAS, et il faut le dire plutôt que de
+       laisser croire la marque éprouvée des deux côtés.
+
+       La marque existe pour distinguer deux cas : le rôle que ce module pose,
+       qu'il faut reprendre, et celui qu'un gabarit déclare, qu'il faut
+       laisser. Seul le premier est éprouvé ici. Le second ne l'est par aucun
+       écran du site : « initialisation.astro » est le seul à déclarer
+       « role=alert » sur sa zone, et il ne passe pas par « agir ». Il n'y a
+       donc aujourd'hui aucun chemin réel où la distinction se voie.
+
+       Mesuré en sabotant : retirer la marque fait rougir l'assertion
+       ci-dessus, parce que le rôle n'est alors plus jamais repris. Retirer la
+       DISTINCTION — reprendre le rôle sans regarder la marque — ne fait
+       rougir personne. La seconde moitié de la garde est donc posée pour
+       l'écran qui viendra, et elle n'est pas démontrée.
+    */
     verifier('la zone est cachée — par la CLASSE', apres?.classe, true);
     /*
        L'ASSERTION QUI PORTE TOUT LE CORRECTIF, et la seule que l'ancien code
