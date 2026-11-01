@@ -49,7 +49,8 @@ import {
   marqueursEmployes,
   reponseJuste,
 } from '../src/features/correction/annotations';
-import { DIMENSIONS } from '../src/features/veridical-mapping/dimensions';
+import { DIMENSIONS, type Dimension } from '../src/features/veridical-mapping/dimensions';
+import { idArete, type Arete } from '../src/features/veridical-mapping/hub';
 import {
   corrigerEssai,
   ecartEnMots,
@@ -502,6 +503,28 @@ console.log('\n\x1b[1mLES EXIGENCES DES ALGÈBRES\x1b[0m\n');
 
 console.log('\n\x1b[1mLA CORRECTION PERCEPTIVE (VERIDICAL MAPPING)\x1b[0m\n');
 {
+  /*
+     UNE ARÊTE COMPLÈTE, parce que « Arete » en exige cinq champs.
+
+     Trois fabrications de ce fichier n'en donnaient que deux — « de » et
+     « vers » — et passaient à « corrigerEssai » un essai dont l'arête n'avait
+     ni identifiant, ni famille, ni « transmodale ». Le programme ne construit
+     jamais d'arête ainsi : « hub.ts » les pose toutes avec les cinq, et
+     « transmodale » s'y déduit des modalités.
+
+     On recopie donc sa construction plutôt que d'inventer des valeurs : une
+     arête d'essai dont « transmodale » serait écrit à la main pourrait
+     contredire les deux dimensions qu'elle joint, et c'est précisément le
+     genre d'objet impossible que ce chantier retire.
+  */
+  const areteDe = (de: Dimension, vers: Dimension): Arete => ({
+    id: idArete(de.id, vers.id),
+    famille: de.famille,
+    de,
+    vers,
+    transmodale: de.modalite !== vers.modalite,
+  });
+
   const taille = DIMENSIONS.find((d) => d.id === 'taille')!;
   const teinte = DIMENSIONS.find((d) => d.id === 'teinte')!;
 
@@ -523,7 +546,7 @@ console.log('\n\x1b[1mLA CORRECTION PERCEPTIVE (VERIDICAL MAPPING)\x1b[0m\n');
   );
 
   // Un essai de tâche « point », corrigé dans les deux cas.
-  const arete = { de: taille, vers: DIMENSIONS.find((d) => d.id === 'luminosite')! };
+  const arete = areteDe(taille, DIMENSIONS.find((d) => d.id === 'luminosite')!);
   const essai = {
     arete,
     delta: 5,
@@ -576,10 +599,10 @@ console.log('\n\x1b[1mLA CORRECTION PERCEPTIVE (VERIDICAL MAPPING)\x1b[0m\n');
   verifier('et sa phrase le dit', phraseDEcart(muet[0]).includes('Aucune réponse'), true);
 
   // La tâche « plan » doit nommer l'axe fautif — c'est ce qu'elle enseigne.
-  const seconde = {
-    de: DIMENSIONS.find((d) => d.id === 'duree')!,
-    vers: DIMENSIONS.find((d) => d.id === 'hauteur')!,
-  };
+  const seconde = areteDe(
+    DIMENSIONS.find((d) => d.id === 'duree')!,
+    DIMENSIONS.find((d) => d.id === 'hauteur')!,
+  );
   const plan = {
     arete,
     delta: 4,
@@ -617,7 +640,7 @@ console.log('\n\x1b[1mLA CORRECTION PERCEPTIVE (VERIDICAL MAPPING)\x1b[0m\n');
 
   // La tâche modulaire compare des intervalles, jamais des positions.
   const modulaire = {
-    arete: { de: taille, vers: teinte },
+    arete: areteDe(taille, teinte),
     delta: 6,
     tache: 'modulaire' as const,
     partiel: false,

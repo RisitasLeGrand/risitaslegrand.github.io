@@ -40,7 +40,27 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { chargerBanqueDgfip } from './lib/banque-dgfip.mjs';
+/*
+   LE TYPE SE PERD EN TRAVERSANT LA FRONTIÈRE JAVASCRIPT.
+
+   « banque-dgfip.mjs » rend bel et bien une « BanqueDgfip » — elle lit le
+   YAML de « content/qcm-dgfip », que le build valide contre son schéma —, mais
+   c'est un fichier « .mjs » dont la JSDoc annonce « questions: object[] ». La
+   forme réelle est juste ; seule son annonce est pauvre.
+
+   On la NOMME donc une fois, ici, au point de passage. Les quatre erreurs de
+   ce fichier venaient de l'inverse : chaque usage redéclarait sa propre idée
+   du type, à la main, en ligne — « (q.correction as { rappel_de_cours?:
+   unknown[] }) ». Quatre descriptions partielles de la même chose, qu'aucun
+   contrôle ne tenait d'accord entre elles ni avec « contenu.ts ».
+*/
+import { chargerBanqueDgfip as chargerBanqueSansType } from './lib/banque-dgfip.mjs';
+import type { BanqueDgfip } from '../src/lib/contenu';
+
+const chargerBanque = chargerBanqueSansType as (
+  dossier: string,
+  chargeur: unknown,
+) => Promise<BanqueDgfip>;
 import { resoudreRappels } from './lib/rappels.mjs';
 import {
   banqueEnSource,
@@ -245,11 +265,17 @@ try {
   );
 
   /* --- 2. Le chargeur du build lit la source écrite à la main ------------ */
-  const ATTENDU = Object.values(SOURCE_A).reduce(
+  /*
+     L'ACCUMULATEUR ÉTAIT « unknown », parce que le départ à zéro ne suffit pas
+     à le dire quand les valeurs parcourues ne sont pas typées. On le NOMME,
+     plutôt que de forcer chaque terme : « 0 as number » aurait masqué le même
+     doute une ligne plus bas.
+  */
+  const ATTENDU = Object.values(SOURCE_A).reduce<number>(
     (n, r) => n + (r as { questions: unknown[] }).questions.length,
     0,
   );
-  const chargee = await chargerBanqueDgfip(dossierA, chargeur);
+  const chargee = await chargerBanque(dossierA, chargeur);
   verifier(
     'la source des cas durs est acceptée en entier par le chargeur du build',
     chargee.questions.length === ATTENDU &&
@@ -275,16 +301,14 @@ try {
     defautsDeResolution += resoudreRappels(q.correction, index, 'essai').length;
   }
   const publiee = chargee;
-  const avecRenvoi = publiee.questions.filter(
-    (q) => (q.correction as { rappel_de_cours?: unknown[] })?.rappel_de_cours?.length,
-  );
+  const avecRenvoi = publiee.questions.filter((q) => q.correction?.rappel_de_cours?.length);
   verifier(
     'les renvois « rappel de cours » sont résolus comme le build les publie',
     defautsDeResolution === 0 &&
       avecRenvoi.length === 1 &&
-      (avecRenvoi[0].correction as { rappel_de_cours: { id: string }[] }).rappel_de_cours[0].id ===
-        FICHE_VISEE.id,
-    `${avecRenvoi.length} question(s) à renvoi, ${defautsDeResolution} défaut(s)`,
+      avecRenvoi[0].correction?.rappel_de_cours?.[0]?.id === FICHE_VISEE.id,
+    `${avecRenvoi.length} ${avecRenvoi.length >= 2 ? 'questions' : 'question'} à renvoi, ` +
+      `${defautsDeResolution} ${defautsDeResolution >= 2 ? 'défauts' : 'défaut'}`,
   );
 
   /* --- 4 et 5. L'aller-retour ------------------------------------------- */
@@ -293,7 +317,7 @@ try {
     cheminDeLaFiche: (id: string) => cheminParId.get(id),
   });
   await ecrire(dossierB, fichiersB);
-  const rechargee = await chargerBanqueDgfip(dossierB, chargeur);
+  const rechargee = await chargerBanque(dossierB, chargeur);
 
   const ecarts = differencesDeBanque(publiee, rechargee, { cheminParId });
   verifier(
