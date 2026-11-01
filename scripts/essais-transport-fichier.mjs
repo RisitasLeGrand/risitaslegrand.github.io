@@ -361,6 +361,78 @@ vrai('et il appelle A par le nom que A s’est donné', registreB.includes('Ordi
 vrai('il affiche l’empreinte annoncée par A', registreB.includes('·'));
 vrai('et quand il l’a vu', registreB.includes('vu le'));
 
+/*
+   CE QUE B RETIENT DE LA VERSION DE A, ET POURQUOI C'EST ICI.
+
+   Une Observation ne gardait rien de la version du pair. Conséquence : un
+   appareil à jour ne savait pas que l'autre était en retard, donc il ne
+   pouvait rien lui dire de vrai AVANT d'envoyer — et le transport étant un
+   fichier, un refus en face ne remonte pas. L'émetteur apprenait l'échec par
+   le silence.
+
+   Rien n'est inventé pour le savoir : les métadonnées du paquet portent déjà
+   « schema » et « versionPaquet ». On vérifie donc que B les a retenues de A,
+   et qu'il a retenu LES DEUX — un appareil peut lire le format du paquet et
+   ignorer le schéma des opérations qu'il contient, ou l'inverse, et les
+   confondre est le défaut que le motif de refus de « paquet.ts » porte encore.
+
+   On lit le magasin plutôt que l'écran : l'affichage de cette information est
+   le lot de quelqu'un d'autre, et un essai qui attendrait un texte pas encore
+   écrit rougirait pour une raison qui n'est pas la sienne.
+*/
+const idDeA = await a.page.evaluate(
+  () =>
+    new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => {
+        const base = r.result;
+        const q = base.transaction('etat').objectStore('etat').get('appareil');
+        q.onsuccess = () => {
+          base.close();
+          ok(q.result ?? null);
+        };
+        q.onerror = () => {
+          base.close();
+          ok(null);
+        };
+      };
+      r.onerror = () => ok(null);
+    }),
+);
+vrai('A porte bien un identifiant d’appareil', typeof idDeA === 'string' && idDeA.length > 0);
+const vuDeA = await b.page.evaluate(
+  (idA) =>
+    new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => {
+        const base = r.result;
+        const q = base.transaction('etat').objectStore('etat').get('appareilsVus');
+        q.onsuccess = () => {
+          base.close();
+          ok((q.result ?? {})[idA] ?? null);
+        };
+        q.onerror = () => {
+          base.close();
+          ok(null);
+        };
+      };
+      r.onerror = () => ok(null);
+    }),
+  idDeA,
+);
+vrai('B a retenu une observation de A', vuDeA !== null);
+vrai(
+  'et il sait en quelle version de schéma A lui parle',
+  typeof vuDeA?.schemaDistant === 'number' && vuDeA.schemaDistant > 0,
+);
+vrai(
+  'et en quel format de paquet, qui est une autre chose',
+  typeof vuDeA?.versionPaquetDistant === 'number' && vuDeA.versionPaquetDistant > 0,
+);
+console.log(
+  `  (B voit A en schéma ${vuDeA?.schemaDistant}, format de paquet ${vuDeA?.versionPaquetDistant})`,
+);
+
 console.log('\nB ENVOIE À SON TOUR');
 
 const paquetB = await envoyer(b);
@@ -597,7 +669,26 @@ await lots[0].click();
 await repondreALaBoite(a.page, 'Annuler cette synchronisation');
 await a.page.waitForSelector('#message-annulation:not(.hidden)', { timeout: 60000 });
 const messageAnnulation = await a.page.textContent('#message-annulation');
-vrai('l’annulation dit ce qu’elle a retiré', messageAnnulation.includes('retirées'));
+/*
+   L'ACCORD, ET NON LE PLURIEL SEUL — même famille que les deux motifs corrigés
+   en 63a45aee, et c'est la troisième fois que ce lot me la fait rencontrer.
+
+   L'essai attendait le littéral « retirées ». L'écran accorde désormais :
+   « Annulée : 1 opération et 0 révision retirée », au singulier quand le total
+   vaut un. L'essai rougissait donc sur une phrase DEVENUE correcte — et il
+   rougissait sur main avant ma branche, mesuré en mettant mes changements de
+   côté.
+
+   Le motif accepte les deux accords et exige toujours ce que ce contrôle
+   garde : les DEUX comptes nommés, et le fait qu'ils ont été retirés. Il ne
+   peut pas passer sur une phrase tronquée ni sur une chaîne vide, et c'est
+   précisément ce qu'une annulation doit dire — ce qu'elle a défait, avec des
+   nombres.
+*/
+vrai(
+  'l’annulation dit ce qu’elle a retiré',
+  /\d+ opérations? et \d+ révisions? retirées?/.test(messageAnnulation),
+);
 
 /* L'état vide est nommé, et il reste visible : c'est ce qui permet au message
    d'annulation de rester lisible après avoir annulé la dernière

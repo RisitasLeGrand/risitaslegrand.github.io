@@ -96,6 +96,31 @@ export interface Observation {
   recuJusqua?: string;
   /** Le nom annoncé par le paquet, gardé si aucun fait ne le dit encore. */
   nomAnnonce?: string;
+  /*
+     CE QUE L'AUTRE APPAREIL SAIT LIRE, ET POURQUOI ON LE RETIENT.
+
+     Jusqu'ici une Observation ne gardait rien de la VERSION du pair. La
+     conséquence, mesurée plutôt que supposée : un appareil à jour ne savait pas
+     que l'autre était en retard, donc il ne pouvait rien lui dire de vrai avant
+     d'envoyer. Et le transport est un fichier ou un dossier partagé — un refus
+     en face ne remonte pas. L'émetteur apprenait l'échec par le silence.
+
+     Rien à inventer pour le savoir : tout paquet reçu porte déjà « schema » et
+     « versionPaquet » dans ses métadonnées. On les note au même endroit que le
+     reste, et l'écran des appareils peut alors prévenir AVANT l'envoi.
+
+     Les deux, et non un seul, parce qu'ils se démentent : un appareil peut lire
+     le format du paquet et ignorer le schéma des opérations qu'il contient, ou
+     l'inverse. Confondre les deux est précisément le défaut que le motif de
+     refus de « paquet.ts » porte encore, et qui se corrige ailleurs.
+
+     Ce sont des observations LOCALES, comme tout ce qui précède : elles ne
+     partent dans aucun paquet.
+  */
+  /** La version de SCHÉMA que le dernier paquet de cet appareil annonçait. */
+  schemaDistant?: number;
+  /** La version de FORMAT de paquet qu'il annonçait, qui est une autre chose. */
+  versionPaquetDistant?: number;
 }
 
 async function observations(): Promise<Record<string, Observation>> {

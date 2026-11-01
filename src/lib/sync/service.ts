@@ -603,6 +603,13 @@ export async function fusionnerPaquet(
     vuLe: new Date().toISOString(),
     empreinte: ouvert.metadonnees.empreinte,
     nomAnnonce: ouvert.metadonnees.nomAppareil,
+    /*
+       Les métadonnées les portent déjà : on les retient, et l'écran peut
+       prévenir avant d'envoyer plutôt que de laisser un refus muet en face.
+       Voir l'en-tête du champ dans « sync/appareils.ts ».
+    */
+    schemaDistant: ouvert.metadonnees.schema,
+    versionPaquetDistant: ouvert.metadonnees.versionPaquet,
     recuJusqua,
     reconnuJusqua:
       annonce && (!reconnuAvant || reconnuAvant < annonce) ? annonce : reconnuAvant,

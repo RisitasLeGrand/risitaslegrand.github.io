@@ -14,6 +14,9 @@
    * mémoire.
    */
   import { jouerTon } from '../audio';
+  import { PAS, dimensionParId } from '../dimensions';
+  import { zDepuisLAttribut } from '../dimensions/rendus/types';
+  import type { PorteUnRendu, RenduVisuel } from '../dimensions/rendus/types';
   import type { Stimulus } from '../stimulus';
 
   let {
@@ -33,6 +36,68 @@
   } = $props();
 
   let joue = $state(false);
+
+  /*
+     LE POINT D'APPEL GÉNÉRIQUE DU LOT L5, et il n'y en a qu'un ici.
+
+     Une dimension peut porter son propre rendu — voir
+     `dimensions/rendus/types.ts`. Les sept d'origine n'en portent pas et ne
+     passent donc pas par là : leurs branches ci-dessous sont intactes, et les
+     essais d'A le vérifient en restant verts.
+
+     Un stimulus superposé porte deux identifiants joints par « + » :
+     `dimensionParId` ne le reconnaît pas, `aUnRendu` est donc faux, et la
+     superposition garde son rendu d'origine. C'est voulu — superposer deux
+     dessins de canevas est une question distincte, et ce lot ne la tranche pas.
+  */
+  const laDimension = $derived(dimensionParId(stimulus.dimension));
+  const sonRendu = $derived(
+    (laDimension as (typeof laDimension & PorteUnRendu) | undefined)?.rendu,
+  );
+  const aUnRenduVisuel = $derived(sonRendu !== undefined && stimulus.modalite === 'visuelle');
+
+  let toile: HTMLCanvasElement | undefined = $state();
+
+  $effect(() => {
+    if (!aUnRenduVisuel || !toile || sonRendu === undefined) return;
+    /*
+       ON DESSINE À LA RÉSOLUTION DE L'ÉCRAN, et non à celle du CSS.
+
+       Sans le rapport de pixels, une texture fine serait rééchantillonnée par
+       le navigateur : la personne jugerait un flou d'agrandissement et non la
+       texture, et le seuil mesuré porterait sur le rééchantillonnage. C'est un
+       indice parasite, du même genre que ceux qu'Alexis a nommés.
+    */
+    const rapport = Math.min(3, Math.max(1, globalThis.devicePixelRatio || 1));
+    const largeur = toile.clientWidth;
+    const hauteur = toile.clientHeight;
+    toile.width = Math.round(largeur * rapport);
+    toile.height = Math.round(hauteur * rapport);
+    const ctx = toile.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(rapport, 0, 0, rapport, 0, 0);
+    ctx.clearRect(0, 0, largeur, hauteur);
+    (sonRendu as RenduVisuel)({
+      ctx,
+      largeur,
+      hauteur,
+      z: zDeLAttribut(),
+      partiel,
+      /* La règle photosensible : le rendu ne choisit pas, on lui impose. */
+      grisNeutre: Boolean((laDimension as { varieDansLeTemps?: true } | undefined)?.varieDansLeTemps),
+    });
+  });
+
+  /*
+     LA VALEUR z DU STIMULUS : l'inversion vit dans « dimensions/rendus/types »,
+     parce qu'un composant Svelte ne s'importe pas depuis un essai et que cette
+     part-là devait être éprouvée.
+  */
+  function zDeLAttribut(): number {
+    const d = laDimension;
+    if (!d) return 0;
+    return zDepuisLAttribut(d, stimulus as unknown as Record<string, unknown>, PAS).z;
+  }
 
   const teinte = $derived(parasite ?? stimulus.teinte);
 
@@ -96,8 +161,33 @@
         style="background: oklch(0.7 0.16 {stimulus.teinte});
           {partiel ? 'clip-path: inset(0 50% 0 0);' : ''}"
       ></span>
+    {:else if aUnRenduVisuel}
+      <canvas
+        bind:this={toile}
+        class="h-24 w-full"
+        role="img"
+        aria-label={libelle || laDimension?.nom || 'stimulus'}
+      ></canvas>
     {:else}
-      <span class="text-sm text-slate-400">—</span>
+      <!--
+        LE REPLI NE DIT PLUS « — », ET C'EST UN CORRECTIF.
+
+        Un tiret se lit comme « il n'y a rien à voir », alors qu'il signifie
+        « cet écran ne sait pas dessiner cette dimension ». C'est le même défaut
+        que le `default` du switch de `stimulus()`, qu'A a retiré parce qu'une
+        dimension oubliée produisait un stimulus immobile et que l'essai qui en
+        dépendait mesurait un tirage au sort. Ici le défaut vivait encore dans
+        la vue.
+
+        On ne LÈVE pas : lever au milieu d'un rendu laisserait la personne
+        devant un écran cassé, et elle n'y peut rien. On dit donc la panne,
+        visiblement et nommément, pour qu'aucune séance ne la prenne pour un
+        stimulus.
+      -->
+      <span class="px-2 text-center text-xs text-rose-600 dark:text-rose-400">
+        Cette dimension n’a pas de rendu : « {stimulus.dimension} ». Rien n’est
+        montré, donc rien ne peut être mesuré ici.
+      </span>
     {/if}
   </div>
 {/if}

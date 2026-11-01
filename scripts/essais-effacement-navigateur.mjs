@@ -77,6 +77,61 @@ const recompter = async (timeout = 30000) => {
   );
 };
 
+/*
+   ── LA PEINTURE QUI SUIT LE VERDICT, ET QUI DÉCOCHAIT LES DOMAINES ──
+
+   Mesuré par sonde le 1er novembre, après deux courses vertes et une rouge sur
+   le MÊME code : à l'expiration, le message disait « Choisissez au moins un
+   domaine. » et les TREIZE cases étaient à faux — dont celle que l'essai
+   venait de cocher.
+
+   La cause est dans « stockage.astro » : « appliquerEffacement » écrit son
+   verdict, notifie, puis appelle « rafraichirComptes() », qui repeint les deux
+   listes de domaines par « peindreGroupes » — et « peindreGroupes » fait
+   « zone.replaceChildren() ». Les cases sont donc des éléments NEUFS, décochés.
+   Cette peinture vient APRÈS le verdict, et rien ne l'attend : « travailFini »
+   rend la main sur le verdict, qui est écrit avant elle. L'essai cochait alors
+   une case que la peinture suivante remplaçait, et le clic sur « Compter »
+   tombait sur le premier garde-fou du gestionnaire, qui écrit « Choisissez au
+   moins un domaine. » et sort sans jamais écrire « Compté ».
+
+   D'où une course, et non un défaut d'écran : selon que la peinture arrivait
+   avant ou après le cochage, l'essai passait ou expirait. Elle explique aussi
+   une seconde forme de rouge, à une autre ligne : un domaine décoché fait dire
+   « Choisissez au moins un domaine. » là où l'essai attend « à l'envers ».
+
+   Ce que cette course N'EST PAS : elle n'est pas l'effet de mon correctif
+   d'identité, que j'avais cru déterministe et que j'ai retiré pour cette
+   raison. Deux rouges avec lui et des verts sans lui n'étaient qu'un tirage.
+   Je le corrige là aussi.
+
+   La post-condition se pose en deux moitiés, et elle ne peut pas être vraie
+   d'avance : on MARQUE le premier enfant de la liste AVANT le geste, et l'on
+   attend un premier enfant SANS la marque. C'est la forme de
+   « apresLeRemplacement » de la bibliothèque — on ne l'appelle pas ici parce
+   qu'elle avale son expiration (« .catch(() => {}) ») : une peinture qui ne
+   viendrait jamais s'y changerait en trente secondes d'attente puis en un
+   rouge plus loin, qui ne nommerait plus la cause.
+
+   Elle ne remplace aucune attente existante : les post-conditions de la base
+   et du verdict restent, parce qu'elles mesurent autre chose.
+*/
+const DOMAINES = '#groupes-effacement';
+const marquerLesDomaines = () =>
+  page.evaluate((zone) => {
+    const premier = document.querySelector(zone)?.firstElementChild;
+    if (premier) premier.setAttribute('data-ancien', 'oui');
+  }, DOMAINES);
+const apresLaPeintureDesDomaines = (timeout = 30000) =>
+  page.waitForFunction(
+    (zone) => {
+      const premier = document.querySelector(zone)?.firstElementChild;
+      return Boolean(premier) && !premier.hasAttribute('data-ancien');
+    },
+    DOMAINES,
+    { timeout },
+  );
+
 /* Une annonce lue seulement quand elle est écrite : une chaîne vide doit faire
    expirer l'attente, et non filer à une assertion qui en tirera ce qu'elle
    peut. */
@@ -286,6 +341,8 @@ v('et l’écran dit que rien n’a été effacé', /rien n’a été effacé/i.
 /* Puis la même chose, confirmée. */
 await page.fill('#mdp-avant-effacement', MDP);
 const attente = page.waitForEvent('download', { timeout: 120000 });
+/* Marqué AVANT le clic : la peinture des domaines ne peut venir qu'après. */
+await marquerLesDomaines();
 await page.click('#sauver-puis-effacer');
 const fichier = await attente;
 v(
@@ -302,6 +359,10 @@ await repondreALaBoite(page, 'Je l’ai retrouvé', { delai: 30000 });
    verdict de l'écran plutôt que de décrire un état final en base.
 */
 v('l’écran rend son verdict', Boolean(await travailFini(page, '#message-effacement')), true);
+/* Et la peinture qui suit le verdict a eu lieu : sans cette attente, elle
+   décochait le domaine coché plus bas, et « Compter » n'écrivait jamais
+   « Compté ». */
+await apresLaPeintureDesDomaines();
 v('les dix sessions de 2025 sont parties', await compter('nback'), 10);
 v('la session relationnelle de 2025 aussi', await compter('relationnel'), 0);
 v('le seuil Veridical est intact', await compter('vmSeuils'), 1);
@@ -345,6 +406,7 @@ v(
   false,
 );
 
+await marquerLesDomaines();
 await page.click('#effacer-sans');
 /*
    LA REDEMANDE DU MOT DE PASSE — prompt 44, point 1.
@@ -363,6 +425,11 @@ await repondreALaRedemande(page, MDP);
 /* Le magasin passe de dix sessions à zéro : c'est une vraie transition,
    donc une post-condition honnête. */
 await attendreEnBase(page, 'nback', (tout) => tout.length === 0);
+/* La même peinture, et ici elle compte doublement : ce domaine tombe à zéro,
+   donc sa case devient DÉSACTIVÉE en se repeignant. Cochée trop tôt, elle est
+   remplacée ; et un domaine décoché fait répondre « Choisissez au moins un
+   domaine. » au lieu de la phrase de la période à l'envers, plus bas. */
+await apresLaPeintureDesDomaines();
 v('le domaine est vide : n-back', await compter('nback'), 0);
 v('les seuils aussi', await compter('vmSeuils'), 0);
 v('et la carte d’un autre domaine est toujours là', await compter('cartes'), 1);
@@ -664,11 +731,16 @@ v('quatre exceptions scellées sont en base', await compter('odysseeExceptionsSc
   v('trois exceptions sur quatre sont visées', /odysseeExceptionsScellees — 3 sur 4/.test(d.detail), true);
   v('et compter n’a rien touché', await compter('odysseeExceptionsScellees'), 4);
 
+  await marquerLesDomaines();
   await page.click('#effacer-sans');
   await repondreALaRedemande(page, MDP);
   /* Ici le constat lit la BASE et attend un compte PRÉCIS : c'est donc la base
      qu'on sonde, et non le verdict de l'écran. */
   await attendreEnBase(page, 'odysseeExceptionsScellees', (tout) => tout.length === 1);
+  /* Et la peinture : « compterLaPeriode » décoche puis coche un domaine, et le
+     bloc suivant l'appelle sans qu'aucune navigation ne vienne annuler la
+     peinture en attente — contrairement aux deux blocs précédents. */
+  await apresLaPeintureDesDomaines();
   v('les trois sont parties', await compter('odysseeExceptionsScellees'), 1);
   /*
      Et c'est bien celle de 2024 qui reste. Compter les survivants ne suffit

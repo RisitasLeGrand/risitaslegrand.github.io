@@ -93,7 +93,45 @@ const ctx = await nav.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
 
 const erreurs = [];
-page.on('pageerror', (e) => erreurs.push(e.message.slice(0, 160)));
+/*
+   UNE ERREUR DE MODULE DYNAMIQUE SE DIAGNOSTIQUE ELLE-MÊME.
+
+   Ce balayage parcourt soixante-deux routes, et il a rendu deux fois un
+   « Failed to fetch dynamically imported module » — sur deux modules
+   DIFFÉRENTS, le 31 octobre et le 1er novembre. Les deux fois, le fichier
+   existait dans `dist/` et l'aperçu le servait en 200, vérifié à la main ;
+   les deux fois, l'essai était vert à la relance. Lancé deux fois de plus
+   ici, il n'a pas reparu.
+
+   Le verdict ne change pas : une erreur de page reste un rouge, et je ne vais
+   pas déclarer réparé ce que je n'ai pas su reproduire. Ce qui change est la
+   PREUVE que l'essai laisse derrière lui. À la prochaine occurrence, il
+   redemandera le module à l'aperçu et notera le code HTTP obtenu. Un 200 dira
+   « le fichier était là, c'est le transport qui a lâché » ; un 404 dira
+   l'inverse, et désignera une bâtisse incomplète. Sans cela, le rapport se
+   réduit à une chaîne que personne ne peut qualifier, et la prochaine
+   enquête recommencera de zéro.
+*/
+page.on('pageerror', (e) => {
+  const message = e.message.slice(0, 160);
+  const url = e.message.match(/https?:\/\/[^\s"')]+/)?.[0];
+  if (!url || !/dynamically imported module/i.test(e.message)) {
+    erreurs.push(message);
+    return;
+  }
+  /* La vérification est asynchrone ; on pousse d'abord, on précise ensuite,
+     pour qu'une erreur ne soit jamais perdue si le relevé échoue. */
+  const rang = erreurs.push(`${message} [vérification en cours]`) - 1;
+  void fetch(url, { method: 'GET' })
+    .then((r) => {
+      erreurs[rang] =
+        `${message} [le module répond ${r.status} à la relecture : ` +
+        `${r.status === 200 ? 'le fichier était là, le transport a lâché' : 'fichier absent de la bâtisse'}]`;
+    })
+    .catch((err) => {
+      erreurs[rang] = `${message} [relecture impossible : ${String(err).slice(0, 60)}]`;
+    });
+});
 
 console.log(`\nLES CIBLES À LA SOURIS — ${routes.length} routes, plancher ${PLANCHER} px\n`);
 

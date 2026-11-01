@@ -864,6 +864,89 @@ comme `parametres.astro` le fait avec `data-monte`. C'est une quinzaine
 d'écrans, donc une proposition au pilote et non une initiative : elle
 toucherait des fichiers qui ne sont pas de ce chantier.
 
+## 7. Deux règles du 1er novembre, tirées de huit méprises en une nuit
+
+Les deux sont venues de la même nuit, et chacune a coûté plusieurs fois le
+même temps avant d'être nommée. Elles ne portent pas sur ce qu'un essai
+mesure, mais sur ce qu'il RAPPORTE.
+
+### 7.1 « NON MESURÉ » n'est ni vert ni rouge, et il faut un mot pour le dire
+
+Un essai peut ne rien mesurer. Ce n'est ni une réussite ni un échec, et le
+compter dans l'un ou l'autre camp est pire que de ne pas le lancer : on croit
+savoir.
+
+**Les quatre formes rencontrées**, toutes mesurées le 31 octobre et le
+1er novembre :
+
+- **un nom de script qui n'existe pas.** `npm run --silent essais:truc` rend
+  **1 et n'écrit rien** — mesuré. Dans la batterie, cela donne un journal de
+  zéro octet compté ROUGE. Trois fois en une nuit : `essais:porte-des-actions`
+  dans un socle (le nom n'existait pas sur la branche arrivée),
+  `essais:transport-fichier` (le script s'appelle `essais:transport`) et
+  `essais:accords` (l'essai du lot 9, pas encore fusionné). Les trois ont été
+  lus comme des défauts du code ;
+
+- **un aperçu tombé.** `ERR_CONNECTION_REFUSED` à la première navigation : la
+  mesure n'a pas eu lieu. Le contrôle d'empreinte de l'aperçu refuse désormais
+  de COMMENCER sans site, mais un aperçu qui meurt en cours de course donne le
+  même symptôme ;
+
+- **une assertion qui compare deux absences.** « la clé de boîte du fichier
+  n'est pas reprise » comparait `(absente)` à `(absente)`, parce qu'aucun
+  profil n'avait ouvert son coffre et qu'il n'existait donc aucune clé. Quatre
+  contrôles passaient sur du vide, et un cinquième tombait. **Celui qui tombait
+  a sauvé la mesure** : formulé dans l'autre sens, il aurait été VERT en ne
+  mesurant rien ;
+
+- **un refus qui rend zéro.** `essais:reperes-audio`, lancé dans l'arbre de
+  travail, écrit « essai non exécuté : content/ existe déjà » et rend **0** —
+  un vert qui ne mesure rien, là où les autres essais de laboratoire refusent
+  avec un 1. Relevé par le constructeur.
+
+**La règle.** Un essai qui n'a pas mesuré le dit et rend
+`CODE_NON_MESURABLE`, jamais 0 ni 1. La batterie les compte à part — elle le
+fait déjà, et le mécanisme existe. Ce qui manquait n'est pas l'outil, c'est le
+réflexe de s'en servir, et le mot pour le nommer dans un compte rendu :
+**NON MESURÉ**, jamais compté vert ni rouge.
+
+**Le corollaire, pour qui lit un rouge.** Avant de chercher le défaut dans le
+code, vérifier que l'essai a tourné : un nom de script qui existe, un site qui
+répond, et un journal qui n'est pas vide. Un journal de zéro octet n'accuse
+personne.
+
+### 7.2 Un essai qui compare doit MONTRER ce qu'il compare
+
+Trois enquêtes en une nuit, et les trois se sont dénouées en une course dès
+qu'on a fait imprimer à l'essai ce qu'il lisait. Un relevé muet oblige à
+deviner, et on devine mal.
+
+- **`essais:effacement-total`** rendait les NOMS des clés restantes, pas leurs
+  valeurs. « une clé de session survit » se lisait donc comme une survivance,
+  alors que la page venait d'en écrire une neuve contenant la position de
+  l'écran courant. Trois courses, valeurs imprimées, et la cause était
+  nommée ;
+
+- **`essais:effacements-dits`** n'imprimait pas la phrase de la boîte. J'allais
+  la corriger sur une hypothèse fausse — je croyais la clause des rubriques
+  absente — alors qu'elle disait « Dont 0 carte suivie, 0 quiz et 1 journée de
+  temps passé », avec une journée que je n'avais pas prévue ;
+
+- **`essais:import:navigateur`** n'imprimait ni la période du manifeste ni les
+  indicateurs rendus. Cinq croix, dont quatre étaient des conséquences, et
+  aucune ne disait que le problème était une histoire de DATES.
+
+**La règle.** Quand un essai compare une valeur calculée à une valeur attendue,
+il imprime la valeur réelle — ou la phrase réelle, ou la liste réelle — à côté
+du contrôle. Pas la page entière : la portion exacte dont il est question.
+
+**Et son corollaire, qui vaut autant.** Une assertion doit porter sur l'état le
+plus en AMONT qu'elle puisse atteindre. Dans `import:navigateur`, un contrôle
+posé avant les cinq autres — « les jours semés tombent-ils dans la période de
+l'export ? » — transforme quatre croix de conséquence en une croix de cause.
+C'est la forme d'échec la plus coûteuse qu'un essai puisse avoir : une cause à
+cinq lignes de la première croix, et rien qui l'y renvoie.
+
 ## Ce qui reste hors d'atteinte ici
 
 ### La visibilité et le focus d'une page ne se pilotent pas (26 octobre, lot 0.8)
