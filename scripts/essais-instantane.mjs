@@ -220,8 +220,10 @@ v('pris depuis la version 11', apres.instantanes[0]?.deVersion, 11);
 
    « revenirA » la lit maintenant avant de supprimer la base et la rend après
    avoir écrit l'instantané. Ces trois constats tiennent cette traversée, et
-   le dernier est le seul qui aurait vu le défaut : les deux premiers étaient
-   verts avant la correction.
+   le sabotage dit lequel garde quoi — mesuré en retirant la restitution dans
+   un arbre séparé, sur le même commit : le premier reste VERT, les DEUX
+   autres rougissent. J'avais d'abord écrit qu'un seul rougirait ; c'était une
+   prédiction, et elle était fausse.
 */
 const APPAREIL = apres.appareil;
 v('la migration a posé une identité d’appareil', typeof APPAREIL === 'string' && APPAREIL.length > 0, true);
@@ -293,9 +295,10 @@ v(`l’application remigre en version ${VERSION}`, remigre.version, VERSION);
 v('un socle est de nouveau posé', remigre.revisions?.length, 1);
 v('et il ne reste que les instantanés gardés', remigre.instantanes.length <= 2, true);
 /*
-   LE CONSTAT QUI AURAIT VU LE DÉFAUT. Avant la correction, la remigration
-   tirait une identité NEUVE — le palier 12 ne trouvait rien et en forgeait une.
-   C'est celui-ci qui rougissait, et les deux autres restaient verts.
+   LE SECOND DES DEUX CONSTATS QUI VOIENT LE DÉFAUT. Avant la correction, la
+   remigration tirait une identité NEUVE — le palier 12 ne trouvait rien et en
+   forgeait une. Celui du retour, juste au-dessus, rougissait aussi : un
+   instantané pris en version 11 ne porte aucune identité à rendre.
 */
 v('et l’appareil porte toujours la même identité', remigre.appareil, APPAREIL);
 
