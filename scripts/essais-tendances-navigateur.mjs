@@ -424,7 +424,36 @@ await page.waitForFunction(
   undefined,
   { timeout: 15000 },
 );
-vrai('une clôture libère la place', true);
+/*
+   « vrai('une clôture libère la place', true) » ne gardait RIEN : une assertion
+   dont la valeur est écrite en dur passe quoi qu'il arrive. Ce qui garantissait
+   quelque chose était l'attente au-dessus, qui lève à l'expiration — la ligne
+   d'assertion, elle, était décorative. On compte donc pour de bon.
+*/
+v(
+  'une clôture libère la place',
+  await page.$$eval('[data-trajectoire][data-statut="active"]', (l) => l.length),
+  3,
+);
+
+/*
+   ET LE MESSAGE DE REFUS A DISPARU — le défaut que le passage à
+   « agirPuisPeindre » corrige sur cet écran.
+
+   La suite de gestes ci-dessus est exactement celle qui l'exposait : une
+   quatrième trajectoire refusée écrit « trois intentions suivies » dans
+   « #erreur », puis on en clôt une, puis la quatrième est acceptée. Avant ce
+   lot, « dire() » révélait « #erreur » et RIEN ne le recachait jamais : la
+   personne lisait donc un refus périmé au-dessus d'une liste où son geste
+   venait de réussir.
+
+   « agirPuisPeindre » efface la zone avant de repeindre, et c'est ce qu'on
+   exige ici. L'essai passait déjà par ce chemin sans le regarder.
+*/
+vrai(
+  'et le refus périmé a disparu de l’écran',
+  await page.locator('#erreur').evaluate((e) => e.classList.contains('hidden') || e.textContent.trim() === ''),
+);
 
 /* ════════════════════════════════════════════════════════════════════════
    4. Le vocabulaire affiché n'affirme aucune cause

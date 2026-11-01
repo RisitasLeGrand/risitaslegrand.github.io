@@ -175,7 +175,7 @@ import { DOMAINES } from '../../lib/noyau/domaines';
 <script>
   import { defilerVers } from '../../lib/defilement';
   import { auDeverrouillage } from '../../lib/chargement';
-  import { messageDUneErreur } from '../../lib/agir';
+  import { agirPuisPeindre, messageDUneErreur } from '../../lib/agir';
   import { unSeulGeste } from '../../lib/geste';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
@@ -285,30 +285,29 @@ import { DOMAINES } from '../../lib/noyau/domaines';
        la liste ne se refait qu'une fois l'écriture finie.
     */
     ecarter.addEventListener('click', (evenement) => {
-      void unSeulGeste(evenement.currentTarget as Element, async () => {
-        try {
+      void unSeulGeste(evenement.currentTarget as Element, () =>
+        agirPuisPeindre(
           /*
              Une trajectoire « écartée » est créée pour **retenir l'origine**.
              Sans elle, on ne saurait pas quelle proposition ne plus faire, et
              la piste reviendrait au prochain chargement.
           */
-          await ecrireTrajectoire({
-            origine: piste.id,
-            intitule: piste.enonce.slice(0, 120),
-            pourquoi: '',
-            domaine: 'transverse',
-            statut: 'refusee',
-            series: piste.series,
-            debut: new Date().toISOString(),
-            horizon: null,
-            closeLe: new Date().toISOString(),
-            motif: 'Écartée depuis l’écran des tendances.',
-          });
-          await recharger();
-        } catch (erreur) {
-          dire(erreur);
-        }
-      });
+          () =>
+            ecrireTrajectoire({
+              origine: piste.id,
+              intitule: piste.enonce.slice(0, 120),
+              pourquoi: '',
+              domaine: 'transverse',
+              statut: 'refusee',
+              series: piste.series,
+              debut: new Date().toISOString(),
+              horizon: null,
+              closeLe: new Date().toISOString(),
+              motif: 'Écartée depuis l’écran des tendances.',
+            }),
+          { peindre: recharger, zone: 'erreur' },
+        ),
+      );
     });
 
     carte.append(suivre, ecarter);
@@ -467,14 +466,10 @@ import { DOMAINES } from '../../lib/noyau/domaines';
         b.className = 'text-indigo-700 underline dark:text-indigo-300';
         b.textContent = libelle;
         b.addEventListener('click', () => {
-          void (async () => {
-            try {
-              await changerStatut(t.id, statut, motif);
-              await recharger();
-            } catch (erreur) {
-              dire(erreur);
-            }
-          })();
+          void agirPuisPeindre(() => changerStatut(t.id, statut, motif), {
+            peindre: recharger,
+            zone: 'erreur',
+          });
         });
         return b;
       };
@@ -641,30 +636,37 @@ import { DOMAINES } from '../../lib/noyau/domaines';
       $('decalages').addEventListener('change', () => void recharger().catch(dire));
 
       $('ouvrir').addEventListener('click', (evenement) => {
-        void unSeulGeste(evenement.currentTarget as Element, async () => {
-          try {
-            const champ = $('intitule') as HTMLInputElement;
-            const horizon = ($('horizon') as HTMLInputElement).value;
-            await ecrireTrajectoire({
-              origine: champ.dataset.origine ?? null,
-              intitule: champ.value.trim(),
-              pourquoi: ($('pourquoi') as HTMLInputElement).value.trim(),
-              domaine: ($('domaine') as HTMLSelectElement).value,
-              statut: 'active',
-              series: [],
-              debut: new Date().toISOString(),
-              horizon: horizon || null,
-              closeLe: null,
-              motif: '',
-            });
-            champ.value = '';
-            delete champ.dataset.origine;
-            ($('pourquoi') as HTMLInputElement).value = '';
-            await recharger();
-          } catch (erreur) {
-            dire(erreur);
-          }
-        });
+        void unSeulGeste(evenement.currentTarget as Element, () =>
+          agirPuisPeindre(
+            /*
+               LE VIDAGE DU FORMULAIRE RESTE DANS L'ACTION, et non dans le
+               repeint. Il doit suivre l'écriture et ne jamais la précéder : un
+               champ vidé alors que l'écriture a échoué ferait perdre à la
+               personne ce qu'elle venait de saisir, sans aucun moyen de le
+               retrouver. L'ordre d'avant est donc gardé tel quel.
+            */
+            async () => {
+              const champ = $('intitule') as HTMLInputElement;
+              const horizon = ($('horizon') as HTMLInputElement).value;
+              await ecrireTrajectoire({
+                origine: champ.dataset.origine ?? null,
+                intitule: champ.value.trim(),
+                pourquoi: ($('pourquoi') as HTMLInputElement).value.trim(),
+                domaine: ($('domaine') as HTMLSelectElement).value,
+                statut: 'active',
+                series: [],
+                debut: new Date().toISOString(),
+                horizon: horizon || null,
+                closeLe: null,
+                motif: '',
+              });
+              champ.value = '';
+              delete champ.dataset.origine;
+              ($('pourquoi') as HTMLInputElement).value = '';
+            },
+            { peindre: recharger, zone: 'erreur' },
+          ),
+        );
       });
 
       await recharger();
