@@ -12,16 +12,28 @@
  */
 import {
   ITERATIONS_PAR_DEFAUT,
+  LIGNE_PAQUET,
   LIGNE_RECONNAISSANCE,
   SauvegardeRefusee,
   VERSION_FORMAT,
+  VERSION_SANS_EN_TETE_AUTHENTIFIE,
   ecrire,
+  ligneDEnTete,
   lireEnTete,
   nomDeFichier,
   relire,
   verifier,
   type Magasins,
 } from '../src/lib/sauvegarde/format';
+/*
+   ET « service.ts », POUR UNE SEULE SECTION — celle du magasin scellé et
+   inconnu. Ce fichier éprouve d'ordinaire le module de format seul, qui est
+   pur ; mais ce que M-2bis (b) corrige est précisément une COUTURE entre les
+   deux — ce que l'en-tête cesse de dire, et où la restauration doit le
+   rattraper. L'éprouver des deux côtés séparément ne dirait rien de la couture.
+   Les deux fonctions employées ici sont pures et ne touchent pas la base.
+*/
+import { apercu, magasinsInconnus } from '../src/lib/sauvegarde/service';
 
 let echecs = 0;
 const verifierQue = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -338,6 +350,382 @@ verifierQue(
   ITERATIONS_PAR_DEFAUT,
   600_000,
 );
+
+console.log('\n\x1b[1mLE FORMAT v2 — L’EN-TÊTE EST AUTHENTIFIÉ (M-1)\x1b[0m');
+
+/*
+   Un petit jeu de magasins, dont un SCELLÉ au sens du dépôt. On ne lit pas le
+   registre du coffre ici — `format.ts` est pur et ne le connaît pas — on lui
+   dit lequel l'est, exactement comme `service.ts` le fait.
+*/
+const MAGASINS_ESSAI: Magasins = {
+  cartes: [{ id: 'c1' }, { id: 'c2' }],
+  odysseeCycleJournal: [{ id: 'j1' }, { id: 'j2' }, { id: 'j3' }],
+};
+const SCELLES = ['odysseeCycleJournal'];
+const MDP = 'un-mot-de-passe-d-essai';
+
+const faire = (plus: Record<string, unknown> = {}) =>
+  ecrire({
+    magasins: MAGASINS_ESSAI,
+    branches: [{ id: 'revisions', schema: 43, magasins: Object.keys(MAGASINS_ESSAI) }],
+    versionApplication: 'essai',
+    portee: { branches: ['revisions'] },
+    motDePasse: MDP,
+    magasinsScelles: SCELLES,
+    maintenant: new Date('2026-10-31T12:00:00.000Z'),
+    ...plus,
+  } as never);
+
+{
+  const s = await faire();
+  verifierQue('un fichier neuf porte la version 2', s.entete.versionFormat, 2);
+
+  /* L'aller-retour d'abord : sans lui, le reste ne prouve rien. */
+  const relu = await relire(s.octets, MDP);
+  verifierQue('il se relit à l’identique', relu.magasins, MAGASINS_ESSAI);
+
+  /*
+     LE SABOTAGE QUI COMPTE. On modifie l'en-tête — une date, le champ le plus
+     anodin qui soit — et le déchiffrement doit ÉCHOUER. En version 1 il
+     réussissait : l'en-tête n'était authentifié par rien, et une sauvegarde
+     pouvait annoncer n'importe quoi sans que rien ne bronche.
+
+     On touche à `creeLe` plutôt qu'à un compte, et c'est délibéré : si même la
+     date est protégée, tout l'en-tête l'est, puisque les données associées
+     sont la ligne entière.
+  */
+  const ligne = ligneDEnTete(s.octets);
+  const truque = ligne.replace('2026-10-31T12:00:00.000Z', '2020-01-01T00:00:00.000Z');
+  verifierQue('la ligne truquée diffère bien de l’originale', truque !== ligne, true);
+  const octetsTruques = new Uint8Array([
+    ...new TextEncoder().encode(`${LIGNE_RECONNAISSANCE}\n${truque}\n`),
+    ...s.octets.subarray(s.octets.indexOf(10, s.octets.indexOf(10) + 1) + 1),
+  ]);
+  await refus(
+    'un en-tête modifié fait échouer le déchiffrement',
+    'mot-de-passe',
+    () => relire(octetsTruques, MDP),
+  );
+
+  /*
+     ET LA SOMME, ELLE, PEUT CHANGER SANS ROMPRE LES DONNÉES ASSOCIÉES —
+     c'est le dénouement de la circularité. Elle est mise en zéros des deux
+     côtés, donc elle ne participe pas à l'authentification ; elle est
+     vérifiée séparément, et son propre refus a son propre motif.
+  */
+  const sommeFaussee = ligne.replace(/("valeur":")[0-9a-f]{64}(")/, `$1${'f'.repeat(64)}$2`);
+  verifierQue('la somme a bien été faussée', sommeFaussee !== ligne, true);
+  const octetsSommeFaussee = new Uint8Array([
+    ...new TextEncoder().encode(`${LIGNE_RECONNAISSANCE}\n${sommeFaussee}\n`),
+    ...s.octets.subarray(s.octets.indexOf(10, s.octets.indexOf(10) + 1) + 1),
+  ]);
+  await refus(
+    'une somme faussée est refusée par la somme, et non par le mot de passe',
+    'somme-de-controle',
+    () => relire(octetsSommeFaussee, MDP),
+  );
+}
+
+console.log('\n\x1b[1mNI NOM NI COMPTE SCELLÉ DANS LE CLAIR (M-2 et M-2bis)\x1b[0m');
+{
+  const s = await faire();
+  const enClair = ligneDEnTete(s.octets);
+  verifierQue('le magasin non scellé garde son compte nommé', s.entete.magasins.cartes, 2);
+  verifierQue(
+    'le magasin scellé n’a plus de compte nommé',
+    'odysseeCycleJournal' in s.entete.magasins,
+    false,
+  );
+  /*
+     ET PLUS DE TOTAL NON PLUS — M-2bis. La première version en gardait un, et
+     la limite était écrite dans le module plutôt que tue. Le pilote a tranché :
+     un total dit encore l'ordre de grandeur de ce qui est scellé, et il ne vaut
+     que pour quelqu'un qui en a — « zéro » et « quatre cents » ne disent pas la
+     même chose de la personne.
+  */
+  verifierQue('et il n’y a plus de total du tout', 'scelles' in s.entete, false);
+  /*
+     ET LE NOM A QUITTÉ « branches ». C'était la dernière fuite, et la plus
+     bête : un compte retiré dont le nom reste ne cache rien de ce qui compte.
+     « odysseeCycleJournal est dans ce fichier » dit déjà que la personne suit
+     son cycle, avant même de savoir combien.
+  */
+  verifierQue(
+    'et la branche ne déclare plus le magasin scellé',
+    s.entete.branches[0].magasins,
+    ['cartes'],
+  );
+  verifierQue(
+    'mais elle déclare toujours ce qui n’est pas scellé',
+    s.entete.branches[0].magasins.includes('cartes'),
+    true,
+  );
+
+  /*
+     LE CONTRÔLE QUI COMPTE, ET IL PORTE SUR LE FICHIER ENTIER.
+
+     Les quatre précédents interrogent l'en-tête DÉJÀ ANALYSÉ, c'est-à-dire
+     l'objet que ce module a bien voulu rendre. Ils passeraient tous le jour où
+     le nom se glisserait ailleurs dans le clair — dans un champ ajouté, dans
+     la portée, dans un futur index. Celui-ci lit les OCTETS, comme le ferait
+     la personne qui ouvre le fichier dans un éditeur de texte, et c'est elle
+     qu'on protège.
+  */
+  const octetsEnClair = Buffer.from(s.octets).toString('latin1');
+  verifierQue(
+    'aucun nom de magasin scellé dans les octets en clair du fichier',
+    octetsEnClair.includes('odysseeCycleJournal'),
+    false,
+  );
+  verifierQue(
+    'et aucun compte de magasin scellé dans la carte en clair',
+    /"odysseeCycleJournal"\s*:\s*3/.test(enClair),
+    false,
+  );
+
+  /*
+     ET LE SABOTAGE, sans lequel les deux précédents ne prouveraient rien : un
+     contrôle qui cherche une chaîne absente passe aussi quand la chaîne ne
+     pouvait pas y être. On réécrit donc le MÊME fichier sans déclarer aucun
+     magasin scellé — c'est exactement ce que faisait la version 1 — et le nom
+     doit reparaître. S'il ne reparaît pas, le contrôle ci-dessus ne garde rien.
+  */
+  const sansProtection = await faire({ magasinsScelles: [] });
+  const clairSansProtection = Buffer.from(sansProtection.octets).toString('latin1');
+  verifierQue(
+    'et sans la protection, ce nom SE LIT dans le clair — le contrôle mord',
+    clairSansProtection.includes('odysseeCycleJournal'),
+    true,
+  );
+  verifierQue(
+    'et son compte aussi',
+    /"odysseeCycleJournal"\s*:\s*3/.test(ligneDEnTete(sansProtection.octets)),
+    true,
+  );
+
+  /* Le fichier, lui, porte bien les trois enregistrements : rien n'est perdu. */
+  const relu = await relire(s.octets, MDP);
+  verifierQue(
+    'les enregistrements scellés sont tous là, après le mot de passe',
+    (relu.magasins.odysseeCycleJournal as unknown[]).length,
+    3,
+  );
+  verifierQue(
+    'et c’est là que leur nom se lit, et nulle part avant',
+    Object.keys(relu.magasins).includes('odysseeCycleJournal'),
+    true,
+  );
+}
+
+console.log('\n\x1b[1mUN MAGASIN SCELLÉ ET INCONNU RESTE SIGNALÉ (M-2bis b)\x1b[0m');
+{
+  /*
+     CE QUE M-2bis COÛTE, ET CE QUI LE COMPENSE.
+
+     Un magasin SCELLÉ que cette version ne sait pas écrire — ce que porterait
+     une sauvegarde venue d'une version plus récente — n'est plus nommé dans
+     l'en-tête en clair. « Vérifier cette sauvegarde », qui répond sans mot de
+     passe, ne peut donc plus le voir : c'est le prix de l'arbitrage, et il est
+     mesuré ici plutôt qu'admis.
+
+     La compensation est que le compte se fait désormais sur la charge utile
+     DÉCHIFFRÉE, avant l'instantané et avant l'écriture. Les deux assertions
+     vont donc par paire : l'une montre la perte, l'autre montre qu'elle est
+     rattrapée. Séparées, aucune des deux ne dirait quoi que ce soit.
+  */
+  const AVEC_INCONNU: Magasins = {
+    cartes: [{ id: 'c1' }],
+    odysseeRituelFutur: [{ id: 'f1' }, { id: 'f2' }],
+  };
+  const fichier = await ecrire({
+    magasins: AVEC_INCONNU,
+    branches: [{ id: 'revisions', schema: 99, magasins: Object.keys(AVEC_INCONNU) }],
+    versionApplication: 'essai',
+    portee: { branches: ['revisions'] },
+    motDePasse: MDP,
+    magasinsScelles: ['odysseeRituelFutur'],
+    maintenant: new Date('2026-10-31T12:00:00.000Z'),
+  } as never);
+
+  const vu = await apercu(fichier.octets);
+  verifierQue(
+    'sans mot de passe, le magasin scellé inconnu est INVISIBLE — le prix de M-2bis',
+    vu.magasinsInconnus.includes('odysseeRituelFutur'),
+    false,
+  );
+  verifierQue(
+    'et la vérification à blanc garde tout de même son objet',
+    vu.entete.versionFormat,
+    VERSION_FORMAT,
+  );
+
+  const relu = await relire(fichier.octets, MDP);
+  verifierQue(
+    'après le mot de passe, il est signalé — et AVANT toute écriture',
+    magasinsInconnus(Object.keys(relu.magasins)),
+    ['odysseeRituelFutur'],
+  );
+  /*
+     ET LE SABOTAGE : si le compte se faisait sur l'en-tête plutôt que sur la
+     charge utile — ce qu'il faisait avant M-2bis (b) — ce magasin passerait
+     inaperçu. C'est exactement la régression que l'assertion précédente garde.
+  */
+  verifierQue(
+    'alors que le compter sur l’en-tête le manquerait — la régression gardée',
+    magasinsInconnus(Object.keys(relu.entete.magasins)),
+    [],
+  );
+  /* Et ce qui est connu reste connu : le contrôle ne crie pas sur tout. */
+  verifierQue(
+    'et un magasin connu n’est pas signalé',
+    magasinsInconnus(['cartes']),
+    [],
+  );
+}
+
+console.log('\n\x1b[1mLE REFUS DE VERSION NOMME LE BON OBJET\x1b[0m');
+{
+  /*
+     POURQUOI CE CONTRÔLE EXISTE, et pourquoi c'est v2 qui le rend nécessaire.
+
+     M-1 authentifie l'en-tête des PAQUETS aussi, sans une ligne de plus, parce
+     que « sync/paquet.ts » appelle le même « ecrire ». Un appareil resté en
+     version 1 refuse donc les paquets d'un appareil à jour — et c'est le bon
+     comportement. Mais c'est ce refus-là que la personne va lire, et il disait
+     « cette sauvegarde » et « avant de LA RESTAURER » à quelqu'un qui venait de
+     SYNCHRONISER : juste sur le fond, faux sur l'objet. On lui parlait d'un
+     geste qu'elle n'avait pas fait.
+
+     On ne peut pas fabriquer un lecteur de version 1 — la constante est dans le
+     module. On fabrique donc l'inverse, qui éprouve exactement le même chemin :
+     un fichier d'une version PLUS RÉCENTE que celle-ci, que ce lecteur-ci
+     refuse.
+  */
+  const duFutur = (plus: Record<string, unknown> = {}) =>
+    faire({ versionFormat: VERSION_FORMAT + 1, ...plus });
+
+  const sauvegardeFuture = await duFutur();
+  let ditSauvegarde = '';
+  try {
+    lireEnTete(sauvegardeFuture.octets);
+  } catch (erreur) {
+    ditSauvegarde = erreur instanceof SauvegardeRefusee ? erreur.message : String(erreur);
+  }
+  verifierQue(
+    'une sauvegarde trop récente est refusée',
+    /plus récente de Cyclades/.test(ditSauvegarde),
+    true,
+  );
+  verifierQue(
+    'et on lui parle de restaurer, puisque c’est ce qu’elle allait faire',
+    /avant de restaurer/.test(ditSauvegarde),
+    true,
+  );
+
+  const paquetFutur = await duFutur({ genre: LIGNE_PAQUET });
+  let ditPaquet = '';
+  try {
+    lireEnTete(paquetFutur.octets, LIGNE_PAQUET);
+  } catch (erreur) {
+    ditPaquet = erreur instanceof SauvegardeRefusee ? erreur.message : String(erreur);
+  }
+  verifierQue(
+    'un paquet trop récent est appelé un paquet, et non une sauvegarde',
+    /Ce paquet de synchronisation/.test(ditPaquet),
+    true,
+  );
+  verifierQue(
+    'et on lui parle de synchroniser, et non de restaurer',
+    /avant de synchroniser/.test(ditPaquet) && !/avant de restaurer/.test(ditPaquet),
+    true,
+  );
+  /*
+     ET LE SECOND APPAREIL, que le pilote demande de ne pas laisser dans le
+     noir. Celui qui lit ce refus est en retard ; l'autre n'a rien à changer, et
+     c'est contre-intuitif — on croit spontanément qu'un refus vient de soi.
+     Sans cette phrase, la personne met à jour le mauvais appareil, ou défait un
+     appairage qui allait bien.
+  */
+  verifierQue(
+    'et le message dit que l’AUTRE appareil n’a rien à changer',
+    /n’a rien à changer/.test(ditPaquet),
+    true,
+  );
+  verifierQue(
+    'et il dit lequel des deux mettre à jour',
+    /sur CET appareil/.test(ditPaquet),
+    true,
+  );
+  /* Et la sauvegarde, elle, n'a pas de second appareil : on ne lui en invente pas. */
+  verifierQue(
+    'tandis qu’une sauvegarde n’a pas de second appareil à mentionner',
+    /n’a rien à changer/.test(ditSauvegarde),
+    false,
+  );
+}
+
+console.log('\n\x1b[1mLA VERSION 1 RESTE LISIBLE\x1b[0m');
+{
+  /*
+     UN VRAI FICHIER DE VERSION 1, écrit par la même chaîne de chiffrement. Le
+     fabriquer autrement — en réécrivant la dérivation de clé dans l'essai —
+     serait la duplication que ce module refuse, et l'essai éprouverait alors
+     sa propre copie au lieu du code livré.
+  */
+  const v1 = await faire({ versionFormat: VERSION_SANS_EN_TETE_AUTHENTIFIE });
+  verifierQue('le fichier annonce la version 1', v1.entete.versionFormat, 1);
+  verifierQue(
+    'et il compte TOUS ses magasins en clair, comme le faisait la version 1',
+    v1.entete.magasins.odysseeCycleJournal,
+    3,
+  );
+  verifierQue('sans total séparé', 'scelles' in v1.entete, false);
+  /*
+     ET ELLE DÉCLARE ENCORE LE MAGASIN SCELLÉ DANS SA BRANCHE. C'est le défaut
+     que M-2bis ferme, et il doit rester visible ICI : un fichier de version 1
+     écrit par la version d'aujourd'hui doit être un vrai fichier de version 1,
+     sinon l'essai de compatibilité éprouve un fichier qui n'a jamais existé.
+  */
+  verifierQue(
+    'et sa branche déclare encore tous ses magasins, comme en version 1',
+    [...v1.entete.branches[0].magasins].sort(),
+    ['cartes', 'odysseeCycleJournal'],
+  );
+
+  const relu = await relire(v1.octets, MDP);
+  verifierQue('il se relit à l’identique', relu.magasins, MAGASINS_ESSAI);
+
+  /*
+     ET SON EN-TÊTE N'EST PAS AUTHENTIFIÉ — c'est le défaut que la version 2
+     corrige, et le constater sur un vrai fichier de version 1 est la seule
+     façon de montrer que la correction en est bien une. Modifier la date d'un
+     fichier de version 1 ne l'empêche pas de s'ouvrir.
+
+     Il faut refaire la somme, sinon c'est elle qui refuserait et l'on
+     mesurerait la mauvaise chose.
+  */
+  const ligne = ligneDEnTete(v1.octets);
+  const debut = v1.octets.indexOf(10, v1.octets.indexOf(10) + 1) + 1;
+  const charge = v1.octets.subarray(debut);
+  const somme = [...new Uint8Array(await crypto.subtle.digest('SHA-256', charge))]
+    .map((o) => o.toString(16).padStart(2, '0'))
+    .join('');
+  const truque = ligne
+    .replace('2026-10-31T12:00:00.000Z', '2020-01-01T00:00:00.000Z')
+    .replace(/("valeur":")[0-9a-f]{64}(")/, `$1${somme}$2`);
+  const octetsTruques = new Uint8Array([
+    ...new TextEncoder().encode(`${LIGNE_RECONNAISSANCE}\n${truque}\n`),
+    ...charge,
+  ]);
+  const reluTruque = await relire(octetsTruques, MDP);
+  verifierQue(
+    'un en-tête de version 1 modifié s’ouvre quand même — le défaut que v2 ferme',
+    reluTruque.entete.creeLe,
+    '2020-01-01T00:00:00.000Z',
+  );
+  verifierQue('et ses données sont intactes', reluTruque.magasins, MAGASINS_ESSAI);
+}
 
 console.log(
   echecs

@@ -22,6 +22,7 @@ import { VERSION as VERSION_DE_LA_BASE } from '../db';
 import { BRANCHES, ID_BRANCHE_PAR_DEFAUT } from '../branches';
 import { PARCOURS } from '../parcours/registre';
 import { pluriel } from '../noyau/accords';
+import { estScelle } from '../noyau/coffre';
 import {
   SauvegardeRefusee,
   ecrire,
@@ -81,6 +82,20 @@ export function brancheRevisions(): BrancheSauvegardee {
 export interface ResultatSauvegarde {
   sauvegarde: Sauvegarde;
   nom: string;
+  /**
+   * Tout ce que le fichier porte, scellés COMPRIS.
+   *
+   * Il ne se déduit plus de l'en-tête : depuis M-2bis, l'en-tête en clair ne
+   * compte que les magasins non scellés, et le reçu qui sommait ses valeurs
+   * sous-comptait donc — il annonçait à la personne, juste après sa sauvegarde,
+   * moins d'enregistrements qu'elle n'en avait réellement enregistré.
+   *
+   * Se taire dans le FICHIER, qui peut sortir de l'appareil, et se taire DEVANT
+   * LA PERSONNE, sur son propre écran, sont deux choses sans rapport. Le second
+   * n'est pas de la discrétion, c'est une erreur d'affichage. Le compte se
+   * prend donc à la source, avant que l'en-tête ne se taise.
+   */
+  enregistrements: number;
 }
 
 /**
@@ -105,15 +120,37 @@ export async function fabriquer(motDePasse: string | null): Promise<ResultatSauv
   */
   const emportes = magasinsDUneSauvegarde(motDePasse !== null);
   const magasins = await exporterMagasins(emportes);
+  /*
+     QUELS MAGASINS SONT SCELLÉS — M-2, et c'est ici qu'on le sait.
+
+     `format.ts` est pur : il ne connaît aucune liste de magasins, et importer
+     le registre du coffre lui ferait connaître IndexedDB par la bande. C'est
+     donc cette couche-ci, qui touche déjà la base, qui le lui dit — comme
+     `magasinsDUneSauvegarde` décide déjà de ce qui part.
+
+     Le critère est celui du dépôt, pas un nouveau : un magasin scellé est un
+     magasin dont le contenu a été jugé devoir être chiffré. Annoncer son
+     compte dans un en-tête en clair revient à dire combien il en contient à
+     qui ouvre le fichier dans un éditeur de texte.
+  */
+  const magasinsScelles = emportes.filter((nom) => estScelle(nom));
   const maintenant = new Date();
   const sauvegarde = await ecrire({
     magasins,
     /*
-       La branche déclare ce qu'elle apporte, donc elle déclare la même
-       liste : annoncer des magasins que le fichier ne porte pas rendrait
-       l'aperçu de restauration faux.
+       La branche déclare ce qu'elle apporte, donc elle déclare la même liste :
+       annoncer des magasins que le fichier ne porte pas rendrait l'aperçu de
+       restauration faux.
+
+       On la donne ENTIÈRE, scellés compris, et c'est « format.ts » qui retire
+       les noms scellés de l'en-tête en clair (M-2bis) à partir de
+       `magasinsScelles` ci-dessous. Le filtrage est là-bas et non ici parce que
+       « ecrire » a deux appelants — celui-ci et le paquet de synchronisation :
+       une règle de confidentialité qui dépend du souvenir de chaque appelant
+       tient jusqu'au troisième.
     */
     branches: [{ ...brancheRevisions(), magasins: [...emportes] }],
+    magasinsScelles,
     versionApplication: (config as { version?: string }).version ?? 'inconnue',
     portee: {
       branches: BRANCHES.filter((b) => b.disponible).map((b) => b.id),
@@ -122,7 +159,11 @@ export async function fabriquer(motDePasse: string | null): Promise<ResultatSauv
     motDePasse,
     maintenant,
   });
-  return { sauvegarde, nom: nomDeFichier(maintenant) };
+  return {
+    sauvegarde,
+    nom: nomDeFichier(maintenant),
+    enregistrements: Object.values(magasins).reduce((somme, v) => somme + v.length, 0),
+  };
 }
 
 /** Note la réussite. À appeler **après** que le fichier est réellement parti. */
@@ -163,13 +204,30 @@ export interface Apercu extends Verification {
  * C'est le bouton « Vérifier cette sauvegarde ». Il répond à la seule question
  * qui compte avant d'agir : qu'est-ce que ce fichier, et est-il entier ?
  */
+/**
+ * Les magasins qu'un fichier porte et que cette version ne sait pas écrire.
+ *
+ * Une seule définition, parce qu'elle sert à deux moments qui doivent répondre
+ * la même chose : la vérification à blanc, sans mot de passe, et la
+ * restauration, après déchiffrement. Deux définitions finiraient par diverger
+ * exactement le jour où la différence compte.
+ *
+ * Ces magasins sont CONSERVÉS et jamais perdus — c'est pour cela qu'on les
+ * nomme plutôt que de les refuser : un fichier venu d'une version plus récente
+ * porte des choses que celle-ci ne comprend pas, et les jeter serait pire que
+ * de les laisser dormir.
+ */
+export function magasinsInconnus(noms: readonly string[]): string[] {
+  const connus = new Set<string>(MAGASINS_PROGRESSION);
+  return noms.filter((nom) => !connus.has(nom));
+}
+
 export async function apercu(octets: Uint8Array): Promise<Apercu> {
   const v = await verifier(octets);
-  const connus = new Set<string>(MAGASINS_PROGRESSION);
   return {
     ...v,
     enregistrements: Object.values(v.entete.magasins ?? {}).reduce((s, n) => s + n, 0),
-    magasinsInconnus: Object.keys(v.entete.magasins ?? {}).filter((nom) => !connus.has(nom)),
+    magasinsInconnus: magasinsInconnus(Object.keys(v.entete.magasins ?? {})),
   };
 }
 
@@ -260,6 +318,26 @@ export async function restaurer(
     throw new SauvegardeRefusee(verdict.motif, verdict.dire, relecture.entete);
   }
 
+  /*
+     LES MAGASINS INCONNUS SE COMPTENT ICI, ET NON DANS L'ÉCRITURE — M-2bis (b).
+
+     Ils se lisaient dans le retour de `remplacerMagasins`, c'est-à-dire APRÈS
+     que tout a été écrit. Tant que l'en-tête en clair les annonçait tous, cela
+     ne coûtait rien : « Vérifier cette sauvegarde » les nommait avant qu'on
+     touche à quoi que ce soit, sans mot de passe.
+
+     Depuis M-2bis l'en-tête ne nomme plus les magasins scellés. Un magasin
+     SCELLÉ et inconnu — ce que porterait une sauvegarde venue d'une version
+     plus récente — devenait donc invisible jusqu'à ce que l'écriture soit
+     faite. L'arbitrage gagnait en confidentialité ce qu'il perdait en sûreté de
+     restauration, et ce n'est pas l'échange qui avait été demandé.
+
+     On les compte donc sur la charge utile DÉCHIFFRÉE, avant l'instantané et
+     avant l'écriture. La valeur ne vient plus de l'écriture : elle ne peut donc
+     plus dépendre de son issue.
+  */
+  const inconnus = magasinsInconnus(Object.keys(relecture.magasins));
+
   let instantane: ResultatSauvegarde | null = null;
   if (options.instantane !== false) {
     const mdp =
@@ -301,7 +379,16 @@ export async function restaurer(
     }
   }
 
-  const { ecrits, inconnus } = await remplacerMagasins(magasins);
+  /*
+     ET « inconnus » NE VIENT PLUS D'ICI : il a été compté plus haut, sur la
+     charge déchiffrée, avant l'instantané et avant l'écriture (M-2bis (b) de
+     b-cyclades-v2). On passe donc les magasins MIGRÉS à l'écriture — c'est le
+     point de b-politique-schema — et l'on ignore le « inconnus » qu'elle
+     renvoie, qui dirait la même chose mais après coup. Les deux apports
+     tiennent ensemble : le comptage ne dépend plus de l'issue de l'écriture, et
+     l'écriture reçoit bien les données mises à la forme courante.
+  */
+  const { ecrits } = await remplacerMagasins(magasins);
   return { relecture, ecrits, inconnus, instantane, verdict, traverses };
 }
 
