@@ -68,7 +68,7 @@ for (const [quoi, chemin] of [['tsc', TSC], ['tsconfig.scripts.json', CONFIG]] a
 }
 
 /** Le nombre d'erreurs de typage des scripts, et les lignes qui les portent. */
-function compter(): { erreurs: number; lignes: string[] } {
+function compter(): { erreurs: number; lignes: string[]; restantes: string[] } {
   let sortie = '';
   try {
     sortie = execFileSync(TSC, ['--noEmit', '-p', CONFIG], {
@@ -93,16 +93,30 @@ function compter(): { erreurs: number; lignes: string[] } {
     for (const l of deConfig) console.log(`  ${l}`);
     console.log('Aucun fichier n’a donc été typé. Ce n’est pas un dépôt sain, c’est une mesure morte.\n');
   }
-  return {
-    erreurs: lignes.filter((l) => /^scripts[/\\]/.test(l)).length,
-    lignes: deConfig,
-  };
+  const dansScripts = lignes.filter((l) => /^scripts[/\\]/.test(l));
+  return { erreurs: dansScripts.length, lignes: deConfig, restantes: dansScripts };
 }
 
 console.log('\n\x1b[1mLES SCRIPTS SONT TYPÉS\x1b[0m\n');
 
 const avant = compter();
 v('la configuration est acceptée — aucune erreur hors de scripts/', avant.lignes, []);
+/*
+   LE ROUGE NOMME CE QUI RESTE, et ne se contente pas d'un nombre.
+
+   « obtenu 1, attendu 0 » ne dit pas quel fichier, et c'est la même faute que
+   partout ailleurs : un contrôle doit échouer LISIBLEMENT. On imprime donc les
+   lignes restantes avant de conclure, de sorte que celui qui lit le rouge
+   sache quoi ouvrir.
+*/
+if (avant.erreurs > 0) {
+  console.log(
+    avant.erreurs >= 2
+      ? `  \x1b[33mles ${avant.erreurs} erreurs qui restent :\x1b[0m`
+      : '  \x1b[33ml’erreur qui reste :\x1b[0m',
+  );
+  for (const ligne of avant.restantes) console.log(`      ${ligne}`);
+}
 v('aucune erreur de typage dans les cent quatre-vingts scripts', avant.erreurs, 0);
 
 console.log('\n\x1b[1mET LA MESURE SAIT MONTER — le témoin\x1b[0m\n');
@@ -120,7 +134,7 @@ let jamaisAssignee: number;
 export const lue = jamaisAssignee + 1;
 `;
 
-let apres = { erreurs: -1, lignes: [] as string[] };
+let apres = { erreurs: -1, lignes: [] as string[], restantes: [] as string[] };
 try {
   writeFileSync(TEMOIN, FAUTES, 'utf8');
   apres = compter();
