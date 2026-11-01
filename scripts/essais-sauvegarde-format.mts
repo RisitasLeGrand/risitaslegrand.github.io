@@ -12,6 +12,7 @@
  */
 import {
   ITERATIONS_PAR_DEFAUT,
+  LIGNE_PAQUET,
   LIGNE_RECONNAISSANCE,
   SauvegardeRefusee,
   VERSION_FORMAT,
@@ -580,6 +581,87 @@ console.log('\n\x1b[1mUN MAGASIN SCELLÉ ET INCONNU RESTE SIGNALÉ (M-2bis b)\x1
     'et un magasin connu n’est pas signalé',
     magasinsInconnus(['cartes']),
     [],
+  );
+}
+
+console.log('\n\x1b[1mLE REFUS DE VERSION NOMME LE BON OBJET\x1b[0m');
+{
+  /*
+     POURQUOI CE CONTRÔLE EXISTE, et pourquoi c'est v2 qui le rend nécessaire.
+
+     M-1 authentifie l'en-tête des PAQUETS aussi, sans une ligne de plus, parce
+     que « sync/paquet.ts » appelle le même « ecrire ». Un appareil resté en
+     version 1 refuse donc les paquets d'un appareil à jour — et c'est le bon
+     comportement. Mais c'est ce refus-là que la personne va lire, et il disait
+     « cette sauvegarde » et « avant de LA RESTAURER » à quelqu'un qui venait de
+     SYNCHRONISER : juste sur le fond, faux sur l'objet. On lui parlait d'un
+     geste qu'elle n'avait pas fait.
+
+     On ne peut pas fabriquer un lecteur de version 1 — la constante est dans le
+     module. On fabrique donc l'inverse, qui éprouve exactement le même chemin :
+     un fichier d'une version PLUS RÉCENTE que celle-ci, que ce lecteur-ci
+     refuse.
+  */
+  const duFutur = (plus: Record<string, unknown> = {}) =>
+    faire({ versionFormat: VERSION_FORMAT + 1, ...plus });
+
+  const sauvegardeFuture = await duFutur();
+  let ditSauvegarde = '';
+  try {
+    lireEnTete(sauvegardeFuture.octets);
+  } catch (erreur) {
+    ditSauvegarde = erreur instanceof SauvegardeRefusee ? erreur.message : String(erreur);
+  }
+  verifierQue(
+    'une sauvegarde trop récente est refusée',
+    /plus récente de Cyclades/.test(ditSauvegarde),
+    true,
+  );
+  verifierQue(
+    'et on lui parle de restaurer, puisque c’est ce qu’elle allait faire',
+    /avant de restaurer/.test(ditSauvegarde),
+    true,
+  );
+
+  const paquetFutur = await duFutur({ genre: LIGNE_PAQUET });
+  let ditPaquet = '';
+  try {
+    lireEnTete(paquetFutur.octets, LIGNE_PAQUET);
+  } catch (erreur) {
+    ditPaquet = erreur instanceof SauvegardeRefusee ? erreur.message : String(erreur);
+  }
+  verifierQue(
+    'un paquet trop récent est appelé un paquet, et non une sauvegarde',
+    /Ce paquet de synchronisation/.test(ditPaquet),
+    true,
+  );
+  verifierQue(
+    'et on lui parle de synchroniser, et non de restaurer',
+    /avant de synchroniser/.test(ditPaquet) && !/avant de restaurer/.test(ditPaquet),
+    true,
+  );
+  /*
+     ET LE SECOND APPAREIL, que le pilote demande de ne pas laisser dans le
+     noir. Celui qui lit ce refus est en retard ; l'autre n'a rien à changer, et
+     c'est contre-intuitif — on croit spontanément qu'un refus vient de soi.
+     Sans cette phrase, la personne met à jour le mauvais appareil, ou défait un
+     appairage qui allait bien.
+  */
+  verifierQue(
+    'et le message dit que l’AUTRE appareil n’a rien à changer',
+    /n’a rien à changer/.test(ditPaquet),
+    true,
+  );
+  verifierQue(
+    'et il dit lequel des deux mettre à jour',
+    /sur CET appareil/.test(ditPaquet),
+    true,
+  );
+  /* Et la sauvegarde, elle, n'a pas de second appareil : on ne lui en invente pas. */
+  verifierQue(
+    'tandis qu’une sauvegarde n’a pas de second appareil à mentionner',
+    /n’a rien à changer/.test(ditSauvegarde),
+    false,
   );
 }
 

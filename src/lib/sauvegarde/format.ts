@@ -696,12 +696,37 @@ export function lireEnTete(octets: Octets, genreAttendu?: Genre): EnTeteSauvegar
     );
   }
   if (typeof entete.versionFormat !== 'number' || entete.versionFormat > VERSION_FORMAT) {
+    /*
+       LE REFUS NOMME LE BON OBJET, et ce n'était pas le cas.
+
+       Ce message est partagé : « sync/paquet.ts » passe par cette même lecture
+       d'en-tête, et c'est voulu — un paquet et une sauvegarde ont le même
+       format, donc le même garde. Mais le texte, lui, disait « cette
+       sauvegarde » et « avant de LA RESTAURER » à quelqu'un qui venait de
+       SYNCHRONISER. Juste sur le fond, faux sur l'objet : on lui parlait d'un
+       geste qu'il n'avait pas fait, et d'un fichier qu'il n'avait pas choisi.
+
+       Le cas n'est pas théorique, et c'est v2 qui le crée. M-1 authentifie
+       l'en-tête des paquets aussi, sans une ligne de plus ; un appareil resté
+       en version 1 refuse donc les paquets d'un appareil à jour — et c'est le
+       bon comportement. C'est précisément ce refus-là que la personne va lire,
+       et il doit lui dire quoi faire du geste qu'elle a tenté.
+
+       La ligne de reconnaissance a déjà été lue plus haut : elle dit lequel des
+       deux on tient. On ne devine donc rien, et on n'ajoute aucun paramètre.
+    */
+    const paquet = reconnaissance === LIGNE_PAQUET;
     throw new SauvegardeRefusee(
       'version-trop-recente',
-      `Cette sauvegarde a été écrite par une version plus récente de Cyclades ` +
+      `${paquet ? 'Ce paquet de synchronisation a' : 'Cette sauvegarde a'} été écrit` +
+        `${paquet ? '' : 'e'} par une version plus récente de Cyclades ` +
         `(format ${entete.versionFormat}, cette version lit jusqu’au ${VERSION_FORMAT}). ` +
-        `Mettez Cyclades à jour avant de la restaurer : deviner le sens d’un champ ` +
-        `inconnu ferait plus de dégâts que de refuser.`,
+        `Mettez Cyclades à jour sur CET appareil avant de ` +
+        `${paquet ? 'synchroniser' : 'restaurer'} : deviner le sens d’un champ ` +
+        `inconnu ferait plus de dégâts que de refuser.` +
+        (paquet
+          ? ` L’autre appareil, lui, n’a rien à changer : c’est celui-ci qui est en retard.`
+          : ''),
       entete,
     );
   }
