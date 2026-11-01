@@ -75,6 +75,40 @@ const v = (intitule, obtenu, attendu) => {
 const CLEFS = ['appareil', 'horloge', 'boite.publique', 'boite.privee', 'coffre.sel'];
 
 /**
+ * Ouvre le coffre, parce que c'est LUI qui crée les clés de la boîte.
+ *
+ * Première version de cet essai : aucun profil n'ouvrait son coffre, donc
+ * aucun ne portait de « boite.publique », et les contrôles comparaient deux
+ * ABSENCES en concluant qu'elles étaient la même clé. Un contrôle qui porte sur
+ * rien passe ou tombe au hasard de sa formulation — celui-ci tombait, et il
+ * avait raison de tomber.
+ *
+ * `assurerLaBoite()` est appelée à l'ouverture du coffre (`coffre.ts`, vers la
+ * ligne 652) : sans ouverture, pas de boîte. C'est pourquoi le banc du
+ * constructeur en portait, lui — il faisait un check-in de psyché coffre
+ * ouvert — et pourquoi la règle « boite.* ne voyage jamais » n'était pas
+ * éprouvée ici du tout.
+ */
+const ouvrirLeCoffre = async (page) => {
+  await page.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle', timeout: 45000 });
+  if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
+    await page.fill('#champ-mdp', MDP);
+    await page.click('#bouton-verrou');
+  }
+  const ferme = await page
+    .waitForSelector('#coffre-ferme', { timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!ferme) return false;
+  await page.fill('#mdp-coffre', MDP);
+  await page.click('#ouvrir-coffre');
+  return page
+    .waitForSelector('#coffre-ouvert:not(.hidden)', { timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+};
+
+/**
  * Relève `etat` sous forme d'EMPREINTES, et non de valeurs.
  *
  * Deux raisons, et la seconde est la vraie. Les valeurs ne sont pas toutes
@@ -133,6 +167,7 @@ try {
      en « remplace ».
   */
   let identiteDeA = {};
+  let coffreDeAOuvert = false;
   const fichier = await fabriquerUneSauvegarde(nav, {
     racine: RACINE,
     motDePasseDuSite: MDP,
@@ -140,10 +175,21 @@ try {
     dossier,
     nom: 'identite.cyclades',
     poser: async (page) => {
+      coffreDeAOuvert = await ouvrirLeCoffre(page);
       identiteDeA = await releverEtat(page);
     },
   });
   v('l’appareil qui sauvegarde a une identité', identiteDeA.appareil !== '(absente)', true);
+  v('son coffre s’est ouvert', coffreDeAOuvert, true);
+  /*
+     ET IL PORTE DONC UNE BOÎTE. Sans ce contrôle, tous ceux qui suivent sur
+     « boite.* » compareraient des absences : le fichier n'aurait aucune clé à
+     ne pas transmettre, et la règle qu'ils gardent ne serait pas éprouvée.
+  */
+  v('et il porte donc des clés de boîte, que le fichier emporte', [
+    identiteDeA['boite.publique'] !== '(absente)',
+    identiteDeA['boite.privee'] !== '(absente)',
+  ], [true, true]);
   console.log(`      A : appareil=${identiteDeA.appareil} · boîte=${identiteDeA['boite.publique']}`);
 
   /* ── Branche 1 : il s'ajoute ─────────────────────────────────────────── */
@@ -151,6 +197,11 @@ try {
   {
     const { ctx, page } = await unProfilNeuf(nav);
     await franchirInitialisation(page, RACINE, MDP);
+    /*
+       Cet appareil ouvre SON coffre avant de restaurer : il a donc ses propres
+       clés de boîte, et « elles n'ont pas changé » porte sur quelque chose.
+    */
+    v('cet appareil ouvre son coffre', await ouvrirLeCoffre(page), true);
     const avant = await releverEtat(page);
     console.log(`      avant : appareil=${avant.appareil} · boîte=${avant['boite.publique']}`);
 
@@ -184,6 +235,11 @@ try {
   {
     const { ctx, page } = await unProfilNeuf(nav);
     await franchirInitialisation(page, RACINE, MDP);
+    /*
+       Cet appareil ouvre SON coffre avant de restaurer : il a donc ses propres
+       clés de boîte, et « elles n'ont pas changé » porte sur quelque chose.
+    */
+    v('cet appareil ouvre son coffre', await ouvrirLeCoffre(page), true);
     const avant = await releverEtat(page);
     console.log(`      avant : appareil=${avant.appareil} · boîte=${avant['boite.publique']}`);
 
@@ -208,7 +264,15 @@ try {
        reprendre donnerait une boîte qui a l'air de marcher.
     */
     v('mais la clé publique de la boîte reste celle d’ici', apres['boite.publique'], avant['boite.publique']);
-    v('et ce n’est pas celle du fichier', apres['boite.publique'] === identiteDeA['boite.publique'], false);
+    /*
+     ET CE N'EST PAS CELLE DU FICHIER. Ce contrôle a été le seul rouge de la
+     première course, et il avait RAISON : les deux valeurs étaient
+     « (absente) », donc égales, parce qu'aucun profil n'ouvrait son coffre.
+     Il ne mesurait rien et le disait. On lui a donné son objet en ouvrant les
+     coffres plutôt qu'en l'assouplissant.
+  */
+  v('et ce n’est pas celle du fichier', apres['boite.publique'] === identiteDeA['boite.publique'], false);
+  v('ni une absence des deux côtés, qui ne prouverait rien', apres['boite.publique'], avant['boite.publique']);
     v('la privée non plus', apres['boite.privee'], avant['boite.privee']);
     v('et le sel du coffre vient du fichier, comme dans l’autre branche', apres['coffre.sel'], identiteDeA['coffre.sel']);
     await ctx.close();
