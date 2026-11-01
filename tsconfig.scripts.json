@@ -1,0 +1,12 @@
+{
+  "//": "LE TYPAGE DES SCRIPTS, QUE « tsconfig.json » NE COUVRE PAS. Son include porte « **/*.ts », qui ne reconnaît pas l'extension « .mts » : relevé le 1er novembre par --listFiles, 352 fichiers de src/ examinés et ZÉRO de scripts/. Comme « tsx » transpile sans vérifier, un essai mal typé tournait sans que rien ne le dise. Fichier NOUVEAU, à la demande du Pilote : « tsconfig.json » et « package.json » ne sont pas touchés, le constructeur branchera la commande au socle.",
+  "//sans-baseUrl": "SURTOUT PAS de baseUrl. Elle est dépréciée, et tsc la refuse par TS5101 — une erreur de CONFIGURATION, qui l'empêche de typer le moindre fichier. La mesure rendait alors « 1 erreur, 0 fichier touché » : l'apparence exacte d'un dépôt sain. Et ce commentaire est À CE NIVEAU, non dans compilerOptions, qui n'accepte aucune clé inconnue — la première rédaction l'y avait mis et tsc a rendu TS5025. C'est le garde-fou de « essais-typage-scripts.mts » qui l'a dit, dès son premier passage.",
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "src/env.d.ts", "scripts/**/*.mts"],
+  "exclude": ["dist", "node_modules"],
+  "compilerOptions": {
+    "allowJs": true,
+    "strictNullChecks": true,
+    "types": ["node"]
+  }
+}
