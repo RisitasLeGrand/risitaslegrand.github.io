@@ -383,6 +383,78 @@ const SOCLE = [
   */
   ['essais:chemin-du-navigateur', 'le navigateur se trouve, et son absence refuse au lieu de se taire'],
   /*
+     L'ESSAI DES AIDES, ajouté au socle le 31 octobre avec l'accord du pilote.
+
+     Les aides de `scripts/lib/post-condition.mjs` sont devenues l'outil par
+     lequel une cinquantaine d'essais attendent quelque chose. Une aide qui se
+     défait ne rend pas une erreur : elle rend la main trop tôt, et les essais
+     qui s'appuient sur elle deviennent des verts qui ne mesurent plus rien.
+     C'est le défaut le plus silencieux que ce dépôt puisse produire, et c'est
+     pourquoi il entre ici plutôt qu'en batterie complète.
+
+     Dix aides sur cette branche, mesuré et non supposé ; une onzième,
+     `quandCelaSeFixe`, arrive avec `claude/a-temporisations`. Le libellé ne
+     porte donc aucun compte : un nombre inscrit ici vieillirait au premier
+     ajout, et un libellé qui annonce un compte faux est précisément ce que la
+     correction du libellé de `essais:typographie` a appris aujourd'hui.
+
+     Il les éprouve SATISFAITES et EXPIRÉES — une attente qui ne sait pas
+     expirer est un faux garde-fou —, y compris les limites qu'elles s'avouent.
+     `attendreEnBase` referme sa connexion, et c'est mesuré par ce qui en
+     dépend : une montée de version qu'une connexion ouverte bloquerait.
+
+     Il ne demande ni aperçu ni mot de passe — ses pages sont fabriquées et
+     servies depuis une origine interceptée, parce que « about:blank » refuse
+     IndexedDB. Six secondes.
+  */
+  ['essais:post-condition', 'les aides d’attente tiennent, satisfaites comme expirées'],
+  /*
+     LE VERROU AUTOMATIQUE, ajouté au socle le 1er novembre avec l'accord du
+     pilote, en même temps que l'inscription des huit essais orphelins.
+
+     **Il n'était joué par RIEN.** Aucun script `npm` ne le nommait, donc ni le
+     socle ni la batterie complète ne le voyaient : cinq assertions vertes et
+     muettes depuis son écriture. Un essai qu'aucun script ne nomme ne tourne
+     pas, et son silence se lit comme une absence de défaut — c'est la même
+     famille que le vert à vide, en pire, puisqu'il n'y a même pas de vert.
+
+     Il entre au socle et non en batterie complète pour deux raisons. Il tient
+     en **douze secondes**, sous le seuil de trente que le pilote a fixé. Et ce
+     qu'il garde ne se voit nulle part ailleurs : qu'un coffre laissé seul se
+     REFERME vraiment, dans un navigateur, et non seulement que la fonction qui
+     doit le refermer existe. C'est la leçon des créneaux — un garde-fou qui
+     vérifie la présence d'une déclaration ne dit rien de son effet.
+
+     Les sept autres orphelins vont en batterie complète : ils y arrivent du
+     seul fait d'avoir un script `npm`, puisque la batterie complète joue tout
+     ce qui commence par « essais ».
+  */
+  ['essais:verrou-navigateur', 'un coffre laissé seul se referme vraiment, dans un navigateur'],
+  /*
+     ET LE BALAYAGE QUI EMPÊCHE LE NEUVIÈME ORPHELIN, ajouté le 1er novembre
+     avec l'accord du pilote, le jour même où les huit ont été branchés.
+
+     Un essai rouge se voit. Un fichier d'essai qu'aucun script `npm` ne nomme
+     ne tourne PAS : la batterie joue les scripts, non les fichiers, et son
+     silence se lit comme une absence de défaut. Huit l'étaient — 118
+     assertions vertes et muettes, dont cinq qui gardaient la seule chose
+     qu'aucun autre essai ne garde.
+
+     Il entre au socle parce qu'il ne coûte rien — aucun navigateur, aucun
+     aperçu, un balayage de source — et parce que le défaut qu'il garde
+     s'introduit précisément au moment où l'on écrit un essai, c'est-à-dire
+     devant le socle et non devant la batterie complète.
+
+     Il refuse, code 2, s'il ne lit aucun fichier ou aucun script : zéro
+     orphelin et zéro fichier lu se rendraient sinon de la même façon. Et il
+     s'éprouve dans les deux sens, son premier contrôle étant ce qu'il DOIT
+     voir — sans quoi un balayage qui ne trouve plus rien resterait vert.
+
+     À ne pas confondre avec `essais:orphelins`, qui garde l'inverse : un
+     module livré que nul écran n'appelle.
+  */
+  ['essais:essais-branches', 'tout fichier d’essai est branché à un script npm'],
+  /*
      M5c entre au socle parce qu'il a trouvé un VRAI défaut du site le 25
      octobre — la position de défilement était lue à `pagehide`, après que
      le navigateur l'avait rabattue — et parce que sa tolérance de 80 px

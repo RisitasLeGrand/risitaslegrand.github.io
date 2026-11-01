@@ -1032,10 +1032,14 @@ import LienReglages from '../components/LienReglages.astro';
     */
     void (async () => {
       try {
-        const { recenser } = await import('../lib/notifications/alimentation');
-        await recenser(ouverts);
-      } catch {
-        /* Coffre fermé, ou magasin absent : l'écran reste complet. */
+        const { recenser, recenserEtConsigner } = await import(
+          '../lib/notifications/alimentation'
+        );
+        /* Coffre fermé, magasin absent, écart du filtre : l'écran reste
+           complet, et la raison est consignée plutôt qu'avalée. */
+        await recenserEtConsigner('les questions à trancher', () => recenser(ouverts));
+      } catch (erreur) {
+        console.warn('Centre : le recensement des conflits est hors d’atteinte.', erreur);
       }
     })();
 

@@ -476,14 +476,19 @@ import Base from '../layouts/Base.astro';
           import('../lib/notifications/alimentation'),
         ]);
         const { jourLogique } = await import('../lib/noyau/jour-logique');
-        await recenserLesAvertissements(
-          analyses
-            .filter((a) => analysePorteUnAvertissement(a.analyse))
-            .map((a) => ({ id: a.id, importeeLe: a.importeeLe })),
-          jourLogique(),
+        const { recenserEtConsigner } = await import('../lib/notifications/alimentation');
+        /* Le centre n'est jamais une raison de casser l'écran, mais ce qu'il
+           écarte ou ce sur quoi il échoue est consigné. */
+        await recenserEtConsigner('les avertissements d’analyse', () =>
+          recenserLesAvertissements(
+            analyses
+              .filter((a) => analysePorteUnAvertissement(a.analyse))
+              .map((a) => ({ id: a.id, importeeLe: a.importeeLe })),
+            jourLogique(),
+          ),
         );
-      } catch {
-        /* Le centre n'est jamais une raison de casser l'écran d'origine. */
+      } catch (erreur) {
+        console.warn('Centre : le recensement des avertissements est hors d’atteinte.', erreur);
       }
     })();
 

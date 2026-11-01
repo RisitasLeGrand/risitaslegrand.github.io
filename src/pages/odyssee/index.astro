@@ -852,13 +852,19 @@ import Base from '../../layouts/Base.astro';
     */
     void (async () => {
       try {
-        const { recenserLesOccurrences, recenserLesRevues } = await import(
+        const { recenserLesOccurrences, recenserLesRevues, recenserEtConsigner } = await import(
           '../../lib/notifications/alimentation'
         );
-        await recenserLesRevues(etat.revuesManquees);
-        await recenserLesOccurrences(etat.occurrencesEnRetard);
-      } catch {
-        /* Le centre n'est jamais une raison de casser l'écran d'origine. */
+        /* Le centre n'est jamais une raison de casser l'écran, mais ce qu'il
+           écarte ou ce sur quoi il échoue est consigné. */
+        await recenserEtConsigner('les revues manquées', () =>
+          recenserLesRevues(etat.revuesManquees),
+        );
+        await recenserEtConsigner('les occurrences en retard', () =>
+          recenserLesOccurrences(etat.occurrencesEnRetard),
+        );
+      } catch (erreur) {
+        console.warn('Centre : le recensement d’Odyssée est hors d’atteinte.', erreur);
       }
     })();
   }
