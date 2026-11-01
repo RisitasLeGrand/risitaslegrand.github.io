@@ -36,6 +36,8 @@
  * sérieux, c'est la sortie de secours.
  */
 
+import { VARIANTE_VOILE, svgLogotype } from './logotype';
+
 /** L'identifiant du voile, exporté pour que les essais le désignent. */
 export const ID_VOILE = 'voile-confidentialite';
 
@@ -75,10 +77,28 @@ function creer(): HTMLElement {
     */
     'background:var(--etat-fond)',
     'color:var(--etat-texte-faible)',
-    'font:600 1rem/1.4 system-ui,sans-serif',
-    'letter-spacing:0.02em',
   ].join(';');
-  voile.textContent = 'Cyclades';
+  /*
+     LE LOGOTYPE, ET RIEN D'AUTRE.
+
+     Le voile est la seule image de Cyclades qu'on voie SANS l'ouvrir : c'est
+     elle que le sélecteur d'applications garde en vignette, visible de qui
+     regarde l'appareil par-dessus une épaule. Elle ne doit donc livrer aucun
+     indice sur l'écran qu'elle cache — pas de titre de page, pas de branche,
+     pas de compte. Le nom de l'application, et c'est tout.
+
+     Le logotype SE NOMME (`role="img"`) bien que ce conteneur soit
+     `aria-hidden`, et c'est délibéré : le conteneur décide aujourd'hui qu'il
+     n'y a rien à lire là-dedans, et il gagne. Si cette décision changeait un
+     jour, le logotype s'annoncerait correctement au lieu de se taire par
+     accident. Les deux mécanismes ne se contredisent pas — l'un couvre
+     l'autre.
+
+     La police et l'interlettrage qui étaient posés ici sont partis : le SVG
+     porte sa propre composition, et deux réglages de typographie pour un seul
+     mot finissent toujours par diverger.
+  */
+  voile.innerHTML = svgLogotype(VARIANTE_VOILE, '3.5rem');
   return voile;
 }
 

@@ -387,7 +387,8 @@
     "essais:modales:navigateur": "node scripts/essais-modales-navigateur.mjs",
     "essais:reglages-restaures:navigateur": "node scripts/essais-reglages-restaures-navigateur.mjs",
     "essais:logotype": "tsx scripts/essais-logotype.mts",
-    "planche:logotype": "node --experimental-strip-types scripts/planche-logotype.mjs"
+    "planche:logotype": "node --experimental-strip-types scripts/planche-logotype.mjs",
+    "essais:logotype:navigateur": "node scripts/essais-logotype-navigateur.mjs"
   },
   "repository": {
     "type": "git",

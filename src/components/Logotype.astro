@@ -5,7 +5,7 @@
  * Le dessin lui-même est dans `src/lib/logotype.ts`, parce que la planche de
  * captures en a besoin du même — voir l'en-tête de ce module.
  */
-import { svgLogotype, type VarianteLogotype } from '../lib/logotype';
+import { VARIANTE_EN_TETE, svgLogotype, type VarianteLogotype } from '../lib/logotype';
 
 interface Props {
   /**
@@ -16,10 +16,23 @@ interface Props {
   variante?: VarianteLogotype;
   /** La hauteur, en toute unité CSS. L'en-tête veut `1.125rem`, le voile `2rem`. */
   hauteur?: string;
+  /**
+   * Muet pour les technologies d'assistance.
+   *
+   * À poser quand le logotype vit dans un élément qui porte DÉJÀ le nom — un
+   * lien avec son `sr-only`. Sans cela, le nom serait lu deux fois. Voir
+   * l'en-tête de `svgLogotype`.
+   */
+  decoratif?: boolean;
   class?: string;
 }
 
-const { variante = 'anneau', hauteur = '1.125rem', class: classe = '' } = Astro.props;
+const {
+  variante = VARIANTE_EN_TETE,
+  hauteur = '1.125rem',
+  decoratif = false,
+  class: classe = '',
+} = Astro.props;
 ---
 
-<span class={classe} set:html={svgLogotype(variante, hauteur)} />
+<span class={classe} set:html={svgLogotype(variante, hauteur, decoratif)} />

@@ -25,10 +25,16 @@
  * persister d'une page à l'autre. Un logotype qui saute au moment où tout le
  * reste glisse est le pire endroit pour ce défaut.
  *
- * `textLength` avec `lengthAdjust="spacing"` achève la promesse : le mot occupe
- * la largeur annoncée quelle que soit la police servie, en jouant sur
- * l'interlettrage et non sur le dessin des lettres — `spacingAndGlyphs`
- * déformerait les glyphes quand le substitut est plus étroit.
+ * `textLength` fait AUTRE CHOSE, et c'est un sabotage qui m'a obligé à le
+ * réécrire ici. J'avais noté qu'il « achevait la promesse » de la place
+ * réservée ; le retirer ne décale pourtant rien, parce que la boîte est tenue
+ * par le `viewBox` seul. Ce qu'il tient, lui, c'est le REMPLISSAGE de cette
+ * boîte : sans lui, le mot composé dans Arial et le mot composé dans Public
+ * Sans n'occupent pas la même largeur, et le logotype ballotte dans sa place —
+ * ou en déborde — selon la police servie. La place ne bouge pas ; le dessin,
+ * si. `lengthAdjust="spacing"` joue sur l'interlettrage et non sur le dessin
+ * des lettres : `spacingAndGlyphs` déformerait les glyphes quand le substitut
+ * est plus étroit.
  *
  * ## Le nom n'est lu QU'UNE FOIS
  *
@@ -64,6 +70,23 @@
  */
 
 export type VarianteLogotype = 'mot' | 'anneau' | 'archipel';
+
+/**
+ * LE CHOIX, À UN SEUL ENDROIT.
+ *
+ * Alexis peut le renverser en changeant ces deux lignes, et rien d'autre : ni
+ * la mise en page, ni le voile, ni les essais ne nomment une variante. C'est la
+ * raison d'être de ces deux constantes, et c'est pourquoi elles sont ici plutôt
+ * qu'à l'appel.
+ *
+ * `anneau` est écartée : à dix-huit pixels dans l'en-tête, un anneau de petits
+ * disques est l'idiome de l'indicateur de chargement — que le site possède par
+ * ailleurs pour de vrai. Le défaut ne se voyait pas dans le code, il saute aux
+ * yeux sur la planche (`docs/cyclades/planche-65/`). Elle reste dessinée, pour
+ * qu'on puisse la reprendre sans la redessiner.
+ */
+export const VARIANTE_EN_TETE: VarianteLogotype = 'mot';
+export const VARIANTE_VOILE: VarianteLogotype = 'archipel';
 
 /*
    LES DISQUES DE L'ANNEAU, posés à la main et non calculés.
@@ -134,10 +157,34 @@ function mot(
   );
 }
 
-/** Le logotype entier, prêt à poser. `hauteur` est une longueur CSS. */
-export function svgLogotype(variante: VarianteLogotype, hauteur: string): string {
+/**
+ * Le logotype entier, prêt à poser. `hauteur` est une longueur CSS.
+ *
+ * ## `decoratif`, et pourquoi il existe
+ *
+ * Par défaut le logotype se NOMME : `role="img"` et `aria-label="Cyclades"`,
+ * et comme ce rôle tait les descendants, le nom est lu une fois et une seule.
+ *
+ * Mais l'en-tête complet pose le logotype DANS un lien qui porte déjà
+ * « Menu de Cyclades » en `sr-only`. Là, un logotype qui se nomme ferait
+ * entendre « Cyclades, Menu de Cyclades » : le nom deux fois, pour un seul
+ * élément. `decoratif` le rend muet, et le lien garde le nom accessible qu'il
+ * avait avant que le logotype arrive.
+ *
+ * L'en-tête léger est l'inverse : son `sr-only` ne dit que « — revenir au
+ * menu », donc le logotype doit se nommer, sans quoi le lien s'annoncerait
+ * « — revenir au menu » sans dire de quoi. Deux emplacements voisins, deux
+ * réponses contraires, et c'est le balisage AUTOUR qui tranche — jamais le
+ * logotype seul.
+ */
+export function svgLogotype(
+  variante: VarianteLogotype,
+  hauteur: string,
+  decoratif = false,
+): string {
+  const nommage = decoratif ? 'aria-hidden="true"' : 'role="img" aria-label="Cyclades"';
   const ouvrir = (vb: string) =>
-    `<svg role="img" aria-label="Cyclades" data-logotype="${variante}" viewBox="${vb}"` +
+    `<svg ${nommage} data-logotype="${variante}" viewBox="${vb}"` +
     ` style="height:${hauteur};width:auto;display:block">`;
 
   if (variante === 'mot') {

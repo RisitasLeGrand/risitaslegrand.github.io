@@ -22,6 +22,8 @@ import Verrou from '../components/Verrou.astro';
 import CentreNotifications from '../components/CentreNotifications.astro';
 import CommutateurTheme from '../components/CommutateurTheme.astro';
 import Icone from '../components/Icone.astro';
+import Logotype from '../components/Logotype.astro';
+import { VARIANTE_EN_TETE } from '../lib/logotype';
 import BarreProgression from '../components/BarreProgression.astro';
 import PiedDePage from '../components/PiedDePage.astro';
 import SelecteurParcours from '../components/SelecteurParcours.astro';
@@ -831,7 +833,20 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     class="cible-tactile-pleine gap-2 rounded-lg px-1 transition hover:text-indigo-600 dark:hover:text-indigo-400"
                   >
                     <Icone nom="menu" taille={20} />
-                    <span class="hidden sm:inline">{config.titre}</span>
+                    {/*
+                       LE LOGOTYPE EST MUET ICI, et c'est le `sr-only` d'en
+                       dessous qui l'impose : le lien porte déjà « Menu de
+                       Cyclades ». Un logotype qui se nommerait ferait entendre
+                       « Cyclades, Menu de Cyclades » — le nom deux fois pour
+                       un seul élément. Le « hidden sm:inline » est conservé
+                       tel quel : sous « sm » la place manque, et c'est le
+                       `sr-only` qui tient le nom.
+                    */}
+                    <Logotype
+                      variante={VARIANTE_EN_TETE}
+                      decoratif
+                      class="hidden sm:inline"
+                    />
                     <span class="sr-only">Menu de {config.titre}</span>
                   </a>
                 </div>
@@ -1252,13 +1267,22 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                   class="flex h-11 shrink-0 items-center gap-2 rounded-lg px-1 font-semibold text-slate-900 transition hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400"
                 >
                   <Icone nom="menu" taille={20} />
-                  <span>{config.titre}</span>
+                  {/*
+                     ICI LE LOGOTYPE SE NOMME, à l'inverse de l'en-tête
+                     complet : le `sr-only` d'en dessous ne dit que « — revenir
+                     au menu ». Muet, le lien s'annoncerait « — revenir au
+                     menu » sans dire de quoi. Deux emplacements voisins, deux
+                     réponses contraires, et c'est le balisage AUTOUR qui
+                     tranche.
+                  */}
+                  <Logotype variante={VARIANTE_EN_TETE} />
                   <span class="sr-only">— revenir au menu</span>
                 </a>
               ) : (
                 <span class="flex h-11 shrink-0 items-center gap-2 font-semibold text-slate-900 dark:text-white">
                   <Icone nom="menu" taille={20} />
-                  <span>{config.titre}</span>
+                  {/* Rien ne porte le nom autour : le logotype s'en charge. */}
+                  <Logotype variante={VARIANTE_EN_TETE} />
                 </span>
               )}
               <div class="flex flex-1 justify-end gap-1">
