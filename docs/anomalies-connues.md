@@ -23,11 +23,43 @@ Créé le 31 octobre 2026 par l'agent A, à la demande du pilote.
 3. Une ligne dont la cause a disparu **se retire**. Une table qui ne se vide
    jamais finit par autoriser tout.
 
+4. Un essai **rendu vert en affaiblissant sa mesure** n'a rien à faire ici.
+   Celui-là n'est pas une anomalie connue, c'est une anomalie CACHÉE : la
+   table dirait « plus rien à signaler » là où plus rien n'est regardé.
+
 **Aucune ligne ne vaut sans sa mesure.** « Celui-là est connu rouge » n'est pas
 une cause ; « rouge à l'identique sur `origin/main`, trois assertions nommées »
 en est une. Une ligne sans mesure est une permission de ne pas regarder.
 
-## Les rouges connus — AUCUN au 1er novembre 2026
+## Les rouges connus
+
+### `essais:cibles-souris:navigateur` — un module dynamique échoue, une fois sur un balayage
+
+**Vu deux fois, jamais reproduit sur demande.** Inscrit le 1er novembre 2026
+par l'agent C.
+
+Ce balayage parcourt soixante-deux routes. Il a rendu
+« Failed to fetch dynamically imported module » le 31 octobre
+(`notification.iKce5Cl-.js`) et le 1er novembre (`veille.BaboT8Sn.js`) — deux
+modules DIFFÉRENTS. Les deux fois le fichier existait dans `dist/` et l'aperçu
+le servait en 200, vérifié à la main par le constructeur ; les deux fois
+l'essai était vert à la relance. Quatre lancements de plus le 1er novembre :
+pas reparu.
+
+**Ce qui a été fait, et ce qui ne l'a pas été.** Aucun correctif : on ne répare
+pas ce qu'on ne sait pas reproduire, et le verdict ne change pas — une erreur
+de page reste une croix. Ce qui a changé est la PREUVE que l'essai laisse
+derrière lui : à la prochaine occurrence il redemande le module à l'aperçu et
+note le code obtenu, `200` (« le fichier était là, le transport a lâché ») ou
+`404` (« fichier absent de la bâtisse »). Sans cela chaque enquête repart de
+zéro, ce qui s'est produit deux fois.
+
+**Ce qui retire cette ligne.** Deux occurrences de plus portant le même code à
+la relecture, qui trancheraient entre le transport et la bâtisse.
+
+---
+
+## Les rouges connus au 31 octobre — tous retirés le 1er novembre
 
 Et c'est une information, non une page blanche : les trois entrées qu'a portées
 ce tableau le 31 octobre en sont toutes sorties, et chacune pour la même
@@ -146,6 +178,63 @@ aucun essai qui refuserait faute de fixture.
 mesure que l'issue « écarté ». L'issue « admis » est alors couverte par
 `essais:filtre-cycle` (au module, avec sabotage) et par ce passage-ci, à la
 main. Pour l'ôter : supprimer `content/sante/molecules.json` et reconstruire.
+
+## Ce qui est SU et n'est pas gardé
+
+Deux choses distinctes de ce qui précède : ce ne sont pas des rouges, et ce
+n'est pas voulu non plus. Ce sont des défauts ou des risques connus que
+personne ne garde — et la raison de ne pas les garder est aussi importante que
+le défaut.
+
+### L'accueil décale sa mise en page de 0,0345 au chargement
+
+**Mesuré, non corrigé.** Relevé le 1er novembre 2026 par l'agent C.
+
+`scripts/essais-logotype-navigateur.mjs` relève, par `PerformanceObserver` sur
+les entrées `layout-shift`, un décalage cumulé de **0,0345** au chargement de
+l'accueil. Les sources, nommées par le navigateur lui-même :
+
+    UL.grid (0,0303), NAV.mt-10 (0,0303), SPAN.mt-4 (0,0042), LI (0,0042)
+
+C'est la grille des branches. Ce n'est PAS le logotype, qui a exactement la
+même géométrie d'une page à l'autre — x 318, y 27, 63,56 × 18 px, mesuré.
+
+**Pourquoi ce n'est pas gardé.** Faire porter ce total au lot du logotype
+aurait rendu sa garde rouge en permanence, jusqu'à ce que quelqu'un la
+désarme — et une garde qu'on désarme est pire qu'une garde absente. La garde
+mesure donc les décalages dont la SOURCE est le logotype, et imprime le total
+de la page à côté, pour qu'il ne se perde pas.
+
+**Ce qui retire cette ligne.** Une réserve de place sur la grille des branches,
+et un relevé repassé sous 0,01.
+
+### `peindre()` du calendrier : onze appelants sur un état partagé
+
+**Risque NON mesuré.** Signalé le 1er novembre 2026 par l'agent C.
+
+`src/pages/odyssee/calendrier.astro` — `peindre()` est asynchrone, attend deux
+fois (les événements, puis les occurrences) avant d'effacer la zone, et écrit
+dans `occurrencesAffichees`, qui est au niveau du module. Onze endroits
+l'appellent, dont plusieurs en « lance et oublie » (`void peindre()`). Rien ne
+garantit que le dessin le plus RÉCENT soit celui qui peint en dernier.
+
+**Ce qui a été mesuré, et ce qu'il dit.** En cherchant la cause de quatre
+essais rouges, j'avais posé un compteur de rang pour faire abandonner un dessin
+dépassé. L'instrumentation a RÉFUTÉ l'hypothèse : les deux dessins observés ne
+se chevauchaient pas, et la cause était ailleurs — le jour logique, voir
+`scripts/lib/jour-logique-essais.mjs`. La garde a donc été retirée. Du code non
+mesuré, ajouté sur une hypothèse fausse, n'a rien à faire dans le dépôt.
+
+**Ce qui n'est pas su.** Si la course est seulement improbable, ou impossible.
+Aucune mesure ne l'a produite, et cette ligne n'autorise personne à la corriger
+sur la foi de sa description.
+
+**Ce qui retire cette ligne.** Soit une mesure qui PRODUIT la course — deux
+dessins concurrents dont le plus ancien peint en dernier —, et alors un
+compteur de rang se justifie et s'éprouve par sabotage ; soit une lecture qui
+démontre que les onze chemins ne peuvent pas se chevaucher.
+
+---
 
 ## Ce qui dépend du conteneur, et non du site
 
