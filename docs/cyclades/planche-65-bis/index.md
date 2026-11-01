@@ -101,3 +101,24 @@ refuse déjà de rendre une image dont les jetons calculent vide (garde hérité
 désormais aussi de rendre un dessin dégénéré — il exige six SVG par page et une
 boîte non plate pour chacun. Mais aucune de ces deux gardes n'aurait attrapé la
 roue de chargement. Celle-là, il a fallu regarder.
+
+---
+
+## La décision
+
+**Alexis a choisi C, « capitales ».** La forme compacte va dans les deux
+en-têtes, la forme complète sur le voile.
+
+Le dessin retenu a été porté dans `src/lib/logotype.ts`, le module livré, et
+les deux autres propositions ont été **retirées du dépôt** avec
+`src/lib/logotype-bis.ts` et son script de planche : garder un dessin que seule
+une planche appelle, c'est garder du code que rien ne mesure. Les huit images
+ci-dessus restent comme trace de la décision — elles montrent ce qui a été
+soumis, et le journal des commits garde le code qui les a produites.
+
+Une correction au tableau ci-dessus, pour qui le relirait : le nom accessible
+reste « Cyclades », et **jamais « CYCLADES »**. Les capitales viennent de
+`text-transform` dans le style du `<text>`, parce que beaucoup de lecteurs
+d'écran épellent un mot écrit tout en majuscules. C'est gardé des deux côtés,
+dans la source par `essais:logotype` et dans la page rendue par
+`essais:logotype:navigateur`.

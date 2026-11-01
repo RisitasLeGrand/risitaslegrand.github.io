@@ -143,7 +143,7 @@ for (const emplacement of EMPLACEMENTS) {
   verifier(`${emplacement.quoi} : un logotype visible`, vus.length, 1);
   if (!vus.length) continue;
   const [l] = vus;
-  verifier(`${emplacement.quoi} : c’est la variante choisie`, l.variante, 'mot');
+  verifier(`${emplacement.quoi} : c’est la forme compacte`, l.variante, 'compacte');
   verifier(`${emplacement.quoi} : il a une surface réelle`, l.largeur > 40 && l.hauteur > 10, true);
   verifier(
     `${emplacement.quoi} : ${emplacement.nomme ? 'il se nomme' : 'il est MUET'}`,
@@ -240,6 +240,24 @@ for (const emplacement of EMPLACEMENTS) {
     `${emplacement.quoi} : « ${porteur?.nom ?? '(sans nom)'} »`,
     foisAuPorteur,
     1,
+  );
+  /*
+     ET IL N'EST PAS ÉPELÉ. Le logo retenu est un lettrage en CAPITALES, et
+     beaucoup de lecteurs d'écran épellent un mot tout en majuscules :
+     « C, Y, C, L, A, D, E, S ». Les capitales doivent donc venir du style et
+     jamais du texte.
+
+     Deux choses sont mesurées ici, parce qu'elles peuvent diverger : le NOM
+     accessible calculé par le navigateur, et le TEXTE que porte le dessin. Le
+     premier viendrait d'un `aria-label` écrit en capitales ; le second d'un
+     `<text>CYCLADES</text>`. La garde statique les refuse déjà dans la source,
+     celle-ci les refuse dans la page rendue — le cas où un composant
+     réécrirait l'un des deux en chemin.
+  */
+  verifier(
+    `${emplacement.quoi} : le nom n’est pas épelable`,
+    /CYCLADES/.test(porteur?.nom ?? ''),
+    false,
   );
 }
 verifier('prémisse : les trois emplacements ont été examinés', porteursExamines, 3);
@@ -556,7 +574,7 @@ const voile = await page.evaluate(() => {
   };
 });
 verifier('le voile se pose', voile !== null, true);
-verifier('et il porte le logotype du voile', voile?.variante, 'archipel');
+verifier('et il porte la forme complète', voile?.variante, 'complete');
 verifier('il ne livre aucun autre texte', voile?.texteEnPlus, 'Cyclades');
 verifier('il ne porte qu’un seul enfant', voile?.nbEnfants, 1);
 verifier('et il reste muet pour les technologies d’assistance', voile?.cache, true);

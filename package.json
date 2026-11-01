@@ -388,7 +388,6 @@
     "essais:reglages-restaures:navigateur": "node scripts/essais-reglages-restaures-navigateur.mjs",
     "essais:logotype": "tsx scripts/essais-logotype.mts",
     "planche:logotype": "node --experimental-strip-types scripts/planche-logotype.mjs",
-    "planche:logotype:bis": "node --experimental-strip-types scripts/planche-logotype-bis.mjs",
     "essais:logotype:navigateur": "node scripts/essais-logotype-navigateur.mjs"
   },
   "repository": {

@@ -77,3 +77,19 @@ second. Elle n'avait donc aucun thème, et son fond sombre venait du
 Le script refuse désormais de rendre une image dont les jetons calculent vide.
 Une planche qui montre une variante sous un thème qu'elle n'a pas chargé est
 pire qu'une planche manquante : on y choisirait sur une image fausse.
+
+---
+
+## Suite, et avertissement au lecteur
+
+Les trois variantes décrites ci-dessus **n'existent plus dans le code**. Le
+« mot seul » retenu ici a été écarté par Alexis — ce n'était pas un logo, mais
+du texte courant un peu plus gras. Le prompt 65 bis a proposé trois vrais
+logos (`docs/cyclades/planche-65-bis/`), et c'est « capitales » qui a été
+choisi et branché.
+
+`src/lib/logotype.ts` porte donc aujourd'hui ce seul dessin, en deux formes —
+compacte pour les en-têtes, complète pour le voile — et
+`npm run planche:logotype` les photographie toutes les deux. Les images de
+cette page restent la trace de la première décision ; elles ne décrivent plus
+le code.

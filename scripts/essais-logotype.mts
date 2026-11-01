@@ -34,7 +34,7 @@ import { svgLogotype } from '../src/lib/logotype';
  */
 const JETONS = [
   { role: 'texte', pour: 'le mot lui-même', seuil: 4.5 },
-  { role: 'texteFaible', pour: 'les îles, Délos comprise', seuil: 4.5 },
+  { role: 'texteFaible', pour: 'les quatre marques de l’arc', seuil: 4.5 },
 ] as const;
 
 /*
@@ -46,7 +46,7 @@ const JETONS = [
    le clin d'œil y dominait le nom. Ce n'est pas le SEUIL qui était en cause —
    13,79 le passe largement — mais le contrôle qui suit, celui du rang. Le
    dessin a donc changé : Délos se distingue par sa taille et sa place, dans le
-   même jeton faible que les îles. Le logotype n'emploie plus `action`, donc la
+   même jeton faible que les marques. Le logotype n'emploie plus `action`, donc la
    liste ne le garde plus ; le contrôle du rang, lui, reste et vaut pour tout
    jeton que la marque emploierait demain.
 */
@@ -76,18 +76,44 @@ console.log('\nLE LOGOTYPE « CYCLADES », DANS LES QUATORZE THÈMES\n');
    prémisse, ce qui est la bonne façon d'échouer, mais elle mesurait la forme du
    code et non celle du dessin.
 
-   Elle appelle donc la fonction, pour les trois variantes, et lit ce qui sort.
+   Elle appelle donc la fonction, pour les deux formes, et lit ce qui sort.
    C'est ce qui part dans la page, et c'est la seule chose dont les seuils
    parlent.
 */
-const VARIANTES = ['mot', 'anneau', 'archipel'] as const;
+const VARIANTES = ['compacte', 'complete'] as const;
 const rendus = VARIANTES.map((v) => ({ variante: v, svg: svgLogotype(v, '1rem') }));
 
 verifier(
-  'prémisse : les trois variantes rendent bien un dessin',
+  'prémisse : les deux formes rendent bien un dessin',
   rendus.every((r) => r.svg.startsWith('<svg') && r.svg.includes('Cyclades')),
   rendus.map((r) => `${r.variante} : ${r.svg.slice(0, 40)}`).join(' | '),
 );
+
+/*
+   LES CAPITALES VIENNENT DU STYLE, ET LE BALISAGE DIT « Cyclades ».
+
+   Beaucoup de lecteurs d'écran ÉPELLENT un mot écrit tout en majuscules :
+   « C, Y, C, L, A, D, E, S ». `role="img"` tait déjà les descendants, mais on
+   ne fait pas reposer la prononciation du nom de l'application sur une seule
+   ligne de défense — et un jour où ce rôle sauterait, le défaut serait entier.
+
+   La garde est donc double : le contenu du `<text>` n'est jamais en capitales,
+   et c'est `text-transform` qui les produit. Elle refuserait aussi bien une
+   capitalisation dans l'`aria-label`.
+*/
+for (const { variante, svg } of rendus) {
+  const texte = svg.match(/>([^<]*)<\/text>/)?.[1] ?? '';
+  verifier(
+    `${variante} : le mot n'est pas écrit en capitales dans le balisage`,
+    texte === 'Cyclades' && svg.includes('text-transform:uppercase'),
+    `texte « ${texte} », text-transform ${svg.includes('text-transform:uppercase')}`,
+  );
+  verifier(
+    `${variante} : le nom accessible non plus`,
+    /aria-label="Cyclades"/.test(svg) && !/aria-label="CYCLADES"/.test(svg),
+    svg.match(/aria-label="[^"]*"/)?.[0] ?? 'aucun',
+  );
+}
 
 /*
    LE NOM EST LU UNE FOIS, ET UNE SEULE. `role="img"` empêche l'annonce des
@@ -147,10 +173,35 @@ const NOM_DU_JETON: Record<string, string> = {
   '--etat-erreur': 'erreur',
 };
 const employes = [...tousLesSvg.matchAll(/fill="var\((--etat-[a-z-]+)\)"/g)].map((m) => m[1]);
+/*
+   AUCUN NOMBRE MAGIQUE ICI, ET C'EST LE CHOIX DU LOGO QUI L'A IMPOSÉ.
+
+   Cette prémisse exigeait « au moins dix occurrences », un seuil calibré sur
+   les six variantes des prompts 65 et 65 bis — sept îles, Délos, trois disques
+   empilés, trois mots. La variante retenue en pose SIX, et la garde a rougi sur
+   un dessin parfaitement correct. Un seuil recalibré à six aurait rougi de même
+   le jour où une marque est retirée.
+
+   La propriété cherchée n'est pas un compte : c'est qu'AUCUNE couleur
+   n'échappe aux jetons. On la mesure donc directement — chaque forme peint au
+   moins une fois par jeton, et aucun `fill` du dessin n'est écrit autrement.
+   Une couleur en dur, seule chose que cette prémisse existe pour attraper, est
+   alors attrapée quel que soit le nombre de formes.
+*/
+const fillsEnDur = [...tousLesSvg.matchAll(/fill="([^"]*)"/g)]
+  .map((m) => m[1])
+  .filter((valeur) => !/^var\(--etat-[a-z-]+\)$/.test(valeur));
 verifier(
-  'prémisse : le dessin pose bien des couleurs par jeton',
-  employes.length >= 10,
-  `obtenu ${employes.length} occurrences de fill="var(--etat-…)"`,
+  'prémisse : chaque forme peint par jeton',
+  rendus.every((r) => /fill="var\(--etat-[a-z-]+\)"/.test(r.svg)),
+  rendus
+    .map((r) => `${r.variante} : ${(r.svg.match(/fill="var\(--etat-[a-z-]+\)"/g) ?? []).length}`)
+    .join(' | '),
+);
+verifier(
+  'et aucune couleur du dessin n’échappe aux jetons',
+  fillsEnDur.length === 0,
+  fillsEnDur.length === 0 ? 'aucune' : `en dur : ${fillsEnDur.join(', ')}`,
 );
 
 /*

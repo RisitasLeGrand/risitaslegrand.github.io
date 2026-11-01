@@ -54,10 +54,16 @@ const THEMES = [
   { id: 'egee', nom: 'Égée (par défaut)' },
   { id: 'republique', nom: 'République' },
 ];
+/*
+   LES DEUX FORMES DU LOGOTYPE RETENU. Les six variantes des prompts 65 et
+   65 bis ont disparu avec le choix d'Alexis : garder dans le dépôt un dessin
+   que seule la planche appelle, c'est garder du code que rien ne mesure. Les
+   planches elles-mêmes restent, comme trace de la décision —
+   `docs/cyclades/planche-65/` et `docs/cyclades/planche-65-bis/`.
+*/
 const VARIANTES = [
-  { id: 'mot', nom: 'Le mot seul' },
-  { id: 'anneau', nom: 'L’anneau' },
-  { id: 'archipel', nom: 'L’archipel' },
+  { id: 'compacte', nom: 'Forme compacte — l’en-tête' },
+  { id: 'complete', nom: 'Forme complète — le voile' },
 ];
 const LARGEURS = [390, 1280];
 
@@ -84,7 +90,7 @@ function pageDe(themeId, mode, largeur) {
         ${svgLogotype(v.id, '1.125rem')}
         <span class="remplissage"></span>
       </div>
-      <div class="voile">${svgLogotype(v.id, v.id === 'archipel' ? '3.5rem' : '2rem')}</div>
+      <div class="voile">${svgLogotype(v.id, '3.5rem')}</div>
     </section>`,
   ).join('');
 
@@ -135,7 +141,7 @@ h1 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
          min-height: 132px; background: var(--etat-fond); }
 </style></head>
 <body>
-  <h1>Logotype « Cyclades » — ${VARIANTES.length} variantes</h1>
+  <h1>Logotype « Cyclades » — ${VARIANTES.length} formes</h1>
   <p class="sous">Thème ${THEMES.find((t) => t.id === themeId).nom} · ${mode} · ${largeur} px
      — en haut l’en-tête, en bas le voile.</p>
   ${cartes}
