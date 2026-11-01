@@ -10,6 +10,7 @@
  * suffisante pour quelques centaines d'items, et six lignes à lire.
  */
 import type { Alea } from '../systemes/types';
+import { graineDesEssais } from '../../../lib/graine-des-essais';
 
 export function alea(graine: number): Alea {
   let etat = graine >>> 0;
@@ -45,7 +46,17 @@ export function alea(graine: number): Alea {
   };
 }
 
-/** Une graine tirée de l'horloge, pour une session nouvelle. */
+/**
+ * Une graine tirée de l'horloge, pour une session nouvelle.
+ *
+ * **Sauf sous un essai qui en impose une.** C'est le seul endroit du dépôt qui
+ * INVENTE une graine, donc le seul où la couture des essais a besoin d'être :
+ * tout ce qui tire au hasard dans cet exercice passe par ici. Voir
+ * `graineDesEssais` pour les deux conditions qui l'autorisent, et pour ce
+ * qu'il en reste dans le site publié — une lecture qui rend toujours rien.
+ */
 export function graineDuMoment(): number {
+  const imposee = graineDesEssais();
+  if (imposee !== undefined) return imposee >>> 0;
   return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
 }

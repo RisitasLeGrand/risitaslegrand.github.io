@@ -45,7 +45,11 @@ import { attendreEnBase } from './lib/post-condition.mjs';
 const BASE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
 
-/** La tolérance que « zone-de-jeu.ts » se donne, reprise pour ne pas en inventer une autre. */
+/**
+ * La tolérance que « zone-de-jeu.ts » se donne, reprise pour ne pas en inventer
+ * une autre. Elle porte sur l’écart au DÉCALAGE de la page, lu sur la racine,
+ * et non sur l’écart à zéro — voir « positionDeLaZone ».
+ */
 const TOLERANCE_HAUT = 4;
 
 /**
@@ -56,24 +60,63 @@ const TOLERANCE_HAUT = 4;
  * déclarée : il ne se voit ni dans `getAnimations()` ni dans une
  * transition, et la seule chose qu'il offre est sa propre position.
  */
-const defilementFini = (page, { delai = 10000 } = {}) =>
+const defilementFini = (page, { delai = 10000, sansDefilement = 400 } = {}) =>
   page.evaluate(
-    (borne) =>
+    ([borne, attenteDuDepart]) =>
       new Promise((fini) => {
-        const limite = performance.now() + borne;
-        let precedent = -1;
-        const regarder = () => {
-          const ici = Math.round(window.scrollY);
-          if (ici === precedent || performance.now() > limite) {
-            fini();
-            return;
-          }
-          precedent = ici;
-          requestAnimationFrame(regarder);
+        /*
+           LE DÉFILEMENT A UN ÉVÉNEMENT DE FIN, et il faut s'en servir.
+
+           Cette attente relisait `scrollY` à chaque trame et rendait la main
+           dès DEUX LECTURES ÉGALES. Elle a été mesurée fausse une fois sur
+           quatre : un défilement doux qui n'a pas encore COMMENCÉ donne deux
+           lectures égales, et l'attente rendait la main en pleine descente.
+           Relevé le 1er novembre, onze passages de sonde, trois lectures en
+           vol — haut à -194 puis -5 puis 111 px, et -324 puis -124 puis 104
+           puis 111. La hauteur, elle, ne bougeait pas : c'était bien la
+           position qui n'était pas encore arrivée.
+
+           C'est la limite déjà écrite pour `quandCelaSeFixe` dans
+           « post-condition.mjs » : une valeur qui n'a pas encore commencé à
+           changer est stable elle aussi.
+
+           « scrollend » existe sur ce navigateur — mesuré, Chromium 141 — et
+           il se déclenche après la dernière trame d'un défilement doux. C'est
+           donc une post-condition EXACTE, et non un pari sur une durée.
+        */
+        let bouge = false;
+        let rendu = false;
+        const achever = (raison) => {
+          if (rendu) return;
+          rendu = true;
+          fini(raison);
         };
-        requestAnimationFrame(regarder);
+
+        /*
+           UN DÉFILEMENT IMPOSSIBLE SE SAIT TOUT DE SUITE : une page qui n'a
+           pas de quoi défiler ne produira ni événement ni mouvement. On le
+           dit plutôt que d'attendre une fin qui ne viendra pas — et c'est le
+           cas le plus fréquent avant le lancement, mesuré : scrollY vaut 0
+           parce que la page tient dans la fenêtre.
+        */
+        const racine = document.scrollingElement ?? document.documentElement;
+        if (racine.scrollHeight <= innerHeight + 1) {
+          achever('aucun défilement possible');
+          return;
+        }
+
+        addEventListener('scroll', () => { bouge = true; }, { passive: true });
+        addEventListener('scrollend', () => achever('scrollend'), { once: true });
+        /*
+           Et si rien n'a bougé au bout de cette attente, il n'y aura pas de
+           défilement : la zone était déjà en place. Ce délai-ci ne se paie QUE
+           dans ce cas, et jamais quand un défilement a lieu — l'événement
+           arrive alors bien avant.
+        */
+        setTimeout(() => { if (!bouge) achever('aucun défilement'); }, attenteDuDepart);
+        setTimeout(() => achever('EXPIRATION'), borne);
       }),
-    delai,
+    [delai, sansDefilement],
   );
 
 /**
@@ -152,6 +195,39 @@ const direPanne = (ou, erreur) => {
 };
 
 /** Les trois exercices, leur route et le libellé de leur bouton de lancement. */
+/**
+ * LA GRAINE QUE CET ESSAI IMPOSE, ET POURQUOI C'EST ONZE.
+ *
+ * Les trois écrans tirent leur contenu au hasard. Sans graine, cet essai
+ * mesurait donc une page dont la taille changeait à chaque passage : entre un
+ * et six rouges, sur n'importe quel arbre, relevé le 1er novembre. La graine
+ * passe par `graineDesEssais`, dont l'en-tête dit les deux conditions —
+ * automatisation ET variable posée avant le chargement — qui la rendent
+ * inaccessible à quiconque ouvre le site.
+ *
+ * **Onze est CHOISIE, et par la mesure.** Il faut un énoncé PLUS HAUT que la
+ * fenêtre : c'est le seul cas où la position du haut est le critère, donc le
+ * seul qui éprouve ce que cet essai garde. Une graine qui donnerait un énoncé
+ * court ferait passer l'essai par l'autre branche et laisserait le défaut
+ * intact — un vert qui ne mesure rien.
+ *
+ * Relevé à 390×844, en clair, douze graines :
+ *
+ *      1 → 840 px      7 →  762 px     17 →  960 px
+ *      2 → 848 px     11 → 1082 px     19 →  762 px
+ *      3 → 848 px     13 →  762 px
+ *      5 → 960 px
+ *
+ * Onze dépasse de 238 px, la marge la plus franche : une retouche de mise en
+ * page ne la fera pas basculer du mauvais côté. Et elle est REPRODUCTIBLE —
+ * trois passages sur chacune des quatre combinaisons de taille et de thème
+ * donnent la même hauteur au pixel : 1082 px sur téléphone, 837 sur
+ * ordinateur, où la zone tient et où c'est l'autre branche qui s'applique.
+ *
+ * Pour la changer : relancer ce relevé, et prendre celle qui dépasse le plus.
+ */
+const GRAINE_DES_ESSAIS = 11;
+
 const EXERCICES = [
   { nom: 'Mémoire de travail', route: 'quad-n-back', lancer: /^Commencer( la session)?$/ },
   { nom: 'Raisonnement relationnel', route: 'relational-reasoning', lancer: /^Commencer$/ },
@@ -182,15 +258,44 @@ async function ouvrir(taille, mode, route) {
     isMobile: taille.tactile,
   });
   const page = await contexte.newPage();
-  await page.addInitScript((heures) => {
-    try {
-      localStorage.setItem('revinsp.palette', 'egee');
-      localStorage.setItem('revinsp.bascule-jour-nuit', 'oui');
-      localStorage.setItem('revinsp.heures-bascule', heures);
-    } catch {
-      /* navigation privée */
-    }
-  }, mode.heures);
+  await page.addInitScript(
+    ([heures, graine]) => {
+      try {
+        localStorage.setItem('revinsp.palette', 'egee');
+        localStorage.setItem('revinsp.bascule-jour-nuit', 'oui');
+        localStorage.setItem('revinsp.heures-bascule', heures);
+      } catch {
+        /* navigation privée */
+      }
+      /*
+         LA GRAINE, POSÉE AVANT LE CHARGEMENT. L'application la lit par
+         `graineDesEssais`, qui exige en plus que la page soit pilotée par une
+         automatisation.
+      */
+      globalThis.__revinspGraineEssais = graine;
+      /*
+         ET LE HASARD DU MOTEUR DE MÉMOIRE DE TRAVAIL, qui est du code emprunté
+         appelant `Math.random()` directement, sans graine à lui passer. On le
+         remplace ICI, dans l'essai, plutôt que de réécrire ce moteur : la
+         couture reste alors entièrement du côté de la mesure, et le site
+         publié ne porte rien de plus.
+
+         Sans cela, « la découverte propose N répétitions » variait d'un
+         passage à l'autre — mesuré : 3, puis 5 —, et le texte du bilan avec
+         lui. Le générateur est celui des essais de Veridical Mapping : court,
+         sans dépendance, et reproductible.
+      */
+      let etat = (graine * 2654435761) >>> 0;
+      Math.random = () => {
+        etat = (etat + 0x6d2b79f5) >>> 0;
+        let t = etat;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    },
+    [mode.heures, GRAINE_DES_ESSAIS],
+  );
 
   const deverrouiller = async () => {
     if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
@@ -231,10 +336,33 @@ async function ouvrir(taille, mode, route) {
 const positionDeLaZone = (zone) =>
   zone.evaluate((e) => {
     const r = e.getBoundingClientRect();
+    /*
+       LE HAUT VISÉ N'EST PAS ZÉRO, ET C'EST LA PAGE QUI LE DIT.
+
+       La racine porte « scroll-padding-top », pour que `scrollIntoView` pose
+       la cible SOUS l'en-tête collant au lieu de la glisser dessous. Mesuré le
+       1er novembre : 111 px, soit l'en-tête de 103 px et huit de respiration —
+       et le haut de la zone s'y pose EXACTEMENT, les neuf fois, sur les trois
+       écrans.
+
+       Cet essai exigeait pourtant zéro à quatre pixels près. Il rougissait donc
+       chaque fois que la zone était plus haute que la fenêtre, puisque c'est
+       alors le seul critère qui s'applique — et il passait sinon, par l'autre
+       branche. Toute l'instabilité des « zone de N px dans 844, haut à 111 px »
+       vient de là : la hauteur de l'énoncé est tirée au hasard, donc la branche
+       aussi.
+
+       Le décalage est LU sur la page, et non recopié. Écrire 111 ici aurait
+       produit un essai faux au premier changement de l'en-tête, et faux en
+       silence — c'est la faute du diviseur figé, dans l'autre sens.
+    */
+    const dit = getComputedStyle(document.documentElement).scrollPaddingTop;
+    const decalage = Number.parseFloat(dit);
     return {
       haut: Math.round(r.top),
       hauteur: Math.round(r.height),
       fenetre: innerHeight,
+      decalage: Number.isFinite(decalage) ? Math.round(decalage) : 0,
       entiere: r.top >= -1 && r.bottom <= innerHeight + 1,
     };
   });
@@ -286,11 +414,45 @@ for (const taille of TAILLES) {
            rend la main quand le défilement s'arrête, et l'assertion qui
            suit mesure justement cette position.
         */
-        await defilementFini(page);
+        const raison = await defilementFini(page);
 
-        const { haut, hauteur, fenetre, entiere } = await positionDeLaZone(zone);
-        const tient = hauteur <= fenetre;
-        const hautEnPlace = Math.abs(haut) <= TOLERANCE_HAUT;
+        const { haut, hauteur, fenetre, decalage, entiere } = await positionDeLaZone(zone);
+        /*
+           « TENIR » SE MESURE SOUS L'EN-TÊTE, et non dans la fenêtre entière.
+
+           C'était « hauteur <= fenetre ». Pour la zone de Raisonnement sur
+           ordinateur — 837 px dans 900 —, l'essai concluait donc qu'elle tenait,
+           et exigeait de la voir EN ENTIER. Mais posée au décalage que la page
+           impose, 83 px, elle finit à 920 : elle dépasse de vingt pixels, et
+           l'exigence était inatteignable.
+           
+           La place réellement disponible est la fenêtre MOINS le décalage. En
+           dessous, on exige le haut en place ; au-dessus, l'intégralité.
+
+           Ce cas-là était invisible avant la graine : la hauteur de l'énoncé
+           étant tirée au hasard, il tombait une fois sur plusieurs et se
+           mêlait aux autres instabilités.
+        */
+        const tient = hauteur <= fenetre - decalage;
+        /*
+           LE HAUT EST COMPARÉ AU DÉCALAGE DE LA PAGE, non à zéro. Voir
+           « positionDeLaZone » : la page impose 111 px pour dégager l'en-tête
+           collant, et c'est le bon comportement.
+        */
+        const hautEnPlace = Math.abs(haut - decalage) <= TOLERANCE_HAUT;
+        /*
+           ET UNE ATTENTE QUI A EXPIRÉ NE SE TAIT PAS. Sans cette ligne, un
+           défilement qui ne finit jamais ferait mesurer une position en vol, et
+           le rouge tomberait sur l'assertion de position sans nommer sa cause.
+        */
+        if (raison === 'EXPIRATION') {
+          echecs += 1;
+          console.log(
+            `  \x1b[31m✗\x1b[0m ${ou} : le défilement n'a pas fini en 10 s — position non mesurable`,
+          );
+          await contexte.close();
+          continue;
+        }
         /*
            L'exigence dépend de la situation, et ma première écriture les
            confondait : elle réclamait le haut à zéro même d'une zone DÉJÀ
@@ -303,7 +465,7 @@ for (const taille of TAILLES) {
           `${ou} — ${
             tient
               ? `entièrement visible, haut à ${haut} px`
-              : `zone de ${hauteur} px dans ${fenetre}, haut à ${haut} px`
+              : `zone de ${hauteur} px dans ${fenetre}, haut à ${haut} px pour ${decalage} visés`
           }`,
           tient ? entiere : hautEnPlace,
         );
@@ -344,6 +506,134 @@ for (const taille of TAILLES) {
    trois choses, et dans la page rendue : qu'un texte existe, qu'il porte un
    signe ET des mots, et qu'il soit dans une région annoncée.
    ════════════════════════════════════════════════════════════════════════ */
+console.log('\nP1 (SUITE) — LE TEMPS MORT AVANT LA PREMIÈRE ÉPREUVE');
+
+/*
+   CE QUE CETTE SECTION MESURE, ET CE QU'ELLE NE MESURE PAS.
+
+   « amenerLaZone » ne rend la main que lorsque la zone de jeu est en place, et
+   Mémoire de travail ATTEND cette promesse avant de programmer sa première
+   épreuve — à une seconde de battement près, affichée par le badge
+   « préparez-vous… ». Les deux autres écrans ne l'attendent pas : rien n'y
+   démarre tout seul.
+
+   La fonction visait le haut à ZÉRO alors que la page impose un décalage pour
+   dégager l'en-tête collant. Pour une zone PLUS HAUTE que la fenêtre, aucune de
+   ses deux conditions n'était donc jamais vraie : elle tombait chaque fois dans
+   sa sortie de secours de 1200 ms, et la personne attendait d'autant plus.
+
+   ON NE MESURE PAS LE DÉFILEMENT. Il se termine en 310 à 470 ms de toute façon,
+   fonction corrigée ou non — mesuré. Une assertion sur la position du haut
+   serait donc VAINE pour ce défaut-là : elle passerait avant comme après.
+
+   On mesure ce que la personne attend : la disparition de « préparez-vous… »,
+   c'est-à-dire le moment où l'exercice démarre vraiment.
+
+   Et sur une fenêtre COURTE, parce que c'est la seule où la zone de Mémoire
+   dépasse : 705 px dans 640, mesuré. À 844 elle tient — 680 px —, la promesse
+   se résout par l'autre branche, et le défaut ne se montre pas.
+*/
+{
+  const COURT = { nom: 'téléphone court', viewport: { width: 390, height: 640 }, tactile: true };
+  /*
+     LE SEUIL. Zone en place vers 310 ms, plus la seconde de battement : environ
+     1310 ms attendus. Par la sortie de secours : 1200 + 1000, soit 2200. On
+     tranche à 1700 — assez haut pour ne pas rougir sur une machine chargée,
+     assez bas pour que le défaut ne passe pas. Le sabotage le vérifie dans les
+     deux sens.
+  */
+  const SEUIL_MS = 1700;
+  const memoire = EXERCICES.find((e) => e.route === 'quad-n-back');
+  let contexte;
+  try {
+    const ouvert = await ouvrir(COURT, MODES[0], memoire.route);
+    contexte = ouvert.contexte;
+    const page = ouvert.page;
+
+    const lancer = page.getByRole('button', { name: memoire.lancer }).first();
+    await lancer.waitFor({ state: 'visible', timeout: 30000 });
+    if (await lancer.isDisabled()) {
+      echecs += 1;
+      console.log(`  \x1b[31m✗\x1b[0m ${COURT.nom} : le bouton de lancement est désactivé`);
+    } else {
+      await lancer.click();
+      const zone = page.locator('[data-zone-de-jeu]').first();
+      await zone.waitFor({ state: 'visible', timeout: 30000 });
+      const mesure = await page.evaluate(
+        (borne) =>
+          new Promise((fini) => {
+            const t0 = performance.now();
+            const regarder = () => {
+              const z = document.querySelector('[data-zone-de-jeu]');
+              const r = z ? z.getBoundingClientRect() : null;
+              /* « préparez-vous… » disparaît quand la première épreuve part. */
+              const attend = document.body.textContent.includes('préparez-vous');
+              if (!attend) {
+                fini({
+                  ms: Math.round(performance.now() - t0),
+                  hauteur: r ? Math.round(r.height) : null,
+                  fenetre: innerHeight,
+                });
+                return;
+              }
+              if (performance.now() - t0 > borne) {
+                fini({
+                  ms: null,
+                  hauteur: r ? Math.round(r.height) : null,
+                  fenetre: innerHeight,
+                });
+                return;
+              }
+              requestAnimationFrame(regarder);
+            };
+            regarder();
+          }),
+        SEUIL_MS + 3000,
+      );
+
+      /*
+         LA PREMIÈRE ASSERTION EST CE QU'IL FAUT VOIR D'ABORD : sans une zone
+         plus haute que la fenêtre, la suivante ne mesure rien. Une fenêtre
+         qu'une retouche rendrait assez grande ferait passer les deux au vert
+         pour la mauvaise raison.
+      */
+      vrai(
+        `${COURT.nom} — la zone dépasse bien la fenêtre : ${mesure.hauteur} px dans ${mesure.fenetre}`,
+        mesure.hauteur !== null && mesure.hauteur > mesure.fenetre,
+      );
+      /*
+         LA DURÉE EST DITE AU DIXIÈME DE SECONDE, ET C'EST VOULU.
+
+         Six passages ont donné 1374, 1372, 1380, 1372, 1370 et 1379 ms. Une
+         durée ne peut pas être identique d'un passage à l'autre : c'est une
+         lecture d'horloge, non un tirage. Mais une ligne qui change de dix
+         millisecondes sans rien signifier apprend à ignorer les écarts — et le
+         jour où un écart compte, personne ne le regarde plus.
+
+         Au dixième de seconde, les six passages disent « 1,4 s », et une
+         différence dans cette ligne redevient un fait : il faut cinquante
+         millisecondes pour la produire. La valeur exacte est dite quand
+         l'assertion échoue, là où elle sert.
+      */
+      const enSecondes = (ms) => String(Math.round(ms / 100) / 10).replace('.', ',');
+      vrai(
+        `${COURT.nom} — l’exercice démarre en ${
+          mesure.ms === null ? `plus de ${enSecondes(SEUIL_MS + 3000)}` : enSecondes(mesure.ms)
+        } s, sous les ${enSecondes(SEUIL_MS)} s exigées`,
+        mesure.ms !== null && mesure.ms < SEUIL_MS,
+      );
+      if (mesure.ms === null || mesure.ms >= SEUIL_MS) {
+        console.log(`      mesure exacte : ${mesure.ms === null ? 'jamais démarré' : mesure.ms + ' ms'}`);
+      }
+    }
+  } catch (e) {
+    echecs += 1;
+    console.log(`  \x1b[31m✗\x1b[0m ${COURT.nom} : ${e.message}`);
+  } finally {
+    if (contexte) await contexte.close();
+  }
+}
+
 console.log('\nP5 — LE VERDICT DE CORRESPONDANCE EST EN MOTS ET EN SIGNES');
 
 {

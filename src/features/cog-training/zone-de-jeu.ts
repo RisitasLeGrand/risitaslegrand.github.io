@@ -26,10 +26,17 @@
  *
  *  1. si `IntersectionObserver` n'existe pas — le défilement a tout de même eu
  *     lieu, et c'est mieux que rien ;
+ *  1 bis. sur la fin du défilement (`scrollend`), qui est le signal exact et
+ *     celui qui tient la promesse dans le cas courant ;
  *  2. au bout de `ATTENTE_MAX`, si la zone ne devient jamais visible (une
  *     fenêtre plus courte que la zone, un conteneur à défilement imbriqué) ;
  *  3. tout de suite, si le haut de la zone est déjà en place — le cas de
  *     l'ordinateur, où rien n'a besoin de bouger.
+ *
+ * La deuxième n'est une sortie de SECOURS que depuis le 1er novembre : avant,
+ * toute zone plus haute que la fenêtre y passait à chaque lancement, parce que
+ * le haut visé était zéro et non le décalage de la page. Voir
+ * `decalageDeLaPage`.
  *
  * Dans les trois cas la partie démarre. Aucun chemin ne laisse l'écran inerte.
  */
@@ -50,6 +57,48 @@
  * d'une seule façon.
  */
 const TOLERANCE_HAUT = 4;
+
+/**
+ * LE HAUT VISÉ N'EST PAS ZÉRO, ET C'EST LA PAGE QUI LE DIT.
+ *
+ * ## Le défaut, et il coûtait 1200 ms à chaque lancement
+ *
+ * La racine porte `scroll-padding-top` pour que `scrollIntoView` pose sa cible
+ * SOUS l'en-tête collant au lieu de la glisser dessous. Mesuré le 1er novembre :
+ * **111 px**, soit l'en-tête de 103 et huit de respiration. Et le haut de la
+ * zone s'y pose exactement, les neuf fois, sur les trois écrans.
+ *
+ * Or cette fonction comparait ce haut à ZÉRO, à quatre pixels près. Pour une
+ * zone plus haute que la fenêtre — l'énoncé long de Raisonnement, une fois sur
+ * deux —, ni « entrée en entier » ni « haut à 4 px près » n'est donc JAMAIS
+ * vrai : la promesse tombait chaque fois dans sa sortie de secours, et la
+ * partie démarrait 1200 ms après le toucher alors que la zone était en place
+ * depuis 400.
+ *
+ * Rien ne le signalait. L'écran était correct — la zone bien placée sous
+ * l'en-tête —, et le retard ne se voyait qu'à la montre. Comme la hauteur de
+ * l'énoncé est tirée au hasard, il frappait un lancement sur deux, ce qui le
+ * rendait irreproductible à la demande.
+ *
+ * ## Pourquoi le LIRE et non l'écrire
+ *
+ * Recopier 111 ici aurait produit une fonction fausse au premier changement de
+ * l'en-tête, et fausse en silence — le retard reviendrait sans qu'une ligne ait
+ * bougé ici. On lit donc la valeur que la page impose, à chaque appel : c'est
+ * elle qui décide, et elle peut changer avec la fenêtre.
+ *
+ * Une valeur illisible ou absente vaut zéro, ce qui est l'ancien comportement :
+ * une page sans `scroll-padding-top` pose bien sa cible en haut.
+ */
+function decalageDeLaPage(): number {
+  try {
+    const dit = getComputedStyle(document.documentElement).scrollPaddingTop;
+    const valeur = Number.parseFloat(dit);
+    return Number.isFinite(valeur) ? valeur : 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * Au-delà, on démarre quand même. Mesurée large : un défilement lissé sur un
@@ -107,7 +156,38 @@ export function amenerLaZone(zone: HTMLElement | null | undefined): Promise<void
       fini = true;
       clearTimeout(minuteur);
       observateur.disconnect();
+      removeEventListener('scrollend', surFinDuDefilement);
       tenir();
+    };
+
+    /** Le haut de la zone est-il arrivé là où la page le veut ? */
+    const enPlaceMaintenant = (): boolean => {
+      const r = zone.getBoundingClientRect();
+      if (r.top >= -1 && r.bottom <= innerHeight + 1) return true;
+      return Math.abs(r.top - decalageDeLaPage()) <= TOLERANCE_HAUT;
+    };
+
+    /*
+       LA FIN DU DÉFILEMENT EST UN ÉVÉNEMENT, et sans lui cette promesse ne
+       pouvait pas tenir.
+
+       L'`IntersectionObserver` à seuil zéro prévient quand la zone FRANCHIT le
+       bord de la fenêtre — donc en pleine descente, où le haut n'est pas encore
+       arrivé. Ensuite, plus rien ne le réveille : la part visible ne recroise
+       plus zéro. Pour une zone plus haute que la fenêtre, la promesse tombait
+       donc TOUJOURS dans sa sortie de secours, même après que le haut visé a
+       été corrigé. Mesuré le 1er novembre : 2202 ms avant la première épreuve
+       de Mémoire de travail sur une fenêtre de 640, là où la zone est en place
+       depuis 310 ms.
+
+       « scrollend » dit exactement ce qu'il faut : le défilement est fini, la
+       position est définitive. On relit alors la position une fois, et l'on
+       tient. L'observateur reste, pour les navigateurs qui n'ont pas
+       l'événement et pour le cas où la zone arrive en place sans qu'un
+       défilement ait lieu.
+    */
+    const surFinDuDefilement = () => {
+      if (enPlaceMaintenant()) achever();
     };
 
     /*
@@ -116,20 +196,36 @@ export function amenerLaZone(zone: HTMLElement | null | undefined): Promise<void
        assez bougé. Un seuil de part visible aurait écarté d'emblée les zones
        plus hautes que la fenêtre, qui sont justement celles qui en ont besoin.
     */
+    /*
+       L'OBSERVATEUR CONSULTE LA MÊME DÉFINITION QUE TOUT LE RESTE.
+
+       Il portait sa propre copie de « est-ce en place ? », lue sur le rectangle
+       que l'entrée d'intersection fournit. Deux copies de la même règle, donc
+       une seconde source : un sabotage l'a montré le 1er novembre — fausser
+       celle de l'observateur ne changeait RIEN, parce que `scrollend` tient la
+       promesse par l'autre. Une règle qu'on peut casser sans conséquence n'est
+       pas une règle, c'est un commentaire exécutable.
+
+       Il n'y en a plus qu'une, et l'observateur relit la position plutôt que
+       d'en recevoir une version. C'est une lecture de plus par notification,
+       et elles sont rares : l'observateur ne se réveille qu'au franchissement
+       du bord.
+    */
     const observateur = new IntersectionObserver(
-      (entrees) => {
-        const enPlace = entrees.some((e) => {
-          const r = e.boundingClientRect;
-          const fenetre = e.rootBounds?.height ?? innerHeight;
-          /* Entrée en entier, ou à défaut commencée en haut de la fenêtre. */
-          if (r.top >= -1 && r.bottom <= fenetre + 1) return true;
-          return Math.abs(r.top) <= TOLERANCE_HAUT;
-        });
-        if (enPlace) achever();
+      () => {
+        if (enPlaceMaintenant()) achever();
       },
       { threshold: [0] },
     );
     const minuteur = setTimeout(achever, ATTENTE_MAX);
     observateur.observe(zone);
+    addEventListener('scrollend', surFinDuDefilement, { passive: true });
+    /*
+       ET SI LE HAUT EST DÉJÀ ARRIVÉ, on ne demande rien à personne : le cas de
+       l'ordinateur, où la zone tient sans que rien ait à bouger. Vérifié après
+       l'abonnement, pour qu'un défilement qui finirait entre les deux ne soit
+       pas perdu.
+    */
+    if (enPlaceMaintenant()) achever();
   });
 }
