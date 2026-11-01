@@ -73,6 +73,30 @@
 /** Ce que la personne répond à « cet appareil remplace-t-il l'ancien ? ». */
 export type RoleDeLAppareil = 'remplace-l-ancien' | 's-ajoute';
 
+/*
+   UN APPELANT QUI N'A PERSONNE À QUI DEMANDER — relevé par le constructeur.
+
+   Ce module est écrit pour la restauration, où la personne RÉPOND : l'écran
+   pose la question et refuse d'appliquer sans réponse, parce que les deux
+   réponses sont justes selon le cas et que seule elle sait lequel.
+
+   Le chemin du RETOUR EN ARRIÈRE — « revenirA » de « noyau/instantane.ts » —
+   a le même besoin de classer les clés d'« etat », et personne n'y coche quoi
+   que ce soit. Un appelant comme celui-là devra donc nommer un rôle lui-même.
+
+   QUE CE NOM SOIT UNE DÉCISION DÉCLARÉE, ET NON UN DÉTAIL D'APPEL. Écrire
+   « s-ajoute » dans un appel parce que c'est le plus prudent des deux, sans le
+   dire, serait reproduire le défaut que ce module corrige : une politique
+   d'identité choisie en passant, par du code, au lieu d'être choisie.
+
+   Et c'est pour cela que le rôle reste OBLIGATOIRE et sans valeur par défaut,
+   même si cela force un appelant sans écran à se justifier. Un défaut lui
+   épargnerait la justification, ce qui est exactement ce qu'il ne faut pas lui
+   épargner. Le jour où ce chemin sera repris, son auteur nommera son rôle et
+   dira pourquoi — ou demandera un cas de plus ici, ce qui vaut mieux qu'un
+   second classement de « boite.* » ailleurs dans le dépôt.
+*/
+
 /** Qui l'emporte, pour une clé donnée. */
 export type Source = 'fichier' | 'local' | 'non-classee';
 
