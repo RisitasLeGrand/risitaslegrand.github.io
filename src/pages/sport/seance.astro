@@ -237,6 +237,7 @@ import LienReglages from '../../components/LienReglages.astro';
   import { nombreDuChamp, nombreEntier } from '../../lib/nombre-saisi';
   import { direLErreur, effacerLErreur, validerALaSortie } from '../../lib/erreur-de-champ';
   import { agirPuisPeindre, messageDUneErreur } from '../../lib/agir';
+  import { enPeignant } from '../../lib/peinture';
   import { proposerLAnnulation } from '../../lib/annulation';
   import { unSeulGeste } from '../../lib/geste';
   import { ecranAllumeVoulu, themeDeSeanceVoulu } from '../../lib/parametres/acces';
@@ -586,26 +587,41 @@ import LienReglages from '../../components/LienReglages.astro';
     zone.appendChild(liste);
   }
 
+  /*
+     LA MARQUE DE FIN DE PEINTURE — relevé du 1er novembre.
+
+     Cet écran se peint après son chargement et après chaque geste, et ses
+     essais attendaient cela par des délais : 1200 ms après une navigation,
+     1500 ms après une autre. Un délai est un pari, et celui-ci porte sur la
+     vitesse d'une base qui grossit.
+
+     « enPeignant » pose les deux marques du même geste — « aria-busy » pendant,
+     le compteur après — et le « finally » les tient quelle que soit la sortie,
+     y compris le « return » du cas au repos, qui est précisément celui qu'une
+     enveloppe écrite à la main oublierait.
+  */
   async function peindre() {
-    const enRepos = seance === null;
-    $('repos').classList.toggle('hidden', !enRepos);
-    $('encours').classList.toggle('hidden', enRepos);
+    await enPeignant($('vue'), async () => {
+      const enRepos = seance === null;
+      $('repos').classList.toggle('hidden', !enRepos);
+      $('encours').classList.toggle('hidden', enRepos);
 
-    if (enRepos) {
-      if (battement !== null) {
-        clearInterval(battement);
-        battement = null;
+      if (enRepos) {
+        if (battement !== null) {
+          clearInterval(battement);
+          battement = null;
+        }
+        await rendreLeVerrou();
+        await peindreDernieres();
+        return;
       }
-      await rendreLeVerrou();
-      await peindreDernieres();
-      return;
-    }
 
-    peindreChoixExercice();
-    peindreSeries();
-    await direLaProposition();
-    battre();
-    if (battement === null) battement = window.setInterval(battre, 1000);
+      peindreChoixExercice();
+      peindreSeries();
+      await direLaProposition();
+      battre();
+      if (battement === null) battement = window.setInterval(battre, 1000);
+    });
   }
 
   async function recharger() {
