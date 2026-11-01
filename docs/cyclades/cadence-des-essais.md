@@ -81,6 +81,84 @@ est que `.git` y est un *fichier* et non un dossier. Une première version
 regardait seulement s'il existait : il existe des deux côtés, et la détection
 ne détectait rien.
 
+### Ce qu'il arrive quand on enfreint cette règle — mesuré le 1er novembre
+
+*Par B, qui a enfreint sa propre règle et perdu un lot entier.*
+
+J'ai posé quatre sabotages dans l'arbre de travail, sur un fichier qui
+portait du travail **non commité**, et je les ai défaits avec
+`git checkout -- <fichier>`.
+
+`git checkout --` restaure depuis l'index, donc depuis HEAD. Il a effacé
+l'alignement entier du lot L5 — deux champs, une formule corrigée, trois
+correctifs — et il l'a fait **sans un mot**, puisque c'est exactement son
+travail. Le fichier est revenu à sa version d'avant, et le premier sabotage
+avec lui.
+
+**Les trois sabotages suivants ont alors tourné contre le mauvais fichier.**
+Ils ont tous rendu dix-huit échecs identiques, tous commençant par une
+dimension qui n'avait rien à voir avec ce que je croyais casser. C'est cette
+répétition qui m'a alerté : un faux rouge se signale, c'est sa seule vertu.
+Trois résultats de mesure ne valaient rien et je l'aurais ignoré si le rouge
+avait été plausible.
+
+Deux formulations de la règle, et seule la seconde protège :
+
+- *« on sabote dans un arbre séparé »* — l'intention, qui se perd dès qu'on
+  est pressé ;
+- **« on ne sabote jamais un fichier dont le travail n'est pas déjà dans un
+  commit »** — la condition, qui se vérifie en une commande.
+
+Elles coïncident dans un arbre séparé, où le sabotage porte sur un commit par
+construction. Dans l'arbre de travail elles divergent, et c'est là que le lot
+se perd. Si l'on sabote quand même dans l'arbre de travail — ce que la règle
+du 26 octobre interdit, et qui reste la faute d'origine — alors on commite
+d'abord, et l'on restaure depuis une **copie** du fichier, jamais depuis Git :
+
+    cp "$F" /tmp/avant-sabotage    # PAS git checkout : il restaure depuis HEAD
+    # … casser, lancer l'essai, lire le rouge …
+    cp /tmp/avant-sabotage "$F"
+
+### Une tolérance plus large que l'effet qu'elle mesure rend l'assertion décorative
+
+*Trouvée le 1er novembre par le sabotage ci-dessus, et c'est le seul moyen
+qu'il y avait de la trouver.*
+
+J'avais ajouté une garde `+ 1e-9` à un plancher, en annonçant qu'elle
+réparait un cas où la division flottante rendait `2,9999999999999996` au lieu
+de `3`. L'assertion qui devait établir cette prémisse était **verte** :
+
+    proche('0,24 / 0,08 ne vaut pas 3 mais un peu moins', 0.24 / 0.08, 2.9999999999999996)
+
+`proche` compare à `1e-9` près. L'écart qu'il fallait détecter vaut `4e-16`.
+L'assertion ne pouvait donc pas distinguer `3` de « presque 3 » — et la
+division vaut `3`, exactement. Elle était verte en affirmant une fausseté,
+non par chance mais **par construction** : un comparateur trop large ne
+mesure pas la chose qu'on lui donne à mesurer.
+
+Le sabotage l'a dit, et lui seul : retirer la garde du code laissait l'essai
+tout vert. **Un essai qui reste vert quand on casse ce qu'il prétend garder
+ne garde rien** — et il faut lire ce vert comme un aveu, pas comme un
+soulagement.
+
+Deux conséquences pour tous :
+
+1. **Un comparateur approché n'a pas de valeur par défaut.** Sa tolérance se
+   choisit en fonction de l'effet à détecter, et quand l'effet est de l'ordre
+   de l'epsilon machine, il faut une égalité exacte ou une seconde route.
+2. **Une prémisse se mesure comme le reste.** La mienne — « cette division
+   rend un peu moins que 3 » — était une supposition sur l'arithmétique
+   flottante, du même genre que « number a dix niveaux parce qu'il y a dix
+   chiffres ». Les deux fois j'ai pris le nombre dans ma tête plutôt que dans
+   la machine, et les deux fois une assertion verte m'a confirmé.
+
+Le correctif durable n'a pas été de resserrer la tolérance mais d'**extraire
+le compte dans une fonction** (`ecartsPresentables`) et de le confronter à
+une seconde route en arithmétique entière, qui ne passe par aucun flottant.
+Tant que le calcul était enfoui dans une phrase, son défaut n'était pas
+mesurable ; une fois nommé, il l'est, et les deux sabotages correspondants
+rougissent.
+
 ### Et tout sabotage s'y fait aussi — règle du 26 octobre
 
 *Arbitré par le Pilote après trois lots où elle a manqué.*
