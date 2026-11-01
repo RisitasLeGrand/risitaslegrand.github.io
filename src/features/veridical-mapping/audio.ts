@@ -59,6 +59,38 @@ export interface Ton {
 }
 
 /**
+ * LE POINT D'APPEL GÉNÉRIQUE DU LOT L5, et il n'y en a qu'un ici.
+ *
+ * Prompt 63, lot L5. Décision du pilote du 1er novembre : le rendu va sur la
+ * dimension, et les deux fichiers de rendu reçoivent un point d'appel chacun.
+ *
+ * `jouerTon` ci-dessous reste intact et sert les quatre dimensions sonores
+ * d'origine : il joue UNE sinusoïde depuis trois nombres, ce qui ne peut
+ * produire ni un motif rythmique, ni un nombre d'événements, ni de la parole.
+ * Les familles `audition-motif` et `audition-parle` apportent donc leur propre
+ * rendu, et cette fonction leur passe le contexte.
+ *
+ * **Elle ne synthétise rien elle-même**, et c'est le point : tout le code de
+ * son des familles de B vit dans `dimensions/rendus/`, de son côté de la
+ * frontière. Ici il n'y a que l'ouverture du contexte et le refus propre quand
+ * il n'est pas disponible.
+ *
+ * Le refus rend une promesse résolue, comme `jouerTon`, et non une erreur : un
+ * contexte audio suspendu est l'état normal avant le premier geste de la
+ * personne, pas une panne. L'appelant verrouille son bouton sur cette promesse,
+ * donc elle doit se résoudre dans tous les cas — c'est la leçon du délai de
+ * garde de `jouerTon`, et elle vaut ici de la même façon.
+ */
+export async function jouerRendu(
+  rendu: (cadre: { contexte: AudioContext; z: number; partiel: boolean }) => Promise<void>,
+  { z, partiel = false }: { z: number; partiel?: boolean },
+): Promise<void> {
+  const ctx = obtenirContexte();
+  if (!ctx || ctx.state !== 'running') return;
+  await rendu({ contexte: ctx, z, partiel });
+}
+
+/**
  * Joue un ton et rend la main quand il est fini.
  *
  * Le niveau est donné en décibels relatifs au plein échelle, converti en gain

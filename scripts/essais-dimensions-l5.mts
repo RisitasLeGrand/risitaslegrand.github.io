@@ -12,6 +12,9 @@
  *
  *     npm run essais:dimensions-l5
  */
+import { zDepuisLAttribut } from '../src/features/veridical-mapping/dimensions/rendus/types';
+import { DIMENSIONS, PAS, zDuPas } from '../src/features/veridical-mapping/dimensions';
+import { stimulus } from '../src/features/veridical-mapping/stimulus';
 import {
   ECARTS_REQUIS,
   ecartMontre,
@@ -165,6 +168,52 @@ v('sur un registre conforme, le balayage photosensible rend vide',
   manquentLeGrisNeutre([{ id: 'ok', varieDansLeTemps: true, grisNeutre: true }]), []);
 v('et celui des nombres aussi',
   nombresSansDureeFixe([{ id: 'ok', compteDEvenements: true, dureeTotaleMs: 900 }]), []);
+
+console.log('\n\x1b[1mLE z RELU DEPUIS L’ATTRIBUT, POUR LE POINT D’APPEL DU RENDU\x1b[0m\n');
+/*
+   LA PART ÉPROUVABLE DU POINT D'APPEL. Le reste — le canevas, l'effet, le
+   repli bruyant — vit dans un composant Svelte, qui ne s'importe pas depuis un
+   essai ; et surtout AUCUNE DIMENSION NE PORTE ENCORE DE RENDU, donc la
+   branche ne s'exécute nulle part. Je le dis plutôt que de prétendre une
+   couverture que je n'ai pas : le point d'appel est écrit et compilé, il n'est
+   pas exercé. La première dimension qui s'en servira viendra avec son essai.
+
+   Ce qui EST éprouvé est l'inversion d'échelle, qui est la part subtile : un
+   stimulus porte des pixels ou des hertz, pas le z que le rendu attend.
+*/
+for (const dim of DIMENSIONS) {
+  const auPas = Math.floor((PAS - 1) * 0.37);
+  const s = stimulus(dim, auPas);
+  const { z, ecart } = zDepuisLAttribut(dim, s as unknown as Record<string, unknown>, PAS);
+  proche(`« ${dim.id} » : le z relu est celui qu’on a posé`, z, zDuPas(auPas));
+  proche(`  et l’inversion est EXACTE, non approchée`, ecart, 0);
+}
+/*
+   LES BORNES AUSSI, parce qu'une inversion juste au milieu et fausse aux
+   extrémités passerait le contrôle ci-dessus. La teinte est circulaire : son
+   dernier pas ne vaut pas 360°, et c'est justement là qu'un hors-borne se
+   logerait.
+*/
+for (const dim of DIMENSIONS) {
+  for (const auPas of [0, PAS - 1]) {
+    const { ecart } = zDepuisLAttribut(dim, stimulus(dim, auPas) as unknown as Record<string, unknown>, PAS);
+    proche(`« ${dim.id} » au pas ${auPas} : exacte aussi`, ecart, 0);
+  }
+}
+/*
+   ET LE REFUS. Un attribut illisible ferait dessiner un stimulus immobile —
+   le défaut même qu'A a retiré de `stimulus()`. On lève plutôt que de rendre
+   zéro, qui serait un stimulus parfaitement valide au bas de l'échelle.
+*/
+{
+  let aLeve = false;
+  try {
+    zDepuisLAttribut(DIMENSIONS[0], {}, PAS);
+  } catch {
+    aLeve = true;
+  }
+  vrai('un attribut absent fait lever, au lieu de rendre un z de zéro', aLeve);
+}
 
 console.log('\n\x1b[1mLES SEPT PARLÉES DU PLAN L0, CONTRE LA FRONTIÈRE\x1b[0m\n');
 /*
