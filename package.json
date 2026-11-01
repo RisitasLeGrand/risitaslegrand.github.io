@@ -356,6 +356,8 @@
     "essais:piles": "tsx scripts/essais-piles.mts",
     "essais:piles:navigateur": "node scripts/essais-piles-navigateur.mjs",
     "essais:laterale": "node scripts/essais-laterale.mjs",
+    "essais:identite-restauree": "tsx scripts/essais-identite-restauree.mts",
+    "essais:identite:bout-en-bout": "node scripts/essais-identite-bout-en-bout.mjs",
     "essais:refus-dit": "node scripts/essais-refus-dit.mjs",
     "essais:centre-m14": "node scripts/essais-centre-m14.mjs",
     "essais:centre-panne": "node scripts/essais-centre-panne.mjs",

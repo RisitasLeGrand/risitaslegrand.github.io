@@ -23,6 +23,13 @@ import { BRANCHES, ID_BRANCHE_PAR_DEFAUT } from '../branches';
 import { PARCOURS } from '../parcours/registre';
 import { pluriel } from '../noyau/accords';
 import { estScelle } from '../noyau/coffre';
+import { estTechnique } from './groupes';
+import {
+  etatARestaurer,
+  type EntreeDEtat,
+  type EtatFusionne,
+  type RoleDeLAppareil,
+} from './politique-de-l-identite';
 import {
   SauvegardeRefusee,
   ecrire,
@@ -265,10 +272,34 @@ export interface ResultatRestauration {
    * réussie.
    */
   traverses: string[];
+  /**
+   * Ce que la politique d'identité a décidé, pour que l'écran puisse le DIRE.
+   *
+   * Sans cela l'écran ne pourrait qu'annoncer une phrase générale, et la
+   * description du groupe « Réglages et profil » a déjà montré ce que coûte une
+   * promesse générale : elle disait que l'identité n'est pas touchée, ce qui
+   * était vrai de l'effacement à la carte et faux de la restauration complète.
+   */
+  identite: EtatFusionne & { role: RoleDeLAppareil };
 }
 
 export interface OptionsRestauration {
   octets: Uint8Array;
+  /**
+   * Cet appareil remplace-t-il celui qui a écrit la sauvegarde, ou s'y ajoute-t-il ?
+   *
+   * OBLIGATOIRE, et sans valeur par défaut — B-7. Un défaut choisirait à la
+   * place de la personne, et les deux réponses sont justes selon le cas :
+   * reprendre l'identité quand l'appareil remplace l'ancien, pour que les pairs
+   * le reconnaissent ; la garder sienne quand il s'ajoute, pour que deux
+   * appareils ne se confondent pas. Seule la personne sait lequel des deux elle
+   * tient en main, et la décision 3 du 26/10 demande de le lui demander à
+   * CHAQUE restauration.
+   *
+   * Le rendre obligatoire fait que le compilateur réclame la réponse à chaque
+   * appelant, présent et futur. C'est le seul garde qui ne s'oublie pas.
+   */
+  role: RoleDeLAppareil;
   /** Le mot de passe **du fichier**, qui peut différer de celui du site. */
   motDePasse?: string;
   /**
@@ -344,6 +375,41 @@ export async function restaurer(
   */
   const inconnus = magasinsInconnus(Object.keys(relecture.magasins));
 
+  /*
+     L'IDENTITÉ SE DÉCIDE ICI, AVANT L'INSTANTANÉ — B-7.
+
+     Avant l'instantané pour une raison précise : « fabriquer() » écrit la date
+     de dernière sauvegarde. Lire l'état local APRÈS lui ferait garder une date
+     que l'instantané vient de poser, et non celle que l'appareil portait. La
+     question « que portait cet appareil » doit être posée avant qu'on y touche.
+
+     Et « relecture » n'est pas modifiée : elle décrit le FICHIER, fidèlement, et
+     c'est elle qu'on rend à l'appelant. Ce qu'on a DÉCIDÉ d'écrire est autre
+     chose, et confondre les deux ferait raconter à l'écran le fichier qu'il
+     aurait voulu plutôt que celui qu'il a reçu.
+  */
+  const etatLocal = ((await exporterMagasins(['etat'])).etat ?? []) as EntreeDEtat[];
+  /*
+     CE QUI SE LIT ICI, ET CE QUI SE DÉCIDE PLUS BAS — raccord de B-7 avec
+     b-politique-schema, fait à la fusion et non par l'un des deux.
+
+     L'état LOCAL se lit bien ici, avant l'instantané, pour la raison que B-7
+     donne : « fabriquer() » écrit la date de dernière sauvegarde, et lire après
+     lui ferait garder une date que l'instantané vient de poser.
+
+     Mais la DÉCISION descend après la mise à la forme courante, parce que son
+     côté « fichier » doit être l'état MIGRÉ et non l'état brut. « etat » fait
+     partie des magasins d'une sauvegarde (il est dans MAGASINS_PROGRESSION et
+     hors de MAGASINS_HORS_SAUVEGARDE, relevé à la ligne), donc il traverse les
+     paliers comme les autres. Trancher avant la migration aurait écrit par
+     dessus l'état migré un état brut, et les deux apports se seraient annulés :
+     la migration n'aurait plus porté sur « etat », ou l'identité n'aurait plus
+     eu le dernier mot.
+
+     « etatARestaurer » est pure — l'état du fichier, l'état local, le rôle —
+     donc la déplacer ne change rien d'autre que ce qu'on lui donne.
+  */
+
   let instantane: ResultatSauvegarde | null = null;
   if (options.instantane !== false) {
     const mdp =
@@ -386,16 +452,37 @@ export async function restaurer(
   }
 
   /*
-     ET « inconnus » NE VIENT PLUS D'ICI : il a été compté plus haut, sur la
-     charge déchiffrée, avant l'instantané et avant l'écriture (M-2bis (b) de
-     b-cyclades-v2). On passe donc les magasins MIGRÉS à l'écriture — c'est le
-     point de b-politique-schema — et l'on ignore le « inconnus » qu'elle
-     renvoie, qui dirait la même chose mais après coup. Les deux apports
-     tiennent ensemble : le comptage ne dépend plus de l'issue de l'écriture, et
-     l'écriture reçoit bien les données mises à la forme courante.
+     ET L'IDENTITÉ A LE DERNIER MOT SUR « etat » — B-7, sur l'état migré.
+
+     Son côté « fichier » est « magasins.etat », c'est-à-dire l'état du fichier
+     après les paliers, duquel b-politique-schema a déjà retiré les clés que
+     seule la base de passage avait inventées — le palier 12 forge un
+     « etat.appareil » à la création d'une base vide, et une invention n'est pas
+     une migration.
   */
-  const { ecrits } = await remplacerMagasins(magasins);
-  return { relecture, ecrits, inconnus, instantane, verdict, traverses };
+  const identite = etatARestaurer(
+    (magasins.etat ?? []) as EntreeDEtat[],
+    etatLocal,
+    options.role,
+    estTechnique,
+  );
+  const aEcrire = { ...magasins, etat: identite.etat };
+
+  /*
+     ET « inconnus » NE VIENT PAS D'ICI : il a été compté plus haut, sur la
+     charge déchiffrée, avant l'instantané et avant l'écriture (M-2bis (b) de
+     b-cyclades-v2). La valeur ne dépend donc pas de l'issue de l'écriture.
+  */
+  const { ecrits } = await remplacerMagasins(aEcrire);
+  return {
+    relecture,
+    ecrits,
+    inconnus,
+    instantane,
+    verdict,
+    traverses,
+    identite: { ...identite, role: options.role },
+  };
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

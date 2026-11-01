@@ -247,6 +247,18 @@ const restaurerCyclades = async () => {
      qu'il dit. L'instantané a son propre essai.
   */
   await page.locator('#avec-instantane').uncheck();
+  /*
+     B-7 — ON RÉPOND À LA QUESTION DU RÔLE, et on dit laquelle des deux branches
+     on éprouve. L'écran demande si cet appareil remplace celui de la sauvegarde
+     ou s'y ajoute, et il refuse d'appliquer sans réponse : la réponse décide si
+     l'identité de l'appareil est reprise du fichier ou gardée.
+
+     « s'ajoute » ici, parce que cet essai n'éprouve pas l'identité : il restaure
+     sur l'appareil qui a fait la sauvegarde, et c'est la branche qui ne touche à
+     rien. Le choix est écrit plutôt que subi — un essai qui coche au hasard
+     mesure une branche sans savoir laquelle.
+  */
+  await page.check('#role-ajoute');
   await page.click('#appliquer-cyclades');
   /*
      La boîte commune : remplacer toute la progression est destructeur, donc

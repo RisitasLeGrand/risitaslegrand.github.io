@@ -113,7 +113,7 @@ export async function fabriquerUneSauvegarde(
  */
 export async function restaurerDepuis(
   page,
-  { racine, chemin, motDePasseDuSite, motDePasseDuFichier, avecInstantane = false },
+  { racine, chemin, motDePasseDuSite, motDePasseDuFichier, avecInstantane = false, role },
 ) {
   await page.goto(`${racine}/progression/#restaurer`, { waitUntil: 'networkidle' });
   await deverrouiller(page, motDePasseDuSite);
@@ -130,6 +130,29 @@ export async function restaurerDepuis(
   }
   await page.fill('#mdp-restauration', motDePasseDuFichier);
   if (!avecInstantane) await page.locator('#avec-instantane').uncheck().catch(() => {});
+  /*
+     LE RÔLE EST OBLIGATOIRE ICI AUSSI — B-7, mais seulement à partir d'ICI.
+
+     L'écran demande si cet appareil remplace celui de la sauvegarde ou s'y
+     ajoute, et il REFUSE d'appliquer tant que rien n'est répondu : la réponse
+     décide si l'identité de l'appareil est reprise du fichier ou gardée.
+
+     La garde est posée à cet endroit et non à l'entrée, parce qu'un essai qui
+     éprouve un fichier REFUSÉ n'applique jamais rien : lui réclamer un rôle
+     serait lui faire déclarer une intention qu'il n'a pas.
+
+     Et pas de valeur par défaut, pour la même raison que l'écran : un défaut
+     ferait que des essais mesurent une branche sans savoir laquelle, et le
+     jour où la politique changerait de camp, ils resteraient verts en mesurant
+     l'autre.
+  */
+  if (role !== 'remplace-l-ancien' && role !== 's-ajoute') {
+    throw new Error(
+      'restaurerDepuis : « role » est obligatoire pour APPLIQUER une restauration — ' +
+        '« remplace-l-ancien » ou « s-ajoute ». L’écran le demande à chaque fois.',
+    );
+  }
+  await page.check(role === 'remplace-l-ancien' ? '#role-remplace' : '#role-ajoute');
   await page.click('#appliquer-cyclades');
   await page.waitForTimeout(800);
   /* Relevé AVANT la réponse : la boîte disparaît avec elle. */
