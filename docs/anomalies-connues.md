@@ -27,17 +27,78 @@ Créé le 31 octobre 2026 par l'agent A, à la demande du pilote.
 une cause ; « rouge à l'identique sur `origin/main`, trois assertions nommées »
 en est une. Une ligne sans mesure est une permission de ne pas regarder.
 
-## Les rouges connus
+## Les rouges connus — AUCUN au 1er novembre 2026
 
-### `essais:centre-m14` — trois assertions
+Et c'est une information, non une page blanche : les trois entrées qu'a portées
+ce tableau le 31 octobre en sont toutes sorties, et chacune pour la même
+raison. Elles sont gardées ci-dessous plutôt qu'effacées, parce qu'un tableau
+qui ne montre que son état courant ne dit pas comment il s'est trompé.
 
-| | |
-|---|---|
-| **Assertions** | « rien n'est parti au système », l'ordre de la phrase avant les interrupteurs, et ce par quoi cela s'annonce |
-| **Cause** | défaut du site, antérieur au chantier en cours |
-| **Mesuré** | rouge **à l'identique sur `origin/main`**, sans aucun changement de branche — vérifié par l'agent B le 31 octobre |
-| **Statut** | signalé au pilote ; ni réparé ni désactivé |
-| **Ce qui n'est pas vérifié** | je ne l'ai pas rejoué moi-même. Cette ligne porte la mesure de B, et elle le dit. Quiconque la confirme peut retirer cette dernière case. |
+
+### `essais:centre-m14` — RETIRÉ le 1er novembre : c'était un faux rouge
+
+Cette entrée a existé moins de quatre heures, et sa correction vaut mieux que
+son contenu.
+
+Elle portait trois assertions rouges, mesurées par l'agent B « à l'identique
+sur `origin/main` ». Je l'avais inscrite en disant, en toutes lettres, que je
+ne l'avais pas rejouée moi-même — c'était la bonne précaution, et elle a servi.
+
+**Le constructeur l'a mesuré VERT deux fois** : sur `main` reconstruit, et à
+`06038b1` lui-même dans un arbre détaché. La cause du rouge n'était pas dans le
+dépôt : l'aperçu servait un `dist/` **périmé**. C'est le même piège qui a pris
+trois d'entre nous le même jour.
+
+Rien ne reste donc dans ce tableau au titre de `centre-m14`. Ce qui reste est la
+règle ci-dessous, qui est la vraie leçon.
+
+### Et deux entrées qui n'ont jamais eu à être écrites
+
+`essais:sauvegarde-confirmee` et `essais:restauration-atomique` étaient rouges
+sur `main`, et B me les avait signalés comme indépendants de ses changements.
+C'était faux, et B l'a corrigé de lui-même : son propre lot B1 avait remplacé
+une forme parenthésée par l'accord juste, et les deux essais attendaient le
+littéral d'avant — l'ancienne forme, celle que le lot 9 retire partout. Le constructeur les a corrigés sur `main` en `63a45ae` **sans
+assouplir les motifs**.
+
+Je ne les avais pas inscrits — faute d'avoir mesuré moi-même. Cette abstention
+est la seule raison pour laquelle ce tableau ne porte pas deux lignes de plus
+qui auraient dû en sortir.
+
+## La règle qui aurait évité les trois faux rouges du 31 octobre
+
+**Un rouge mesuré pendant qu'un autre agent construit n'est pas un rouge.**
+
+`astro preview` sert le site **déjà construit**. Un essai de navigateur mesure
+donc ce qu'il y a dans `dist/`, et non ce qu'il y a dans `src/`. Trois
+conséquences, chacune constatée le 31 octobre :
+
+1. **un sabotage de la source non reconstruit ne sabote rien**, et passe vert —
+   ce qui se lit comme la preuve qu'il n'y avait rien à trouver ;
+2. **un changement de branche sans reconstruction** fait mesurer l'autre
+   branche. B a joué un socle de treize minutes à cheval sur deux arbres : 38
+   essais sur l'un, 5 sur l'autre, et « cinq rouges » qu'il a failli remonter
+   comme des défauts de son lot ;
+3. **une reconstruction PENDANT une course** change le site sous les pieds de
+   l'essai en train de le mesurer.
+
+Le contrôle préalable de la batterie ne voyait rien de tout cela : il sondait
+`robots.txt`, donc il répondait à « quelque chose écoute-t-il sur ce port » et
+jamais à « est-ce bien MON site ». **L'avertissement existait, en prose, juste
+au-dessus.** Une mise en garde qui n'est pas mesurée ne garde rien.
+
+B l'a corrigé — `claude/b-apercu-temoin`, commit `90d563f` : la batterie compare
+l'empreinte de `dist/index.html` sur le disque à celle de « / » servi, refuse de
+mesurer si l'aperçu sert un autre arbre, et reprend l'empreinte à l'arrivée. Si
+l'arbre bascule en cours de course, le récapitulatif n'est plus un verdict mais
+**« MESURE NULLE »**, le renvoi à ce tableau est retiré, et le code de sortie
+vaut 1. Sept sabotages le gardent, dont un aperçu factice qui bascule en pleine
+course.
+
+**Avant d'inscrire un rouge ici**, donc : reconstruire, vérifier que l'aperçu
+sert bien cet arbre, et se demander si un autre agent construisait au même
+moment. Les trois faux rouges du 31 octobre auraient tous été évités par la
+première de ces trois questions.
 
 ## Ce qui est VOULU, et qu'il ne faut pas prendre pour un défaut
 
@@ -119,7 +180,7 @@ Ce qui reste à faire est une vérification et non une correction : **rejouer
 disparaître de ce document ou y prendre une autre forme. Je ne l'ai pas
 rejoué, et je ne prétends donc pas qu'il est vert.
 
-## Les essais qui ne tournent jamais — ce n'est pas une anomalie, c'est pire
+## Les essais qui ne tournaient jamais — RÉSOLU le 1er novembre
 
 Un essai rouge se voit. Un essai qu'aucun script `npm` ne nomme **ne tourne
 pas du tout**, et son silence se lit comme une absence de défaut. C'est la
@@ -149,9 +210,16 @@ Et `essais-verrou-navigateur.mjs` tient en **12 secondes**, donc sous le seuil
 de trente que le pilote a fixé : il a sa place au socle, pas seulement en
 batterie complète.
 
-L'inscription dans `package.json` revient au constructeur ; les mesures
-ci-dessus sont à moi, et chacune est un code de sortie, non un compte de
-lignes vertes.
+**C'EST FAIT**, le 1er novembre : les huit portent leur script `npm`, donc la
+batterie complète les joue — elle joue tout ce qui commence par « essais ». Et
+`essais:verrou-navigateur` entre au **socle**, pour deux raisons : il tient en
+douze secondes, sous le seuil de trente fixé par le pilote, et ce qu'il garde ne
+se voit nulle part ailleurs — qu'un coffre laissé seul se REFERME vraiment,
+dans un navigateur, et non seulement que la fonction qui doit le refermer
+existe. C'est la leçon des créneaux.
+
+Le relevé des orphelins est donc à zéro, et chacune des mesures ci-dessus est
+un code de sortie, non un compte de lignes vertes.
 
 ### Et le garde-fou qui manque encore
 
@@ -161,7 +229,12 @@ Le relevé ci-dessus a été fait à la main, en croisant les fichiers
 `npm` ». Il coûterait une fraction de seconde et il attraperait le neuvième
 orphelin, celui qu'on écrira sans y penser.
 
-Il n'y entre pas aujourd'hui, et pour une raison qu'il faut dire : il rougirait
-huit fois. Son entrée suppose que les huit soient inscrits d'abord — sans quoi
-on ajouterait au socle un rouge connu, ce qui est exactement ce que ce document
-sert à éviter.
+**La condition qui l'empêchait est levée** : les huit sont inscrits, donc ce
+balayage rendrait zéro aujourd'hui. Il reste à l'écrire, et il est proposé au
+pilote avec cette précision — un balayage qui part d'un dépôt à zéro est
+exactement celui qu'il faut écrire, puisque son premier rouge sera le neuvième
+orphelin et non une dette ancienne.
+
+Et il s'éprouve dans les deux sens, comme `essais:bornes` : un fichier d'essai
+fabriqué sans script doit être VU, sinon le balayage rendrait zéro parce qu'il
+ne sait plus chercher.

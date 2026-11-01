@@ -318,6 +318,28 @@ const SOCLE = [
   */
   ['essais:post-condition', 'les aides d’attente tiennent, satisfaites comme expirées'],
   /*
+     LE VERROU AUTOMATIQUE, ajouté au socle le 1er novembre avec l'accord du
+     pilote, en même temps que l'inscription des huit essais orphelins.
+
+     **Il n'était joué par RIEN.** Aucun script `npm` ne le nommait, donc ni le
+     socle ni la batterie complète ne le voyaient : cinq assertions vertes et
+     muettes depuis son écriture. Un essai qu'aucun script ne nomme ne tourne
+     pas, et son silence se lit comme une absence de défaut — c'est la même
+     famille que le vert à vide, en pire, puisqu'il n'y a même pas de vert.
+
+     Il entre au socle et non en batterie complète pour deux raisons. Il tient
+     en **douze secondes**, sous le seuil de trente que le pilote a fixé. Et ce
+     qu'il garde ne se voit nulle part ailleurs : qu'un coffre laissé seul se
+     REFERME vraiment, dans un navigateur, et non seulement que la fonction qui
+     doit le refermer existe. C'est la leçon des créneaux — un garde-fou qui
+     vérifie la présence d'une déclaration ne dit rien de son effet.
+
+     Les sept autres orphelins vont en batterie complète : ils y arrivent du
+     seul fait d'avoir un script `npm`, puisque la batterie complète joue tout
+     ce qui commence par « essais ».
+  */
+  ['essais:verrou-navigateur', 'un coffre laissé seul se referme vraiment, dans un navigateur'],
+  /*
      M5c entre au socle parce qu'il a trouvé un VRAI défaut du site le 25
      octobre — la position de défilement était lue à `pagehide`, après que
      le navigateur l'avait rabattue — et parce que sa tolérance de 80 px
