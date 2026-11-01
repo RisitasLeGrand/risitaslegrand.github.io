@@ -85,6 +85,7 @@
     "essais:simulateur": "tsx scripts/essais-simulateur.mts",
     "essais:effacement:navigateur": "node scripts/essais-effacement-navigateur.mjs",
     "essais:reglages-sans-coffre": "tsx scripts/essais-reglages-sans-coffre.mjs",
+    "essais:effacement-verdict": "node scripts/essais-effacement-verdict.mjs",
     "essais:effacement-total": "node scripts/essais-effacement-total.mjs",
     "essais:cle-disparue": "node scripts/essais-cle-disparue.mjs",
     "essais:correctifs": "node scripts/essais-correctifs.mjs",

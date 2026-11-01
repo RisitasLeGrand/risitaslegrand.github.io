@@ -729,28 +729,83 @@ if (sansIntitule.length > 0) {
       return;
     }
 
+    /*
+       ── LE VERDICT S'ÉCRIT EN DERNIER, APRÈS LA PEINTURE ────────────────
+
+       Ce bloc écrivait son verdict PUIS appelait « rafraichirComptes() », qui
+       remplace les listes par « replaceChildren() ». Deux conséquences, et les
+       deux sont graves pour des raisons différentes.
+
+       1. LE MENSONGE. Un seul « catch » couvrait l'effacement ET la peinture,
+          et il disait « Effacement interrompu ». Si la peinture échouait après
+          un effacement RÉUSSI, l'écran annonçait donc une interruption qui
+          n'avait pas eu lieu — sur le seul geste du site qui soit sans
+          recours. Quelqu'un à qui l'on dit « interrompu » après un effacement
+          réel ne sait plus ce qu'il possède, et le relancera peut-être.
+
+       2. LA COURSE. « travailFini » rend la main sur le verdict ; la peinture
+          vient après. Les treize cases de domaine sont donc NEUVES et
+          DÉCOCHÉES à un instant où un essai — ou une personne rapide — croit
+          l'écran au repos. Mesuré par le constructeur, à la sonde : à
+          l'expiration, le message disait « Choisissez au moins un domaine. »
+          et les treize cases étaient à faux, dont celle qui venait d'être
+          cochée. C'était la cause de l'intermittence de
+          « essais:effacement:navigateur ».
+
+       D'où deux « try » au lieu d'un, séparés par une frontière qu'on peut
+       nommer : AU-DELÀ DU PREMIER, L'EFFACEMENT A EU LIEU, et plus aucun
+       message ne peut dire « interrompu ».
+    */
+    let resultat: Awaited<ReturnType<typeof effacer>>;
     try {
-      const r = await effacer(cibleCourante);
-      const o = await occupation();
-      peindreOccupation(o);
-      dire(
-        'message-effacement',
-        `${r.total.toLocaleString('fr-FR')} ${accorde(r.total, 'enregistrement')} ` +
-          `${accorde(r.total, 'effacé')}` +
-          (r.refuses.length
-            ? `, ${pluriel(r.refuses.length, 'magasin')} ` +
-              `${accorde(r.refuses.length, 'laissé')} ${accorde(r.refuses.length, 'entier')}`
-            : '') +
-          '.',
-        'succes',
-      );
-      notifier('Effacement terminé', 'info');
+      resultat = await effacer(cibleCourante);
+    } catch (e) {
+      dire('message-effacement', `Effacement interrompu : ${messageDUneErreur(e)}`, 'echec');
+      return;
+    }
+
+    /* ── Ici, c'est fait. Rien de ce qui suit ne peut le défaire. ── */
+    try {
+      peindreOccupation(await occupation());
       $('decompte').classList.add('hidden');
       cibleCourante = null;
       await rafraichirComptes();
     } catch (e) {
-      dire('message-effacement', `Effacement interrompu : ${messageDUneErreur(e)}`, 'echec');
+      /*
+         L'effacement a réussi, l'affichage non. On le dit dans cet ordre, et
+         on ne dit pas pourquoi dans le détail : la cause technique
+         n'apprendrait rien à qui veut seulement savoir ce qu'il lui reste.
+         Le ton est « echec » parce qu'il y a quelque chose à faire —
+         recharger —, et la notification dit « terminé » parce que
+         l'effacement, lui, l'est.
+      */
+      console.warn('Effacement fait, affichage non rafraîchi :', e);
+      dire(
+        'message-effacement',
+        'Effacement fait. L’affichage n’a pas pu se mettre à jour : rechargez la page.',
+        'echec',
+      );
+      notifier('Effacement terminé', 'info');
+      return;
     }
+
+    /*
+       LE VERDICT, EN DERNIER. Quand il paraît, les listes sont déjà repeintes
+       et l'écran est vraiment au repos — ce qui rend « travailFini » exact sur
+       cet écran, au lieu de n'être exact que du verdict.
+    */
+    dire(
+      'message-effacement',
+      `${resultat.total.toLocaleString('fr-FR')} ${accorde(resultat.total, 'enregistrement')} ` +
+        `${accorde(resultat.total, 'effacé')}` +
+        (resultat.refuses.length
+          ? `, ${pluriel(resultat.refuses.length, 'magasin')} ` +
+            `${accorde(resultat.refuses.length, 'laissé')} ${accorde(resultat.refuses.length, 'entier')}`
+          : '') +
+        '.',
+      'succes',
+    );
+    notifier('Effacement terminé', 'info');
   }
 
   async function rafraichirComptes() {
