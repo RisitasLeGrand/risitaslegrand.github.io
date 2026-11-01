@@ -20,8 +20,23 @@ import {
   dimensionParId,
   pasDuZ,
   zDuPas,
+  type Dimension,
 } from '../src/features/veridical-mapping/dimensions';
-import { aretesDeFamille, arbreCouvrant, idArete, pairesDeFamille } from '../src/features/veridical-mapping/hub';
+import {
+  aretesDeFamille,
+  arbreCouvrant,
+  clefNormalisee,
+  idArete,
+  idDeRangement,
+  pairesDeFamille,
+  seuilsRelus,
+} from '../src/features/veridical-mapping/hub';
+import {
+  FIXES,
+  stimulus,
+  superposables,
+  superposer,
+} from '../src/features/veridical-mapping/stimulus';
 import {
   REGLAGES,
   escalierNeuf,
@@ -455,6 +470,216 @@ console.log('\nTÂCHES « PLAN » ET « MODULAIRE » — ce qui les rend mesurab
   verifier('modulaire : le leurre ne le reproduit pas', leurreFaux, true);
   verifier('modulaire : le décalage est bien arbitraire', decalages.size > 20, true);
 }
+
+
+/* ── LE REGISTRE : ALIAS, ATTRIBUTS, SUPERPOSITION ─────────────────────── */
+
+/*
+   Ce qui est éprouvé ici tient à une décision du 1er novembre : une dimension
+   porte deux noms — celui sous lequel ses seuils sont écrits et le canonique de
+   la référence de comportement — et porte l'attribut de stimulus qu'elle
+   pilote. Les deux changements ont le même but, ouvrir l'ajout d'une dimension
+   sans toucher au rendu, et le même risque : un alias qui ne mène nulle part, ou
+   un attribut que personne ne lit, ne se voient pas à l'usage.
+
+   Chaque contrôle est donc écrit dans les deux sens — ce qu'il DOIT voir
+   d'abord, puis ce qu'il ne doit pas voir. Un contrôle qui ne sait que dire
+   « rien d'anormal » rend zéro quand il est cassé, et zéro est ce que rend un
+   registre propre.
+*/
+
+console.log('\nREGISTRE — les deux noms d’une dimension');
+verifier('le registre n’est pas vide', DIMENSIONS.length > 0, true);
+{
+  let aliasMenentAuMemeObjet = true;
+  let canoniquesBienFormes = true;
+  const atteintes = new Set<Dimension>();
+  for (const dimension of DIMENSIONS) {
+    if (dimensionParId(dimension.id) !== dimension) aliasMenentAuMemeObjet = false;
+    if (dimensionParId(dimension.canonique) !== dimension) aliasMenentAuMemeObjet = false;
+    if (!/^[a-z]+\.[a-z]+$/.test(dimension.canonique)) canoniquesBienFormes = false;
+    atteintes.add(dimensionParId(dimension.id)!);
+    atteintes.add(dimensionParId(dimension.canonique)!);
+  }
+  verifier('les deux noms mènent au même objet', aliasMenentAuMemeObjet, true);
+  verifier('le canonique a la forme « domaine.nom »', canoniquesBienFormes, true);
+  // CE QU'IL NE DOIT PAS VOIR : quatorze noms, mais sept dimensions. Si le
+  // registre contenait une dimension deux fois — une fois par nom —, ce compte
+  // doublerait, et c'est exactement le « compté deux fois » à écarter.
+  verifier('quatorze noms, sept dimensions', atteintes.size, DIMENSIONS.length);
+  verifier('aucun identifiant de rangement en doublon',
+    new Set(DIMENSIONS.map((d) => d.id)).size, DIMENSIONS.length);
+  verifier('aucun canonique en doublon',
+    new Set(DIMENSIONS.map((d) => d.canonique)).size, DIMENSIONS.length);
+  // Un canonique qui serait l'identifiant de rangement d'une AUTRE dimension
+  // ferait que « taille » et « vision.size » ne désigneraient plus la même
+  // chose selon l'ordre de recherche. Rien ne le signalerait.
+  const rangements = new Set(DIMENSIONS.map((d) => d.id));
+  verifier('aucun canonique n’est le rangement d’une autre',
+    DIMENSIONS.filter((d) => d.canonique !== d.id && rangements.has(d.canonique)).length, 0);
+  verifier('un nom inconnu ne résout pas', dimensionParId('vision.contrast'), undefined);
+}
+
+console.log('\nRELECTURE — un seuil se lit sous ses deux noms');
+{
+  const ligne = (id: string, de: string, vers: string, essais: number) => ({
+    id,
+    de,
+    vers,
+    escalier: { essais },
+  });
+
+  // La situation du pilote : un seuil mesuré sous « taille>intensite ».
+  const mesure = ligne('taille>intensite', 'taille', 'intensite', 40);
+  const canonique = 'vision.size>audition.level';
+  verifier('le canonique mène à la clef de rangement',
+    clefNormalisee(canonique), 'taille>intensite');
+  verifier('la clef de rangement est stable', clefNormalisee(mesure.id), 'taille>intensite');
+  verifier('chaque côté se ramène au rangement',
+    [idDeRangement('vision.size'), idDeRangement('audition.level')], ['taille', 'intensite']);
+
+  const relus = seuilsRelus([mesure]);
+  verifier('le seuil mesuré se relit', relus.length, 1);
+  verifier('il se relit sous son nom de rangement', relus[0].id, 'taille>intensite');
+
+  // La même paire, écrite sous l'autre nom : UNE ligne, non deux.
+  const enCanonique = ligne(canonique, 'vision.size', 'audition.level', 12);
+  const deuxNoms = seuilsRelus([mesure, enCanonique]);
+  verifier('les deux noms ne font qu’un seuil', deuxNoms.length, 1);
+  verifier('on garde l’escalier le mieux estimé', deuxNoms[0].escalier.essais, 40);
+  verifier('les côtés sont écrits en rangement',
+    [deuxNoms[0].de, deuxNoms[0].vers], ['taille', 'intensite']);
+  // L'ordre de rencontre ne doit rien changer : c'est le nombre d'essais qui
+  // arbitre, et non la place dans la liste.
+  verifier('l’ordre de rencontre ne change rien',
+    seuilsRelus([enCanonique, mesure])[0].escalier.essais, 40);
+  verifier('le mieux estimé gagne même s’il est canonique',
+    seuilsRelus([ligne('taille>intensite', 'taille', 'intensite', 3),
+                 ligne(canonique, 'vision.size', 'audition.level', 90)])[0].escalier.essais, 90);
+
+  // CE QU'ELLE NE DOIT PAS VOIR — trois réductions qui seraient des pertes.
+  verifier('les deux sens restent deux arêtes',
+    seuilsRelus([mesure, ligne('intensite>taille', 'intensite', 'taille', 7)]).length, 2);
+  verifier('la tâche reste dans la clef',
+    clefNormalisee('vision.size>audition.level|couple'), 'taille>intensite|couple');
+  verifier('un seuil de couple ne se confond pas avec celui de la tâche de base',
+    seuilsRelus([mesure, ligne('taille>intensite|couple', 'taille', 'intensite', 9)]).length, 2);
+  // Une dimension qu'une version plus récente a ajoutée : son seuil se garde
+  // sous son nom, au lieu d'être jeté faute d'être reconnu.
+  const inconnue = seuilsRelus([ligne('vision.contrast>taille', 'vision.contrast', 'taille', 5)]);
+  verifier('un seuil de dimension inconnue se garde', inconnue.length, 1);
+  verifier('et il garde son nom', inconnue[0].id, 'vision.contrast>taille');
+  verifier('une clef difforme est rendue intacte', clefNormalisee('taille'), 'taille');
+  verifier('une liste vide se relit vide', seuilsRelus([]).length, 0);
+}
+
+console.log('\nSTIMULUS — l’attribut porté par la dimension');
+{
+  const attributs = Object.keys(FIXES) as (keyof typeof FIXES)[];
+  verifier('les attributs fixes sont connus', attributs.length > 0, true);
+  let pilotageExact = true;
+  let riendAutreNeBouge = true;
+  let examines = 0;
+  for (const dimension of DIMENSIONS) {
+    for (let pas = 0; pas < PAS; pas += 1) {
+      const vu = stimulus(dimension, pas);
+      examines += 1;
+      // CE QU'IL DOIT VOIR : l'attribut de la dimension porte sa valeur.
+      if (vu[dimension.attribut] !== dimension.valeur(pas)) pilotageExact = false;
+      // CE QU'IL NE DOIT PAS VOIR : un autre attribut qui bouge. C'est la
+      // validité même de la mesure — si la hauteur variait avec l'intensité,
+      // le seuil ne porterait sur aucune des deux.
+      for (const attribut of attributs) {
+        if (attribut === dimension.attribut) continue;
+        if (vu[attribut] !== FIXES[attribut]) riendAutreNeBouge = false;
+      }
+    }
+  }
+  verifier('des stimulus ont été examinés', examines, DIMENSIONS.length * PAS);
+  verifier('chaque dimension pilote son attribut', pilotageExact, true);
+  verifier('et ne touche à rien d’autre', riendAutreNeBouge, true);
+  // L'INVARIANT DONT « superposer » TIRE SA JUSTESSE : un attribut par
+  // dimension, et pas deux dimensions sur le même.
+  verifier('un attribut par dimension',
+    new Set(DIMENSIONS.map((d) => d.attribut)).size, DIMENSIONS.length);
+  verifier('aucune dimension immobile sur toute sa plage',
+    DIMENSIONS.filter((d) => d.valeur(0) === d.valeur(PAS - 1)).length, 0);
+}
+
+console.log('\nSUPERPOSITION — la garde sur l’attribut partagé');
+{
+  const taille = dimensionParId('taille')!;
+  const position = dimensionParId('position')!;
+  const teinte2 = dimensionParId('teinte')!;
+  const hauteur = dimensionParId('hauteur')!;
+  const intensite = dimensionParId('intensite')!;
+
+  verifier('deux dimensions distinctes se superposent', superposables(taille, position), true);
+  verifier('une dimension ne se superpose pas à elle-même', superposables(taille, taille), false);
+  verifier('deux auditives ne se superposent pas', superposables(hauteur, intensite), false);
+
+  // La huitième dimension que le commentaire de « superposables » redoutait
+  // sans la mesurer : elle pilote la clarté, déjà pilotée par la luminosité.
+  const rivale: Dimension = {
+    id: 'contraste',
+    canonique: 'vision.contrast',
+    attribut: 'clarte',
+    nom: 'Contraste',
+    famille: 'prothetique',
+    modalite: 'visuelle',
+    resume: 'Pour l’essai seul : une dimension qui dispute son attribut.',
+    unite: '%',
+    valeur: (pas: number) => pas,
+  };
+  const luminosite = dimensionParId('luminosite')!;
+  verifier('deux dimensions sur le même attribut sont refusées',
+    superposables(rivale, luminosite), false);
+  verifier('et la même, sur un autre attribut, serait acceptée',
+    superposables({ ...rivale, attribut: 'positionPct' }, luminosite), true);
+
+  // La teinte au pas 70 vaut 210°, qui EST sa valeur de repos. L'ancienne
+  // boucle reportait « tout attribut qui diffère du repos » : elle ne
+  // reportait donc rien ici. Le couple restait juste, parce que le premier
+  // stimulus portait déjà cette valeur de repos — mais la justesse tenait à
+  // une coïncidence de valeurs, non à une règle. Elle tient désormais au
+  // registre, et cette ligne le mesure.
+  const pasDeCollision = Array.from({ length: PAS }, (_, i) => i)
+    .filter((pas) => teinte2.valeur(pas) === FIXES.teinte);
+  verifier('la collision de valeurs existe bien', pasDeCollision.length > 0, true);
+  const couple = superposer(stimulus(position, 90), stimulus(teinte2, pasDeCollision[0]));
+  verifier('la composante de teinte est reportée', couple.teinte, FIXES.teinte);
+  verifier('celle de position est gardée', couple.positionPct, position.valeur(90));
+  verifier('le couple nomme ses deux dimensions', couple.dimension, 'position+teinte');
+
+  // Un couple ordinaire : chaque composante à sa place, et rien d'autre.
+  const ordinaire = superposer(stimulus(taille, 10), stimulus(position, 100));
+  verifier('couple ordinaire : la taille vient du premier',
+    ordinaire.taillePx, taille.valeur(10));
+  verifier('couple ordinaire : la position vient du second',
+    ordinaire.positionPct, position.valeur(100));
+  verifier('couple ordinaire : la clarté reste au repos', ordinaire.clarte, FIXES.clarte);
+
+  // La modalité du couple, et la superposition imbriquée : le découpage de
+  // « a+b » doit continuer à nommer des dimensions du registre.
+  verifier('un couple avec un son est auditif',
+    superposer(stimulus(taille, 10), stimulus(hauteur, 20)).modalite, 'auditive');
+  const triple = superposer(ordinaire, stimulus(teinte2, 30));
+  verifier('une superposition imbriquée garde les trois composantes',
+    [triple.taillePx, triple.positionPct, triple.teinte],
+    [taille.valeur(10), position.valeur(100), teinte2.valeur(30)]);
+
+  // CE QU'ELLE NE DOIT PAS FAIRE : fusionner un stimulus qu'elle ne sait pas
+  // nommer. Retomber sur la comparaison aux valeurs de repos rendrait un
+  // stimulus plausible et faux, sans rien dire.
+  let aLeve = false;
+  try {
+    superposer(stimulus(taille, 10), { ...stimulus(position, 100), dimension: 'vision.contrast' });
+  } catch {
+    aLeve = true;
+  }
+  verifier('un stimulus hors registre fait refuser la superposition', aLeve, true);
+}
+
 
 console.log(`\n${echecs ? `\x1b[31m✖ ${echecs} échec(s)\x1b[0m` : '\x1b[32m✓ tout passe\x1b[0m'}\n`);
 process.exit(echecs ? 1 : 0);

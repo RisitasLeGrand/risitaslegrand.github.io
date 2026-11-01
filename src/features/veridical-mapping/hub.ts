@@ -10,7 +10,13 @@
  * directe de mesurer la **bidirectionnalité** : le seuil de taille → intensité
  * et celui d'intensité → taille se lisent côte à côte.
  */
-import { DIMENSIONS, dimensionsDeFamille, type Dimension, type Famille } from './dimensions';
+import {
+  DIMENSIONS,
+  dimensionParId,
+  dimensionsDeFamille,
+  type Dimension,
+  type Famille,
+} from './dimensions';
 
 export interface Arete {
   /** « taille>intensite » — la direction compte. */
@@ -24,6 +30,94 @@ export interface Arete {
 
 export function idArete(de: string, vers: string): string {
   return `${de}>${vers}`;
+}
+
+/* ── LES ALIAS, AU MOMENT DE RELIRE ────────────────────────────────────── */
+
+/**
+ * L'IDENTIFIANT DE RANGEMENT D'UNE DIMENSION, QUEL QUE SOIT LE NOM DONNÉ.
+ *
+ * Les sept dimensions d'origine ont deux noms : celui sous lequel leurs seuils
+ * sont écrits (`taille`) et le canonique de la référence de comportement
+ * (`vision.size`). Les deux doivent mener au même seuil, sinon l'alias n'est
+ * qu'un commentaire.
+ *
+ * **Un nom inconnu est rendu tel quel, et ce n'est pas un oubli.** Une
+ * dimension ajoutée par un autre lot, sur une version plus récente, laisse des
+ * seuils que cette version-ci ne sait pas nommer : les écarter les
+ * supprimerait, alors que les garder sous leur nom d'origine les rend
+ * relisibles dès que la dimension existe.
+ */
+export function idDeRangement(id: string): string {
+  return dimensionParId(id)?.id ?? id;
+}
+
+/**
+ * UNE CLEF DE SEUIL RAMENÉE À SA FORME DE RANGEMENT.
+ *
+ * La clef est « de>vers », éventuellement suivie de « |tâche » — un seuil
+ * mesuré sur la tâche « un couple » n'est pas la même grandeur que celui de la
+ * tâche de base, et les deux se rangent séparément. Le suffixe est donc
+ * reporté tel quel : le normaliser reviendrait à confondre deux mesures que la
+ * clef sépare exprès.
+ *
+ * Une clef qui n'a pas la forme attendue est rendue intacte. C'est le même
+ * choix que pour un nom inconnu, et pour la même raison.
+ */
+export function clefNormalisee(clef: string): string {
+  const [arete, ...suffixe] = clef.split('|');
+  const cotes = arete.split('>');
+  if (cotes.length !== 2) return clef;
+  return [idArete(idDeRangement(cotes[0]), idDeRangement(cotes[1])), ...suffixe].join('|');
+}
+
+/**
+ * La forme minimale d'une ligne de seuil dont la relecture a besoin.
+ *
+ * Déclarée ici plutôt qu'importée de `db.ts` : la base importe déjà ce module,
+ * et l'inverse ferait un cycle. Surtout, cela rend la reprise **pure** — elle
+ * s'éprouve sans base, comme `reprendreUnSeuil`.
+ */
+export interface LigneDeSeuil {
+  id: string;
+  de: string;
+  vers: string;
+  escalier: { essais: number };
+}
+
+/**
+ * LES SEUILS RELUS SOUS LEUR NOM DE RANGEMENT, SANS DOUBLON.
+ *
+ * Deux lignes peuvent désigner la même arête sous deux noms — l'une écrite
+ * « taille>intensite », l'autre « vision.size>audition.level ». Elles ne sont
+ * pas deux mesures : c'est la même paire, comptée deux fois. Les laisser
+ * passer toutes deux ferait apparaître la paire deux fois au tableau de bord
+ * et compterait ses essais en double dans la force d'un nœud.
+ *
+ * **On garde celle dont l'escalier a vu le plus d'essais**, parce que c'est la
+ * mieux estimée — la règle est déjà celle de la fusion d'un import dans
+ * `db.ts`, et deux règles différentes pour le même arbitrage seraient une
+ * incohérence de plus à retenir. À égalité d'essais, la première rencontrée :
+ * le choix est arbitraire, il est donc dit.
+ *
+ * Les seuils ne s'additionnent pas. C'est pourquoi rien n'est fusionné ici.
+ */
+export function seuilsRelus<T extends LigneDeSeuil>(lignes: T[]): T[] {
+  const parClef = new Map<string, T>();
+  for (const ligne of lignes) {
+    const clef = clefNormalisee(ligne.id);
+    const normalisee = {
+      ...ligne,
+      id: clef,
+      de: idDeRangement(ligne.de),
+      vers: idDeRangement(ligne.vers),
+    };
+    const deja = parClef.get(clef);
+    if (deja === undefined || normalisee.escalier.essais > deja.escalier.essais) {
+      parClef.set(clef, normalisee);
+    }
+  }
+  return [...parClef.values()];
 }
 
 /** Identifiant de la paire sans sa direction, pour l'arbre couvrant. */

@@ -26,8 +26,51 @@
 export type Famille = 'prothetique' | 'metathetique';
 export type Modalite = 'visuelle' | 'auditive';
 
+/**
+ * L'ATTRIBUT DE STIMULUS QU'UNE DIMENSION PILOTE.
+ *
+ * Déclaré ici et non dans `stimulus.ts`, pour deux raisons. C'est une propriété
+ * de la DIMENSION — « la taille pilote la taille en pixels » —, et la déclarer
+ * du côté du stimulus obligeait celui-ci à connaître la liste des dimensions,
+ * ce qu'il faisait par un `switch` de sept cas.
+ *
+ * Ce `switch` était la frontière qui empêchait d'ajouter une dimension sans
+ * toucher au rendu. Elle est levée : `stimulus` lit l'attribut sur la dimension
+ * et ne connaît plus la liste.
+ */
+export type AttributDeStimulus =
+  | 'taillePx'
+  | 'clarte'
+  | 'teinte'
+  | 'positionPct'
+  | 'frequenceHz'
+  | 'niveauDb'
+  | 'dureeMs';
+
 export interface Dimension {
+  /**
+   * L'IDENTIFIANT DE RANGEMENT — celui sous lequel les seuils sont écrits.
+   *
+   * Les sept dimensions d'origine gardent leur nom français, et ce n'est pas
+   * une coquetterie : l'identifiant d'une paire mesurée est « de>vers », donc
+   * renommer `taille` en `vision.size` orphelinerait tous les seuils déjà
+   * mesurés. Décision du pilote du 1er novembre : les sept restent, le registre
+   * les tient pour **alias** de leur identifiant canonique, et les dimensions
+   * nouvelles prennent directement le canonique.
+   */
   id: string;
+  /**
+   * L'IDENTIFIANT CANONIQUE, de la forme « domaine.nom ».
+   *
+   * Celui de la référence de comportement, et celui que porteront les
+   * dimensions nouvelles. Égal à `id` pour celles-ci ; distinct pour les sept
+   * d'origine, dont il est l'autre nom.
+   *
+   * `dimensionParId` accepte les deux formes, et la liste `DIMENSIONS` ne
+   * contient chaque dimension qu'UNE fois : rien n'est donc compté deux fois,
+   * et c'est structurel plutôt que gardé par un contrôle.
+   */
+  canonique: string;
   nom: string;
   famille: Famille;
   /**
@@ -43,6 +86,16 @@ export interface Dimension {
   unite: string;
   /** La dimension reboucle-t-elle sur elle-même ? Seule la teinte le fait. */
   circulaire?: boolean;
+  /**
+   * L'attribut de stimulus que cette dimension fait varier, et lui seul.
+   *
+   * « Et lui seul » est un invariant, non une habitude : `superposer` reporte
+   * l'attribut que le second stimulus a fait varier, et deux dimensions qui
+   * pilotaient le même produiraient un stimulus où la seconde effacerait la
+   * première. `superposables` le vérifie désormais — son commentaire
+   * l'affirmait déjà, mais le contrôle n'existait pas.
+   */
+  attribut: AttributDeStimulus;
   /** Valeur physique au pas donné, de 0 à PAS - 1. */
   valeur(pas: number): number;
 }
@@ -65,6 +118,8 @@ const geometrique = (bas: number, haut: number) => (pas: number) =>
 export const DIMENSIONS: Dimension[] = [
   {
     id: 'taille',
+    canonique: 'vision.size',
+    attribut: 'taillePx',
     nom: 'Taille',
     famille: 'prothetique',
     modalite: 'visuelle',
@@ -76,6 +131,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'luminosite',
+    canonique: 'vision.luminance',
+    attribut: 'clarte',
     nom: 'Luminosité',
     famille: 'prothetique',
     modalite: 'visuelle',
@@ -86,6 +143,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'intensite',
+    canonique: 'audition.level',
+    attribut: 'niveauDb',
     nom: 'Intensité sonore',
     famille: 'prothetique',
     modalite: 'auditive',
@@ -96,6 +155,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'duree',
+    canonique: 'audition.duration',
+    attribut: 'dureeMs',
     nom: 'Durée',
     famille: 'prothetique',
     modalite: 'auditive',
@@ -105,6 +166,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'hauteur',
+    canonique: 'audition.pitch',
+    attribut: 'frequenceHz',
     nom: 'Hauteur',
     famille: 'metathetique',
     modalite: 'auditive',
@@ -115,6 +178,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'position',
+    canonique: 'vision.position',
+    attribut: 'positionPct',
     nom: 'Position',
     famille: 'metathetique',
     modalite: 'visuelle',
@@ -124,6 +189,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'teinte',
+    canonique: 'vision.hue',
+    attribut: 'teinte',
     nom: 'Teinte',
     famille: 'metathetique',
     modalite: 'visuelle',
@@ -205,8 +272,15 @@ export function ecartEnZ(dimension: Dimension, a: number, b: number): number {
 export const ecartDit = (z: number): string =>
   `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(z * 100)} %`;
 
+/**
+ * La dimension portant cet identifiant, **de rangement ou canonique**.
+ *
+ * Les deux formes mènent au même objet, et `DIMENSIONS` ne contient chaque
+ * dimension qu'une fois : un seuil écrit sous « taille>intensite » se relit
+ * donc aussi bien par le canonique, sans que la paire existe deux fois.
+ */
 export function dimensionParId(id: string): Dimension | undefined {
-  return DIMENSIONS.find((dimension) => dimension.id === id);
+  return DIMENSIONS.find((dimension) => dimension.id === id || dimension.canonique === id);
 }
 
 export function dimensionsDeFamille(famille: Famille): Dimension[] {

@@ -16,6 +16,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { signalerEcriture } from './sync/signal-ecriture';
 import { PAS } from '../features/veridical-mapping/dimensions';
 import { reprendreUnSeuil } from '../features/veridical-mapping/escalier';
+import { seuilsRelus } from '../features/veridical-mapping/hub';
 /*
    Imports de **types seulement** : « noyau/revisions.ts » importe « fsrsNeuf »
    d'ici, et un import de valeur dans l'autre sens formerait un cycle au
@@ -2600,10 +2601,23 @@ export async function toutesLesSessionsRelationnelles(): Promise<SessionRelation
  */
 export async function tousLesSeuilsVeridical(): Promise<SeuilVeridical[]> {
   const lignes = await (await db()).getAll('vmSeuils');
-  return lignes.map((ligne) => ({
-    ...ligne,
-    ...reprendreUnSeuil(ligne, PAS - 1),
-  }));
+  /*
+     DEUX REPRISES, ET DANS CET ORDRE.
+
+     `reprendreUnSeuil` convertit l'unité et la règle. `seuilsRelus` ramène
+     ensuite les noms de dimensions à leur forme de rangement — une dimension
+     en a deux depuis le 1er novembre — et réduit à une les lignes qui
+     désignaient la même arête sous deux noms.
+
+     L'ordre importe : la réduction choisit la ligne la mieux estimée, donc
+     elle doit voir des escaliers déjà comparables.
+  */
+  return seuilsRelus(
+    lignes.map((ligne) => ({
+      ...ligne,
+      ...reprendreUnSeuil(ligne, PAS - 1),
+    })),
+  );
 }
 
 export async function ecrireSeuilVeridical(seuil: SeuilVeridical) {
