@@ -133,10 +133,18 @@ console.log('\nRejeu du journal');
 {
   for (const combien of [1, 2, 5, 40, 200]) {
     const { carte, journal } = parcourir(combien + 3, combien);
-    const rejoue = recalculerCarte(journal);
+    /*
+       LA TOUTE PREMIÈRE ASSERTION DU FICHIER, et c'est pourquoi elle passe
+       par « tenter » comme les autres : tant qu'elle paniquait, N'IMPORTE
+       QUEL sabotage de « recalculer » tuait l'essai ici même, avant qu'une
+       seule ligne ne soit imprimée. Le sabotage du tri inversé l'a montré —
+       sortie 1, aucune croix, rien à lire.
+    */
+    const essai = tenter(() => recalculerCarte(journal));
+    vrai(`${combien >= 2 ? 'ces révisions se rejouent' : 'cette révision se rejoue'} sans panne`, essai.ok);
     v(
       `${combien} ${combien >= 2 ? 'révisions' : 'révision'} : l’état rejoué est l’état tenu`,
-      rejoue,
+      essai.valeur,
       carte,
     );
   }
