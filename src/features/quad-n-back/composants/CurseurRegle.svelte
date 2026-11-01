@@ -95,10 +95,19 @@
      cran faible — `slate-300` clair, `slate-700` sombre — ne les tient pas, et
      la mesure est sans appel :
 
-       clair   slate-300 #b4b1a7 sur #FFFFFF  = 2,15:1
-       sombre  slate-700 #24384f sur #122233  = 1,35:1
-       clair   slate-400 #918e84 sur #FFFFFF  = 3,28:1
-       sombre  slate-600 #576d86 sur #122233  = 3,02:1
+       clair   slate-300 sur le fond clair  = 2,15:1
+       sombre  slate-700 sur le fond élevé  = 1,35:1
+       clair   slate-400 sur le fond clair  = 3,28:1
+       sombre  slate-600 sur le fond élevé  = 3,02:1
+
+     LES VALEURS SONT DITES PAR LEUR JETON, ET NON PAR LEUR CODE, et ce n'est
+     pas un détail de forme : « essais:couleurs-jetons » refuse toute couleur
+     littérale dans ce fichier, et il a rougi sur cette mesure même — huit
+     codes dans ce commentaire, dont le fond clair et le fond élevé. C'est la
+     famille de défaut que nous rencontrons régulièrement : un commentaire qui
+     explique une proscription contient la chose proscrite. Les jetons disent
+     la même chose et renvoient à « src/lib/themes.ts », qui porte les douze
+     rôles des quatorze thèmes et qui est la seule source de ces codes.
 
      E2 avait fait passer 672 bordures du dépôt au cran fort. Ce composant est
      né APRÈS ce balayage et lui a échappé — c'est `essais:contours:navigateur`
