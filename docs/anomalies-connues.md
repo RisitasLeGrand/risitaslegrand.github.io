@@ -176,10 +176,18 @@ millisecondes apprend à ignorer les écarts.
 
 ### `essais:parametres-navigateur` — vert, puis rouge, sur le même code
 
-Trouvé le 1er novembre en mesurant les conséquences d'un autre lot, et mesuré
-aussitôt : deux passages de suite sur le MÊME commit, sans rien changer entre
-les deux — le premier rend le code nul, le second rougit sur
-« `#sport` amène la section dans l'écran ».
+Trouvé le 1er novembre en mesurant les conséquences d'un autre lot. Première
+mesure : deux passages de suite sur le MÊME commit, le premier vert, le second
+rouge sur « `#sport` amène la section dans l'écran ».
+
+**Cette première mesure ne valait rien, et je le dis parce que la seconde la
+confirme.** Elle a été prise pendant qu'une AUTRE batterie de navigateur
+tournait sur le même aperçu — une tâche de fond que j'avais laissée courir. Deux
+navigateurs qui se disputent la même machine suffisent à faire varier une
+mesure de position, et j'aurais conclu d'une contention que j'avais créée.
+
+Rejoué SEUL, trois passages : rouge, rouge, vert. L'instabilité est donc bien
+dans l'essai, et non dans la façon de le mesurer.
 
 L'assertion accepte un haut entre -50 et 400 px, et le décalage que la page
 impose vaut 111 : elle devrait passer. L'attente de cet essai est d'ailleurs
@@ -201,6 +209,29 @@ raison pour laquelle son instabilité a vécu sans être vue.
 Ce tableau liste des rouges. Ces deux lignes-ci listent le contraire : des
 VERTS qui ne valaient rien. Elles y sont parce qu'un vert faux coûte plus cher
 qu'un rouge connu — le rouge se regarde, le vert se croit.
+
+### Deux passages qui se recouvrent rendent un rouge qui n'existe pas
+
+Le 1er novembre, deux passages de mesure ont tourné en même temps sur le même
+aperçu, parce que j'avais laissé le premier en tâche de fond. Deux
+conséquences, et la seconde est pire.
+
+La première : deux navigateurs se disputent la machine, et toute mesure de
+position ou de durée en pâtit. J'ai cru à une instabilité d'essai que j'avais
+créée moi-même ; il a fallu rejouer seul pour savoir que l'instabilité était
+réelle, ce qui est un coup de chance et non une méthode.
+
+La seconde : chacun des deux passages efface `.env.local` en finissant, comme
+le protocole l'exige. Le premier à finir l'a donc retiré SOUS les pieds du
+second, dont les six passages suivants ont tous rendu **le code 2 — « mot de
+passe absent »**. Six codes non nuls d'affilée, qui ressemblent trait pour
+trait à six rouges, et qui ne mesuraient rien du tout. C'est le piège que le
+constructeur avait signalé pour les arbres détachés, et il se produit aussi
+chez soi.
+
+La règle : **un seul passage de navigateur à la fois.** Avant d'en lancer un,
+vérifier qu'aucun autre ne tourne — et devant un code 2, chercher le mot de
+passe avant de chercher un défaut.
 
 ### Le périmètre d'une mesure doit suivre celui du changement
 
