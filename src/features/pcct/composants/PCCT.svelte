@@ -46,13 +46,20 @@
   } from '../moteur/reglages';
   import { OPERATIONS, type Aide, type Essai, type Operation } from '../moteur/types';
   import {
+    exigencesDeLEssai,
+    noterInhibition,
+    operationDeLEssai,
     noterLEssai,
+    noterSens,
     poserEssai,
     resumer,
     seanceNeuve,
+    sensDeLEssai,
+    signalDInhibition,
     type EtatSeance,
   } from '../moteur/seance';
   import { attribuer } from '../moteur/grace';
+  import { SENS, operationsCommutables, type Sens, type Exigences } from '../moteur/modules';
   import {
     TOUCHES,
     consigneAPoser,
@@ -138,6 +145,67 @@
   let frappesTardives = new Map<string, { touche: string; instant: number }>();
   let consignesAffichees = $state<Consigne[]>([]);
   let annoncePm = $state('');
+
+  /* ── L3 : l'état des quatre modules ────────────────────────────────────── */
+
+  /** L'essai courant porte-t-il le signal d'inhibition ? */
+  let signalInhibition = $state(false);
+  /** « Retenir » a-t-il été pressé sur l'essai courant ? */
+  let aRetenu = $state(false);
+  /** Le sens donné à l'essai courant, s'il l'a été. */
+  let sensDonne = $state<Sens | null>(null);
+  /** Le sens attendu, calculé à la pose de l'essai. */
+  let sensAttenduCourant: Sens | null = null;
+  /** Ce que l'essai courant demande. */
+  let exigencesCourantes: Exigences = { nombre: true, sens: false };
+  /** Une TROISIÈME région vocale : voir sa glose dans le balisage. */
+  let annonceModules = $state('');
+  /** L'opération du bloc courant, quand le changement de règle est allumé. */
+  let operationDuBloc = $state<Operation | null>(null);
+  /** Vrai le temps d'annoncer qu'une nouvelle règle commence. */
+  let regleQuiChange = $state(false);
+
+  const modulesActifs = $derived(
+    reglages.inhibitionActive || reglages.ndmActif || reglages.sdmActif,
+  );
+
+  /**
+   * UNE COULEUR PAR RÈGLE, PRISE DANS LES JETONS.
+   *
+   * Jamais une teinte écrite à la main : `essais:pcct` mesure le contraste de
+   * chacune sur le fond de la bannière, et une couleur hors jetons passerait
+   * sous 3:1 sur l'un des quatorze thèmes sans que rien ne le dise. Et la
+   * couleur n'est jamais le seul canal — le nom de l'opération est écrit à
+   * côté, en toutes lettres.
+   */
+  const COULEUR_REGLE: Record<Operation, string> = {
+    somme: 'var(--etat-succes)',
+    difference: 'var(--etat-action)',
+    produit: 'var(--etat-accent)',
+    quotient: 'var(--etat-alerte)',
+  };
+
+  /** Le libellé d'un sens, le même à l'écran et à l'oreille. */
+  const NOM_SENS: Record<Sens, string> = {
+    'plus-petit': 'Plus petit',
+    egal: 'Égal',
+    'plus-grand': 'Plus grand',
+  };
+
+  /**
+   * UNE TROISIÈME VOIX, et c'est la même raison qu'à la deuxième.
+   *
+   * L'arithmétique et la mémoire prospective ont chacune la leur parce que les
+   * deux rendent un verdict en même temps, et qu'une seule région verrait le
+   * second effacer le premier avant qu'il soit annoncé. Les modules en rendent
+   * un troisième — retenu, raté, fausse alarme, sens juste ou faux —, au même
+   * instant que les deux autres. Trois tâches, trois voix.
+   */
+  async function annoncerModules(texte: string) {
+    annonceModules = '';
+    await tick();
+    annonceModules = texte;
+  }
   let compteParVerdict = $state({ juste: 0, manquee: 0, fausse: 0, omise: 0 });
 
   let voix = $state<EtatDeLaVoix>({ voix: null, raison: '', enVisuel: true });
@@ -203,6 +271,16 @@
     }
     precedent = courant;
     precedentRepondu = courantRepondu;
+    /*
+       LES MODULES SE CLÔTURENT AVANT QUE LE SUIVANT PARAISSE, et c'est le seul
+       moment qui convient. Le verdict d'inhibition se décide quand l'essai
+       s'achève — y compris, et SURTOUT, quand rien n'est arrivé : ne rien
+       faire est un verdict (`omis`), et le noter à la réponse ne le noterait
+       jamais. C'est exactement le trou de la référence, où ne rien pouvoir
+       faire ne compte nulle part.
+    */
+    cloreLesModules();
+
     const essai = poserEssai(etat, hasard);
     courant = essai;
     rangDeLEssai = essai.rang;
@@ -212,9 +290,96 @@
     dernierVerdict = null;
     intervalle = etat.rythme.intervalle;
 
+    /* L3 : ce que cet essai demande, et ce qu'il porte. */
+    signalInhibition = signalDInhibition(etat, hasard, essai.attendu !== null);
+    aRetenu = false;
+    sensDonne = null;
+    sensAttenduCourant = sensDeLEssai(etat, essai);
+    exigencesCourantes = exigencesDeLEssai(etat, essai, signalInhibition);
+    if (reglages.changementDeRegleActif) {
+      const avant = operationDuBloc;
+      operationDuBloc = operationDeLEssai(etat, essai.rang);
+      regleQuiChange = avant !== null && avant !== operationDuBloc;
+    }
+
     if (sonVoulu && voix.voix) direLeNombre(window.speechSynthesis, voix, essai.nombre);
 
     minuteur = setTimeout(poser, essai.intervalle);
+  }
+
+  /**
+   * Clôt les modules de l'essai qui s'achève.
+   *
+   * Appelée quand le SUIVANT paraît, parce que c'est le seul instant où l'on
+   * sait que plus rien n'arrivera. Elle ne fait rien avant le premier essai.
+   */
+  function cloreLesModules() {
+    if (!etat || !courant) return;
+    const donnees = { nombre: courantRepondu ? 0 : null, sens: sensDonne, retenir: aRetenu };
+
+    /*
+       UN SEUL MESSAGE, ET IL EST POSÉ À CHAQUE ESSAI — MÊME VIDE.
+
+       La première version n'annonçait que les verdicts qui ont quelque chose à
+       dire, et laissait la région intacte le reste du temps. Un essai réussi
+       gardait donc à l'écran le reproche de l'essai d'avant, et c'est un
+       mensonge mesurable : `essais:pcct:navigateur` lisait « il fallait aussi
+       donner le sens » sur un essai où le sens avait été donné, juste.
+
+       Les deux verdicts sont donc rassemblés en un texte, et la région est
+       réécrite à chaque clôture : vide quand il n'y a rien à dire.
+    */
+    const dits: string[] = [];
+
+    if (reglages.inhibitionActive) {
+      const verdict = noterInhibition(etat, signalInhibition, donnees);
+      if (verdict === 'retenu') dits.push('Retenu, c’était bien le signal.');
+      else if (verdict === 'rate') dits.push('Il fallait retenir, pas répondre.');
+      else if (verdict === 'omis') dits.push('Signal manqué : il fallait presser Retenir.');
+      else if (verdict === 'fausse-alarme') dits.push('Fausse alarme : il n’y avait pas de signal.');
+    }
+
+    if (sensAttenduCourant !== null) {
+      const juste = noterSens(etat, sensAttenduCourant, sensDonne);
+      if (juste === false) {
+        dits.push(
+          sensDonne === null
+            ? 'Il fallait aussi donner le sens.'
+            : `Sens faux : c’était « ${NOM_SENS[sensAttenduCourant]} ».`,
+        );
+      }
+    }
+
+    void annoncerModules(dits.join(' '));
+  }
+
+  /**
+   * « Retenir », au doigt comme au clavier.
+   *
+   * ÉCOUTÉE PARTOUT, et c'est le premier défaut de la référence : chez elle,
+   * les touches ne sont lues que sur le champ de saisie, lequel est DÉSACTIVÉ
+   * sur un essai d'inhibition. Personne ne peut donc signaler qu'il retient —
+   * ni, du même coup, se tromper en le signalant à tort. Ici le geste existe
+   * sur tous les essais, et presser « Retenir » sans signal est une fausse
+   * alarme qui se compte.
+   */
+  function retenir() {
+    if (etape !== 'seance' || !reglages.inhibitionActive) return;
+    aRetenu = true;
+  }
+
+  /**
+   * Le sens, au doigt comme au clavier.
+   *
+   * Acceptée AVANT comme APRÈS le nombre : c'est le deuxième défaut de la
+   * référence, dont la validation automatique note l'essai dès que le nombre
+   * est complet. Ici rien ne clôt l'essai sur le nombre seul — `cloreLesModules`
+   * attend que le suivant paraisse —, de sorte que les deux ordres mènent au
+   * même verdict.
+   */
+  function donnerLeSens(sens: Sens) {
+    if (etape !== 'seance' || !exigencesCourantes.sens) return;
+    sensDonne = sens;
   }
 
   function rafraichirLesComptes() {
@@ -362,6 +527,40 @@
     if ((TOUCHES as readonly string[]).includes(majuscule)) {
       e.preventDefault();
       toucherLaConsigne(majuscule);
+      return;
+    }
+    /*
+       ESPACE RETIENT, LES FLÈCHES DONNENT LE SENS.
+
+       Horizontalement, parce que la métaphore est celle d'une droite
+       graduée : à gauche plus petit, à droite plus grand, en bas égal. Les
+       flèches haut et bas serviraient mal — « plus grand » n'est pas « en
+       haut » quand on compare deux nombres écrits côte à côte.
+
+       `preventDefault` sur l'espace : sans lui la page défile, et la personne
+       perd l'écran à chaque signal retenu.
+
+       MAIS SEULEMENT QUAND LE MODULE EST ALLUMÉ. Confisquer l'espace et les
+       flèches à toute séance priverait du défilement au clavier les neuf
+       personnes sur dix qui ne jouent aucun module — un réglage éteint ne doit
+       rien coûter. Le `preventDefault` est donc à l'intérieur du test, et non
+       devant.
+    */
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      if (!reglages.inhibitionActive) return;
+      e.preventDefault();
+      retenir();
+      return;
+    }
+    const SENS_DE_LA_FLECHE: Record<string, Sens> = {
+      ArrowLeft: 'plus-petit',
+      ArrowDown: 'egal',
+      ArrowRight: 'plus-grand',
+    };
+    if (e.key in SENS_DE_LA_FLECHE) {
+      if (!reglages.ndmActif && !reglages.sdmActif) return;
+      e.preventDefault();
+      donnerLeSens(SENS_DE_LA_FLECHE[e.key]);
       return;
     }
     if (/^[0-9]$/.test(e.key)) {
@@ -696,6 +895,126 @@
         </span>
       </label>
 
+      <!--
+        LES QUATRE MODULES, TOUS ÉTEINTS PAR DÉFAUT.
+
+        Chacun ajoute une tâche à une épreuve qui en porte déjà deux : qui les
+        allume le fait exprès, et le voit écrit. Le changement de règle est
+        marqué « expérimental » parce qu'il l'est — rien n'a encore établi
+        qu'alterner entre quatre opérations reste lisible, et le dire vaut mieux
+        que de le laisser découvrir.
+      -->
+      <fieldset class="mt-4 rounded-lg border border-slate-300 p-3 dark:border-slate-700">
+        <legend class="px-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+          Modules facultatifs
+        </legend>
+
+        <label class="flex items-center gap-2 text-sm">
+          <input
+            id="inhibition"
+            type="checkbox"
+            bind:checked={reglages.inhibitionActive}
+            class="cible-tactile-pleine"
+          />
+          <span class="text-slate-700 dark:text-slate-200">
+            Inhibition — sur certains essais, ne pas répondre mais presser « Retenir »
+          </span>
+        </label>
+
+        {#if reglages.inhibitionActive}
+          <label class="mt-2 block text-sm text-slate-600 dark:text-slate-300">
+            Essais portant le signal : {reglages.inhibitionFrequence} %
+            <input
+              id="inhibition-frequence"
+              type="range"
+              bind:value={reglages.inhibitionFrequence}
+              min={BORNES.inhibitionFrequence.min}
+              max={BORNES.inhibitionFrequence.max}
+              step={BORNES.inhibitionFrequence.pas}
+              class="mt-1 w-full"
+            />
+          </label>
+        {/if}
+
+        <label class="mt-2 flex items-center gap-2 text-sm">
+          <input id="ndm" type="checkbox" bind:checked={reglages.ndmActif} class="cible-tactile-pleine" />
+          <span class="text-slate-700 dark:text-slate-200">
+            NDM — dire si le NOMBRE est plus petit, égal ou plus grand que le précédent
+          </span>
+        </label>
+
+        <label class="mt-2 flex items-center gap-2 text-sm">
+          <input id="sdm" type="checkbox" bind:checked={reglages.sdmActif} class="cible-tactile-pleine" />
+          <span class="text-slate-700 dark:text-slate-200">
+            SDM — la même chose sur le RÉSULTAT ATTENDU, comparé à celui de l’essai précédent
+          </span>
+        </label>
+
+        <label class="mt-2 flex items-center gap-2 text-sm">
+          <input
+            id="changement-de-regle"
+            type="checkbox"
+            bind:checked={reglages.changementDeRegleActif}
+            class="cible-tactile-pleine"
+          />
+          <span class="text-slate-700 dark:text-slate-200">
+            Changement de règle — l’opération alterne par blocs
+            <span class="ml-1 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              expérimental
+            </span>
+          </span>
+        </label>
+
+        {#if reglages.changementDeRegleActif}
+          <!--
+            QUELLES OPÉRATIONS ALTERNENT.
+
+            Exposées parce qu'un module qu'on allume sans pouvoir dire sur quoi
+            il porte n'est allumé qu'à moitié. En dessous de deux il n'y a rien
+            à alterner : le moteur garde alors l'opération des réglages, et la
+            note ci-dessous le dit plutôt que de laisser croire au changement.
+          -->
+          <fieldset class="mt-2 border-0 p-0">
+            <legend class="text-sm text-slate-600 dark:text-slate-300">
+              Opérations qui alternent
+            </legend>
+            <div class="mt-1 flex flex-wrap gap-3">
+              {#each OPERATIONS as op (op)}
+                <label class="flex items-center gap-1 text-sm">
+                  <input
+                    id={`commutee-${op}`}
+                    data-commutee={op}
+                    type="checkbox"
+                    bind:checked={reglages.operationsCommutees[op]}
+                    class="cible-tactile-pleine"
+                  />
+                  <span class="text-slate-700 dark:text-slate-200">{NOM_OPERATION[op]}</span>
+                </label>
+              {/each}
+            </div>
+            {#if operationsCommutables(reglages.operationsCommutees).length < 2}
+              <p data-pas-dalternance class="mt-1 text-xs" style="color: var(--etat-alerte)">
+                Moins de deux opérations : rien n’alternera, et la règle restera
+                celle choisie plus haut.
+              </p>
+            {/if}
+          </fieldset>
+
+          <label class="mt-2 block text-sm text-slate-600 dark:text-slate-300">
+            Essais par bloc : {reglages.changementDeRegleBloc}
+            <input
+              id="changement-de-regle-bloc"
+              type="range"
+              bind:value={reglages.changementDeRegleBloc}
+              min={BORNES.changementDeRegleBloc.min}
+              max={BORNES.changementDeRegleBloc.max}
+              step={BORNES.changementDeRegleBloc.pas}
+              class="mt-1 w-full"
+            />
+          </label>
+        {/if}
+      </fieldset>
+
       <label class="mt-2 flex items-center gap-2 text-sm">
         <input id="son" type="checkbox" bind:checked={sonVoulu} class="cible-tactile-pleine" />
         <span class="font-medium text-slate-700 dark:text-slate-200">Dire les nombres à voix haute</span>
@@ -826,6 +1145,133 @@
     >
       {annonce}
     </p>
+
+    {#if signalInhibition}
+      <!--
+        LE SIGNAL D'INHIBITION, ÉCRIT.
+
+        Sans lui le module serait injouable : rien à l'écran ne distinguerait
+        l'essai où il faut retenir de celui où il faut répondre, et « omis »
+        tomberait sur une personne qui n'avait aucun moyen de savoir. Un essai
+        impossible n'est pas un essai difficile.
+
+        Le signal est un MOT, et non une teinte seule : une consigne portée par
+        la couleur ne parvient pas à qui ne la distingue pas, et la bordure
+        colorée ci-dessous ne fait que redoubler ce qui est déjà écrit.
+
+        Ce que ce choix coûte, dit franchement : le signal est donné plutôt
+        qu'appris, ce qui ôte la part de mémoire de la règle. Ce qui reste —
+        retenir un geste déjà préparé — est la part que le module mesure, et
+        c'est elle que la référence rend impossible en désactivant son champ.
+      -->
+      <p
+        data-signal-inhibition
+        role="status"
+        aria-live="assertive"
+        class="rounded-lg border-2 px-3 py-2 text-center text-sm font-semibold"
+        style="border-color: var(--etat-alerte); color: var(--etat-texte);
+               background: var(--etat-fond-eleve)"
+      >
+        Ne répondez pas — pressez « Retenir ».
+      </p>
+    {/if}
+
+    {#if reglages.changementDeRegleActif && operationDuBloc}
+      <!--
+        LA BANNIÈRE DU CHANGEMENT DE RÈGLE, marquée « expérimental ».
+
+        Les couleurs viennent des JETONS, et le contraste de chacune est gardé
+        par `essais:pcct` : une teinte tirée hors jetons passerait sous 3:1 sur
+        l'un des quatorze thèmes sans que rien ne le dise. La couleur n'est
+        JAMAIS le seul canal — l'opération est écrite en toutes lettres à côté.
+
+        Pas d'animation : `prefers-reduced-motion` n'a rien à éteindre, ce qui
+        est la façon la plus sûre de le respecter.
+      -->
+      <p
+        data-regle-courante={operationDuBloc}
+        role="status"
+        aria-live="polite"
+        class="rounded-lg border px-3 py-2 text-center text-sm font-medium"
+        style="border-color: var(--etat-bordure); color: var(--etat-texte);
+               background: var(--etat-fond-eleve)"
+      >
+        <span
+          data-pastille-regle
+          class="mr-2 inline-block h-3 w-3 rounded-full align-middle"
+          style={`background: ${COULEUR_REGLE[operationDuBloc]}`}
+          aria-hidden="true"
+        ></span>
+        Règle : {NOM_OPERATION[operationDuBloc]}
+        {#if regleQuiChange}<strong> — elle vient de changer</strong>{/if}
+        <span class="ml-2 text-xs uppercase tracking-wide" style="color: var(--etat-texte-faible)">
+          expérimental
+        </span>
+      </p>
+    {/if}
+
+    {#if modulesActifs}
+      <!--
+        LES ÉQUIVALENTS TACTILES DES MODULES.
+
+        « Retenir » est offert sur TOUS les essais, y compris ceux qui ne
+        portent pas de signal : c'est ce qui rend la fausse alarme possible, et
+        donc mesurable. La référence, elle, n'offre rien du tout — son champ est
+        désactivé et ses touches ne sont lues que sur lui.
+
+        Le pavé des chiffres n'est PAS désactivé non plus sur un essai
+        d'inhibition : répondre alors qu'il fallait retenir est précisément
+        l'échec que le module mesure, et l'empêcher rendrait le module borgne.
+      -->
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        {#if reglages.inhibitionActive}
+          <button
+            type="button"
+            data-retenir
+            aria-pressed={aRetenu}
+            onclick={retenir}
+            class="cible-tactile-pleine min-h-11 min-w-11 rounded-lg border px-4 font-semibold"
+            style={`border-color: var(--etat-bordure); color: var(--etat-texte);
+                    background: ${aRetenu ? 'var(--etat-fond-eleve)' : 'transparent'}`}
+          >
+            Retenir
+          </button>
+        {/if}
+        {#if reglages.ndmActif || reglages.sdmActif}
+          <div role="group" aria-label="Sens de la comparaison" class="flex gap-2">
+            {#each SENS as sens (sens)}
+              <button
+                type="button"
+                data-sens={sens}
+                aria-pressed={sensDonne === sens}
+                onclick={() => donnerLeSens(sens)}
+                class="cible-tactile-pleine min-h-11 min-w-11 rounded-lg border px-3 font-medium"
+                style={`border-color: var(--etat-bordure); color: var(--etat-texte);
+                        background: ${sensDonne === sens ? 'var(--etat-fond-eleve)' : 'transparent'}`}
+              >
+                {NOM_SENS[sens]}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+
+      <!--
+        UNE TROISIÈME RÉGION VOCALE. Même raison qu'à la deuxième : les modules
+        rendent leur verdict au même instant que l'arithmétique et que la
+        mémoire prospective, et une région partagée verrait l'un effacer
+        l'autre avant qu'il soit annoncé. Trois tâches, trois voix.
+      -->
+      <p
+        data-annonce-modules
+        role="status"
+        aria-live="polite"
+        class="min-h-6 text-center text-sm font-medium"
+        style="color: var(--etat-texte-faible)"
+      >
+        {annonceModules}
+      </p>
+    {/if}
 
     {#if touches.length}
       <Pave {touches} onRepondre={repondre} />

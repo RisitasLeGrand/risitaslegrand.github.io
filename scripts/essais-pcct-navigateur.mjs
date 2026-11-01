@@ -580,6 +580,721 @@ verifier(
 );
 await pageSansPm.close();
 
+/* ── L3. Les quatre modules, à l'écran ──────────────────────────────────── */
+
+/**
+ * SUIT LA SUITE DES NOMBRES PRÉSENTÉS, DEPUIS LA PAGE.
+ *
+ * Par un observateur de mutations plutôt que par un sondage depuis Node : à
+ * 1 500 ms d'intervalle un sondage à 150 ms suffirait en théorie, mais il
+ * manquerait un essai dès que l'ordonnanceur hésite, et la suite des nombres
+ * est la base de tous les attendus calculés ici. Un essai manqué décalerait
+ * chaque somme et rendrait des rouges qui ne diraient rien du site.
+ */
+async function suivreLesNombres(page) {
+  await page.evaluate(() => {
+    window.__suivi = [];
+    const noter = () => {
+      const e = document.querySelector('[data-nombre]');
+      if (!e) return;
+      const rang = Number(e.dataset.rang);
+      const dernier = window.__suivi[window.__suivi.length - 1];
+      if (dernier && dernier.rang === rang) return;
+      window.__suivi.push({
+        rang,
+        nombre: Number(e.dataset.nombre),
+        signal: document.querySelector('[data-signal-inhibition]') !== null,
+      });
+    };
+    noter();
+    new MutationObserver(noter).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+  });
+}
+
+/** Le dernier essai vu, et son signal. */
+const essaiCourant = (page) =>
+  page.evaluate(() => {
+    const e = document.querySelector('[data-nombre]');
+    return {
+      rang: e ? Number(e.dataset.rang) : null,
+      suivi: window.__suivi ?? [],
+      signal: document.querySelector('[data-signal-inhibition]') !== null,
+      annonce: (document.querySelector('[data-annonce-modules]')?.textContent ?? '').trim(),
+    };
+  });
+
+/** Attend qu'un autre essai que `rang` soit à l'écran. Rend son rang, ou null. */
+async function attendreLEssaiSuivant(page, rang, msMax = 9000) {
+  const butoir = Date.now() + msMax;
+  while (Date.now() < butoir) {
+    const vu = await essaiCourant(page);
+    if (vu.rang !== null && vu.rang !== rang) return vu.rang;
+    await page.waitForTimeout(80);
+  }
+  return null;
+}
+
+/** Mène une page jusqu'à une séance de découverte, modules posés. */
+async function ouvrirSeanceModules(ctx, poser) {
+  const { page, erreurs } = await ouvrirPcct(ctx);
+  await page.uncheck('#son');
+  await page.uncheck('#prospective');
+  await page.selectOption('#operation', 'somme');
+  await poser(page);
+  /* La découverte écrit dans le dépôt MUET : aucune de ces mesures n'ajoute
+     une séance au magasin de la personne. */
+  await page.click('#decouvrir');
+  await page.waitForSelector('[data-nombre]', { timeout: 10000 });
+  await suivreLesNombres(page);
+  return { page, erreurs };
+}
+
+const ctxModules = await nav.newContext({
+  viewport: { width: 1280, height: 1000 },
+  hasTouch: true,
+});
+
+/* ── L3.a Les modules s'allument depuis les réglages ───────────────────── */
+
+console.log('\nL3 — LES QUATRE MODULES S’ALLUMENT DEPUIS LES RÉGLAGES');
+
+const { page: pageReglages } = await ouvrirPcct(ctxModules);
+verifier(
+  'les quatre cases existent, et toutes les quatre sont ÉTEINTES',
+  await pageReglages.evaluate(() =>
+    ['inhibition', 'ndm', 'sdm', 'changement-de-regle'].map((id) => {
+      const e = document.getElementById(id);
+      return e === null ? '(absente)' : e.checked;
+    }),
+  ),
+  [false, false, false, false],
+);
+/* Un module éteint ne montre pas son réglage fin : un curseur de fréquence
+   visible sans l'inhibition promettrait un réglage sans effet. */
+verifier(
+  'et leurs réglages fins ne paraissent pas encore',
+  await pageReglages.evaluate(() => [
+    document.querySelectorAll('#inhibition-frequence').length,
+    document.querySelectorAll('#changement-de-regle-bloc').length,
+  ]),
+  [0, 0],
+);
+await pageReglages.check('#inhibition');
+await pageReglages.check('#changement-de-regle');
+verifier(
+  'cochés, les deux réglages fins paraissent',
+  await pageReglages.evaluate(() => [
+    document.querySelectorAll('#inhibition-frequence').length,
+    document.querySelectorAll('#changement-de-regle-bloc').length,
+  ]),
+  [1, 1],
+);
+/*
+   « EXPÉRIMENTAL » EST ÉCRIT, et c'est une exigence du Pilote. Le mot est lu
+   dans l'étiquette de la case, et non quelque part sur la page : un avis posé
+   ailleurs ne serait pas lu par qui coche.
+*/
+verifier(
+  'le changement de règle est marqué « expérimental » dans SON étiquette',
+  await pageReglages.evaluate(() => {
+    const e = document.getElementById('changement-de-regle');
+    const etiquette = e?.closest('label');
+    return /expérimental/i.test(etiquette?.textContent ?? '');
+  }),
+  true,
+);
+await pageReglages.close();
+
+/* ── L3.b L'inhibition se joue au doigt ET au clavier ──────────────────── */
+
+console.log('\nL3 — L’INHIBITION SE JOUE AU DOIGT ET AU CLAVIER');
+
+/*
+   LA FRÉQUENCE AU MAXIMUM — un essai sur deux porte le signal.
+
+   Sans ce réglage le défaut vaut 20 %, et attendre un essai signalé prendrait
+   cinq essais en moyenne, dix ou quinze parfois : la mesure dépendrait du
+   tirage. À 50 % l'attente est de deux essais, et les butoirs tiennent.
+*/
+const { page: pageInh, erreurs: erreursModules } = await ouvrirSeanceModules(
+  ctxModules,
+  async (page) => {
+    await page.check('#inhibition');
+    await reglerCurseur(page, 'inhibition-frequence', 50);
+    /* La prémisse se lit ICI, avant le lancement : le panneau des réglages
+       disparaît avec le départ de la séance, et la lire plus bas mourrait sur
+       un sélecteur introuvable au lieu de rendre un rouge nommé. */
+    verifier(
+      'prémisse : la fréquence du signal est bien à 50 %',
+      await page.inputValue('#inhibition-frequence'),
+      '50',
+    );
+  },
+);
+
+/*
+   « RETENIR » EST OFFERT SUR TOUS LES ESSAIS, SIGNALÉS OU NON.
+
+   C'est la condition de la fausse alarme, et donc du module : chez la
+   référence le champ est désactivé sur un essai d'inhibition et les touches ne
+   sont lues que sur lui — personne ne peut signaler qu'il retient, ni se
+   tromper en le signalant à tort. Un bouton qui n'apparaîtrait que sur les
+   essais signalés serait le même défaut retourné : il DIRAIT le signal, et
+   retenir deviendrait gratuit.
+*/
+verifier(
+  'le bouton « Retenir » est là, et le pavé n’est pas désactivé',
+  await pageInh.evaluate(() => [
+    document.querySelectorAll('[data-retenir]').length,
+    document.querySelectorAll('[data-touche-pave][disabled]').length,
+  ]),
+  [1, 0],
+);
+
+/** Attend un essai dont le signal vaut `veut`. Rend son rang, ou null. */
+async function attendreUnEssai(page, veut, msMax = 20000) {
+  const butoir = Date.now() + msMax;
+  while (Date.now() < butoir) {
+    const vu = await essaiCourant(page);
+    if (vu.rang !== null && vu.rang >= 2 && vu.signal === veut) return vu.rang;
+    await page.waitForTimeout(70);
+  }
+  return null;
+}
+
+/*
+   LE SIGNAL EST ÉCRIT. Un signal porté par la seule couleur de la bordure ne
+   parviendrait pas à qui ne la distingue pas, et « omis » tomberait alors sur
+   une personne qui n'avait aucun moyen de savoir.
+*/
+const rangSignale = await attendreUnEssai(pageInh, true);
+verifier('un essai signalé paraît', rangSignale !== null, true);
+verifier(
+  'et son signal est écrit en toutes lettres, pas seulement coloré',
+  await pageInh.evaluate(() => {
+    const e = document.querySelector('[data-signal-inhibition]');
+    return [
+      e !== null,
+      /retenir/i.test(e?.textContent ?? ''),
+      e?.getAttribute('aria-live') ?? '(pas de région)',
+    ];
+  }),
+  [true, true, 'assertive'],
+);
+
+/* AU DOIGT : on presse « Retenir » sur l'essai signalé, et le verdict tombe
+   quand le suivant paraît — jamais avant, puisque ne rien faire est aussi un
+   verdict. */
+await pageInh.tap('[data-retenir]');
+verifier(
+  'presser « Retenir » se voit tout de suite (aria-pressed)',
+  await pageInh.getAttribute('[data-retenir]', 'aria-pressed'),
+  'true',
+);
+await attendreLEssaiSuivant(pageInh, rangSignale);
+verifier(
+  'au doigt, le signal retenu est annoncé « retenu »',
+  /Retenu/i.test((await essaiCourant(pageInh)).annonce),
+  true,
+);
+
+/* AU CLAVIER : la barre d'espace, sur un autre essai signalé. */
+const rangSignale2 = await attendreUnEssai(pageInh, true);
+verifier('un second essai signalé paraît', rangSignale2 !== null, true);
+await pageInh.keyboard.press(' ');
+verifier(
+  'au clavier, l’espace retient aussi',
+  await pageInh.getAttribute('[data-retenir]', 'aria-pressed'),
+  'true',
+);
+await attendreLEssaiSuivant(pageInh, rangSignale2);
+verifier(
+  'et le verdict est le même',
+  /Retenu/i.test((await essaiCourant(pageInh)).annonce),
+  true,
+);
+
+/*
+   LA FAUSSE ALARME EST POSSIBLE, ET ELLE SE COMPTE.
+
+   C'est l'autre moitié du module, et celle que la référence perd entièrement :
+   sans geste disponible il n'y a pas d'erreur de commission, et le taux de
+   fausses alarmes — la mesure même de l'inhibition — vaut zéro par
+   construction.
+*/
+const rangOrdinaire = await attendreUnEssai(pageInh, false);
+verifier('un essai NON signalé paraît', rangOrdinaire !== null, true);
+await pageInh.tap('[data-retenir]');
+await attendreLEssaiSuivant(pageInh, rangOrdinaire);
+verifier(
+  'retenir sans signal est annoncé « fausse alarme »',
+  /fausse alarme/i.test((await essaiCourant(pageInh)).annonce),
+  true,
+);
+
+/* LES CIBLES, SOUS POINTEUR GROSSIER. */
+verifier(
+  '« Retenir » atteint 44 px dans les deux sens',
+  await pageInh.evaluate(() => {
+    const r = document.querySelector('[data-retenir]')?.getBoundingClientRect();
+    return r ? [r.width >= 44, r.height >= 44] : ['(absent)'];
+  }),
+  [true, true],
+);
+
+/* ET LE SIGNAL S'EFFACE AVEC LE MODULE : un essai de la séance suivante, sans
+   inhibition, ne doit rien en garder. */
+const { page: pageSansInh } = await ouvrirSeanceModules(ctxModules, async () => {});
+await pageSansInh.waitForTimeout(1200);
+verifier(
+  'tous les modules éteints, rien des modules n’est à l’écran',
+  await pageSansInh.evaluate(() => [
+    document.querySelectorAll('[data-retenir]').length,
+    document.querySelectorAll('[data-sens]').length,
+    document.querySelectorAll('[data-annonce-modules]').length,
+    document.querySelectorAll('[data-signal-inhibition]').length,
+    document.querySelectorAll('[data-regle-courante]').length,
+  ]),
+  [0, 0, 0, 0, 0],
+);
+await pageSansInh.close();
+await pageInh.close();
+
+/* ── L3.c La flèche vaut avant comme après le nombre ────────────────────── */
+
+console.log('\nL3 — LA FLÈCHE VAUT AVANT COMME APRÈS LE NOMBRE');
+
+/*
+   LE DÉFAUT VISÉ, nommé : la référence valide l'essai dès que le nombre est
+   complet. Qui donne le sens après son calcul le donne donc à un essai déjà
+   clos, et le module ne note jamais rien pour lui. Ici l'essai ne se clôt
+   qu'à l'apparition du suivant, et les deux ordres mènent au même verdict.
+
+   La mesure se lit sur `aria-pressed` ET sur la troisième région vocale :
+   l'attribut dit que le geste a été REÇU, la région dit qu'il a été JUGÉ.
+*/
+const { page: pageNdm } = await ouvrirSeanceModules(ctxModules, async (page) => {
+  await page.check('#ndm');
+  await reglerCurseur(page, 'n', 1);
+});
+
+/** Les trois sens, dans l'ordre du balisage. */
+const SENS_POSSIBLES = ['plus-petit', 'egal', 'plus-grand'];
+
+/** Le sens de `valeur` par rapport à `reference`. */
+const sensEntre = (valeur, reference) =>
+  valeur < reference ? 'plus-petit' : valeur > reference ? 'plus-grand' : 'egal';
+
+/** Répond au nombre, au clavier. */
+async function repondreAuNombre(page, valeur) {
+  for (const c of String(valeur)) await page.keyboard.press(c === '-' ? '-' : c);
+  await page.keyboard.press('Enter');
+}
+
+/**
+ * Attend un essai dont le sens attendu est CALCULABLE d'ici, et le rend.
+ *
+ * Avec `n = 1` et la somme, l'attendu de l'essai de rang r vaut la somme des
+ * nombres de rangs r-1 et r. Le sens NDM compare le nombre courant au
+ * précédent. Il faut donc deux nombres observés, et c'est pourquoi le suivi
+ * est posé dès la première apparition.
+ */
+async function attendreUnEssaiCalculable(page, msMax = 20000) {
+  const butoir = Date.now() + msMax;
+  /*
+     ON ATTEND UN ESSAI QUI VIENT DE PARAÎTRE, et c'est une correction venue de
+     la mesure. La première version rendait l'essai courant quel qu'il soit :
+     quand il était déjà à la fin de sa fenêtre, le geste et la frappe qui
+     suivaient tombaient sur le SUIVANT, dont le sens attendu diffère. Deux
+     gardes rougissaient alors en accusant l'écran d'un défaut qui était dans
+     l'essai. On part donc du rang vu à l'entrée et l'on attend qu'il change :
+     la fenêtre entière est devant nous.
+  */
+  const depart = (await essaiCourant(page)).rang;
+  while (Date.now() < butoir) {
+    const vu = await essaiCourant(page);
+    const suivi = vu.suivi;
+    const i = suivi.findIndex((e) => e.rang === vu.rang);
+    if (
+      vu.rang !== depart &&
+      i >= 2 &&
+      suivi[i - 1].rang === vu.rang - 1 &&
+      suivi[i - 2].rang === vu.rang - 2
+    ) {
+      return {
+        rang: vu.rang,
+        nombre: suivi[i].nombre,
+        precedent: suivi[i - 1].nombre,
+        avantPrecedent: suivi[i - 2].nombre,
+      };
+    }
+    await page.waitForTimeout(70);
+  }
+  return null;
+}
+
+/**
+ * Joue une interaction SUR UN SEUL ESSAI, et rend l'annonce de sa clôture.
+ *
+ * `jouer` reçoit l'essai et agit. La fonction vérifie ensuite que le rang n'a
+ * PAS changé pendant l'interaction : sinon la mesure a porté sur deux essais,
+ * et son verdict ne dit plus rien. Elle recommence alors sur un essai neuf,
+ * jusqu'à `tentatives` fois. Rend `null` quand aucune tentative n'a tenu.
+ */
+async function surUnSeulEssai(page, jouer, tentatives = 6) {
+  for (let t = 0; t < tentatives; t += 1) {
+    const e = await attendreUnEssaiCalculable(page);
+    if (e === null) return null;
+    await jouer(e);
+    const apres = (await essaiCourant(page)).rang;
+    if (apres !== e.rang) continue;
+    await attendreLEssaiSuivant(page, e.rang);
+    return { essai: e, annonce: (await essaiCourant(page)).annonce };
+  }
+  return null;
+}
+
+/* ORDRE A : la flèche d'abord, le nombre ensuite. */
+let recuA = null;
+const tourA = await surUnSeulEssai(pageNdm, async (e) => {
+  const sens = sensEntre(e.nombre, e.precedent);
+  await pageNdm.tap(`[data-sens="${sens}"]`);
+  recuA = await pageNdm.getAttribute(`[data-sens="${sens}"]`, 'aria-pressed');
+  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+});
+verifier('ordre A — une interaction a tenu dans un seul essai', tourA !== null, true);
+verifier('ordre A — la flèche AVANT le nombre est reçue', recuA, 'true');
+verifier(
+  'ordre A — et rien n’est reproché à la clôture',
+  tourA === null ? '(pas de tour)' : tourA.annonce,
+  '',
+);
+
+/* ORDRE B : le nombre d'abord, la flèche ensuite. C'est celui que la référence
+   perd : sa validation automatique clôt l'essai dès que le nombre est complet,
+   et la flèche arrive sur un essai déjà noté. */
+let recuB = null;
+const tourB = await surUnSeulEssai(pageNdm, async (e) => {
+  const sens = sensEntre(e.nombre, e.precedent);
+  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+  await pageNdm.tap(`[data-sens="${sens}"]`);
+  recuB = await pageNdm.getAttribute(`[data-sens="${sens}"]`, 'aria-pressed');
+});
+verifier('ordre B — une interaction a tenu dans un seul essai', tourB !== null, true);
+verifier('ordre B — la flèche APRÈS le nombre est reçue elle aussi', recuB, 'true');
+verifier(
+  'ordre B — et rien n’est reproché à la clôture',
+  tourB === null ? '(pas de tour)' : tourB.annonce,
+  '',
+);
+
+/*
+   DEUX CONTRÔLES POSITIFS, sans lesquels les deux gardes ci-dessus seraient
+   vides : un écran qui n'annoncerait JAMAIS rien les passerait toutes les
+   deux. On donne donc exprès un sens faux, puis aucun sens du tout, et la
+   troisième voix doit dire chaque fois ce qui manquait.
+*/
+const tourFaux = await surUnSeulEssai(pageNdm, async (e) => {
+  const juste = sensEntre(e.nombre, e.precedent);
+  const faux = SENS_POSSIBLES.find((x) => x !== juste);
+  await pageNdm.tap(`[data-sens="${faux}"]`);
+  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+});
+verifier(
+  'contrôle — un sens faux EST annoncé faux',
+  /sens faux/i.test(tourFaux?.annonce ?? ''),
+  true,
+);
+
+const tourMuet = await surUnSeulEssai(pageNdm, async (e) => {
+  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+});
+verifier(
+  'contrôle — le sens omis EST réclamé',
+  /fallait aussi donner le sens/i.test(tourMuet?.annonce ?? ''),
+  true,
+);
+
+/*
+   ET LA RÉGION SE VIDE. C'est la correction que cette mesure a arrachée :
+   la première version n'écrivait que les verdicts qui avaient quelque chose à
+   dire, de sorte qu'un essai juste gardait à l'écran le reproche du
+   précédent. On vient d'en poser un fautif ; l'essai juste qui suit doit
+   effacer son reproche, et non le laisser.
+*/
+const tourApres = await surUnSeulEssai(pageNdm, async (e) => {
+  const sens = sensEntre(e.nombre, e.precedent);
+  await pageNdm.tap(`[data-sens="${sens}"]`);
+  await repondreAuNombre(pageNdm, e.nombre + e.precedent);
+});
+verifier(
+  'un essai juste EFFACE le reproche du précédent',
+  tourApres === null ? '(pas de tour)' : tourApres.annonce,
+  '',
+);
+
+/* Les trois cibles de sens, sous pointeur grossier. */
+verifier(
+  'les trois flèches atteignent 44 px',
+  await pageNdm.evaluate(() =>
+    [...document.querySelectorAll('[data-sens]')].map((e) => {
+      const r = e.getBoundingClientRect();
+      return r.width >= 44 && r.height >= 44;
+    }),
+  ),
+  [true, true, true],
+);
+
+/* LA TROISIÈME RÉGION VOCALE est un élément DISTINCT des deux autres : trois
+   tâches rendent leur verdict au même instant, et une région partagée verrait
+   l'un effacer l'autre avant qu'il soit annoncé. */
+verifier(
+  'les régions vocales sont TROIS éléments distincts',
+  await pageNdm.evaluate(() => {
+    const a = document.querySelector('[data-annonce]');
+    const b = document.querySelector('[data-annonce-pm]');
+    const c = document.querySelector('[data-annonce-modules]');
+    const vus = new Set([a, b, c].filter((e) => e !== null));
+    return [a !== null, c !== null, vus.size, c?.getAttribute('aria-live') ?? '(pas de région)'];
+  }),
+  /* `b` est absent : la mémoire prospective est décochée dans ces séances.
+     On compte donc DEUX éléments distincts, et ce qu'on garde est qu'ils le
+     sont — le sabotage « une seule région pour tout » en rendrait un. */
+  [true, true, 2, 'polite'],
+);
+await pageNdm.close();
+
+/* ── L3.d SDM compare le RÉSULTAT attendu, pas le nombre ────────────────── */
+
+console.log('\nL3 — SDM COMPARE LE RÉSULTAT ATTENDU, PAS LE NOMBRE');
+
+/*
+   LA GARDE EST DÉCISIVE, et c'est ce qui la distingue d'une garde vide : on
+   attend un essai où les deux lectures DIVERGENT — où le sens du résultat
+   attendu diffère du sens du nombre. Sur un tel essai, répondre selon le
+   résultat attendu doit être tenu pour juste. Un écran qui comparerait les
+   nombres rendrait « sens faux », et c'est exactement la confusion NDM/SDM
+   qu'on veut interdire.
+*/
+const { page: pageSdm } = await ouvrirSeanceModules(ctxModules, async (page) => {
+  await page.check('#sdm');
+  await reglerCurseur(page, 'n', 1);
+});
+
+let divergent = null;
+let tourSdm = null;
+const butoirSdm = Date.now() + 50000;
+while (Date.now() < butoirSdm && tourSdm === null) {
+  tourSdm = await surUnSeulEssai(
+    pageSdm,
+    async (e) => {
+      const attendu = e.nombre + e.precedent;
+      const attenduPrecedent = e.precedent + e.avantPrecedent;
+      const sensResultat = sensEntre(attendu, attenduPrecedent);
+      const sensNombre = sensEntre(e.nombre, e.precedent);
+      /* On ne joue QUE les essais où les deux lectures divergent : sur les
+         autres, répondre selon l'une ou l'autre donnerait le même verdict, et
+         la garde ne distinguerait plus SDM de NDM. */
+      if (sensResultat === sensNombre) return;
+      divergent = { ...e, attendu, sensResultat, sensNombre };
+      await pageSdm.tap(`[data-sens="${sensResultat}"]`);
+      await repondreAuNombre(pageSdm, attendu);
+    },
+    1,
+  );
+  if (divergent === null) tourSdm = null;
+}
+verifier('un essai où les deux lectures divergent paraît', divergent !== null, true);
+verifier(
+  'le sens du RÉSULTAT attendu est tenu pour juste',
+  tourSdm === null ? '(pas de tour)' : tourSdm.annonce,
+  '',
+);
+await pageSdm.close();
+
+/* ── L3.e Le changement de règle : il charge, il se lit, il contraste ───── */
+
+console.log('\nL3 — LE CHANGEMENT DE RÈGLE CHARGE, SE LIT, ET CONTRASTE');
+
+/*
+   « LE CHARGEMENT NE PLANTE PAS QUAND LE CHANGEMENT DE RÈGLE EST ENREGISTRÉ. »
+
+   CE QUE CETTE GARDE PEUT MESURER ICI, ET CE QU'ELLE NE PEUT PAS. J'avais
+   d'abord écrit un essai qui posait le réglage, RECHARGEAIT la page et
+   vérifiait qu'il survivait. Il a rougi, et il avait tort de rougir : l'écran
+   de PCCT ne conserve AUCUN réglage. `reglages` part de `reglagesParDefaut()`
+   à chaque montage, et rien n'écrit dans un magasin — j'ai lu le composant
+   plutôt que de croire ma garde.
+
+   Le défaut de la référence est donc structurellement absent plutôt que
+   corrigé, et le dire est plus honnête que de fabriquer une persistance pour
+   avoir quelque chose à garder. Ce qui reste mesurable d'ici, et qui est
+   mesuré : monter une séance avec le module allumé ne lève pas, et la bannière
+   paraît. L'aller-retour du réglage par `structuredClone` et la validation est
+   gardé au moteur, dans `essais:pcct`.
+
+   (Si la persistance des réglages de PCCT est voulue, c'est une tâche à part
+   entière : signalée au Pilote, pas improvisée ici.)
+*/
+const { page: pageRegle, erreurs: erreursRegle } = await ouvrirPcct(ctxModules);
+await pageRegle.check('#changement-de-regle');
+await reglerCurseur(pageRegle, 'changement-de-regle-bloc', 2);
+verifier(
+  'prémisse : le bloc est bien à deux essais',
+  await pageRegle.inputValue('#changement-de-regle-bloc'),
+  '2',
+);
+verifier(
+  'prémisse : deux opérations commutées, donc deux règles possibles',
+  await pageRegle.evaluate(() =>
+    [...document.querySelectorAll('[data-commutee]')].filter((e) => e.checked).length,
+  ),
+  2,
+);
+await pageRegle.uncheck('#son');
+await pageRegle.uncheck('#prospective');
+await pageRegle.selectOption('#operation', 'somme');
+await pageRegle.click('#decouvrir');
+await pageRegle.waitForSelector('[data-nombre]', { timeout: 10000 });
+await pageRegle.waitForSelector('[data-regle-courante]', { timeout: 6000 });
+verifier(
+  'la séance monte avec le module, et la bannière paraît',
+  await pageRegle.locator('[data-regle-courante]').count(),
+  1,
+);
+
+/*
+   LA RÈGLE SE LIT EN TOUTES LETTRES, et la couleur n'est jamais seule : le
+   nom de l'opération est écrit à côté de la pastille. Une bannière qui ne
+   dirait la règle que par sa teinte ne la dirait pas du tout à qui ne la
+   distingue pas.
+*/
+const laRegle = await pageRegle.evaluate(() => {
+  const e = document.querySelector('[data-regle-courante]');
+  return {
+    operation: e?.getAttribute('data-regle-courante') ?? '(absente)',
+    texte: (e?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    live: e?.getAttribute('aria-live') ?? '(pas de région)',
+    pastilleCachee: document
+      .querySelector('[data-pastille-regle]')
+      ?.getAttribute('aria-hidden'),
+  };
+});
+verifier(
+  'la règle courante est l’une des quatre opérations',
+  ['somme', 'difference', 'produit', 'quotient'].includes(laRegle.operation),
+  true,
+);
+verifier(
+  'elle est écrite en toutes lettres, et marquée « expérimental »',
+  [/Règle\s*:/.test(laRegle.texte), /expérimental/i.test(laRegle.texte)],
+  [true, true],
+);
+verifier('la bannière est une région vocale', laRegle.live, 'polite');
+verifier(
+  'la pastille de couleur est cachée aux lecteurs d’écran',
+  laRegle.pastilleCachee,
+  'true',
+);
+
+/*
+   LE CONTRASTE DE LA PASTILLE SUR SON FOND, à 3:1 — le seuil des éléments non
+   textuels. Il est mesuré sur les COULEURS CALCULÉES, et non sur les jetons
+   écrits dans le code : un jeton juste dans la feuille et mal appliqué dans la
+   bannière passerait une lecture du code.
+*/
+const contrastePastille = await pageRegle.evaluate(() => {
+  const lire = (s) => {
+    const m = s.match(/-?[\d.]+/g) ?? [];
+    return m.slice(0, 3).map(Number);
+  };
+  const lum = ([r, v, b]) => {
+    const f = (c) => {
+      const x = c / 255;
+      return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * f(r) + 0.7152 * f(v) + 0.0722 * f(b);
+  };
+  const banniere = document.querySelector('[data-regle-courante]');
+  const pastille = document.querySelector('[data-pastille-regle]');
+  if (!banniere || !pastille) return '(absents)';
+  const a = lum(lire(getComputedStyle(pastille).backgroundColor));
+  const b = lum(lire(getComputedStyle(banniere).backgroundColor));
+  const haut = Math.max(a, b);
+  const bas = Math.min(a, b);
+  return Math.round(((haut + 0.05) / (bas + 0.05)) * 100) / 100;
+});
+verifier(
+  'la pastille contraste à 3:1 au moins sur le fond de la bannière',
+  typeof contrastePastille === 'number' && contrastePastille >= 3,
+  true,
+);
+
+/* ET ELLE N'ANIME RIEN : `prefers-reduced-motion` n'a rien à éteindre, ce qui
+   est la façon la plus sûre de le respecter. */
+/* La DURÉE, et non la propriété : `transition-property` vaut « all » par
+   défaut dans la cascade, de sorte qu'un attendu posé sur elle passerait vert
+   quoi qu'il arrive. Ce qui dit qu'il n'y a pas de transition, c'est que sa
+   durée est nulle. */
+verifier(
+  'la bannière de règle n’anime ni ne transitionne rien',
+  await pageRegle.evaluate(() => {
+    const s = getComputedStyle(document.querySelector('[data-regle-courante]'));
+    return [s.animationName, s.transitionDuration];
+  }),
+  ['none', '0s'],
+);
+
+/*
+   ET LA RÈGLE CHANGE VRAIMENT.
+
+   Un bloc de deux essais et deux opérations commutées : sur une dizaine
+   d'essais, la bannière doit porter au moins DEUX opérations différentes. Une
+   bannière figée sur la première règle serait le module entier perdu, et rien
+   d'autre ne l'attraperait — le moteur, lui, est déjà gardé.
+*/
+const reglesVues = new Set();
+const butoirRegle = Date.now() + 14000;
+while (Date.now() < butoirRegle && reglesVues.size < 2) {
+  const vue = await pageRegle
+    .getAttribute('[data-regle-courante]', 'data-regle-courante')
+    .catch(() => null);
+  if (vue) reglesVues.add(vue);
+  await pageRegle.waitForTimeout(120);
+}
+verifier('la règle alterne : au moins deux opérations vues', reglesVues.size >= 2, true);
+
+/*
+   MOINS DE DEUX OPÉRATIONS COMMUTÉES : LE DIRE PLUTÔT QUE DE LE TAIRE.
+
+   Le moteur garde alors l'opération choisie plus haut — ce qui est le bon
+   repli, mais invisible : la personne a coché « changement de règle » et rien
+   ne change. La note l'écrit.
+*/
+const { page: pageUneSeule } = await ouvrirPcct(ctxModules);
+await pageUneSeule.check('#changement-de-regle');
+await pageUneSeule.uncheck('[data-commutee="difference"]');
+verifier(
+  'une seule opération commutée : la note le dit',
+  await pageUneSeule.evaluate(() => [
+    document.querySelectorAll('[data-commutee]').length,
+    document.querySelectorAll('[data-pas-dalternance]').length,
+  ]),
+  [4, 1],
+);
+await pageUneSeule.check('[data-commutee="difference"]');
+verifier(
+  'et elle disparaît dès qu’il y en a deux',
+  await pageUneSeule.locator('[data-pas-dalternance]').count(),
+  0,
+);
+await pageUneSeule.close();
+await pageRegle.close();
+
 /* ── 5. Le mouvement réduit ─────────────────────────────────────────────── */
 
 console.log('\nET LA REQUÊTE MÉDIA L’ÉTEINT AUSSI, DANS SON PROPRE CONTEXTE');
@@ -607,6 +1322,8 @@ verifier('aucune erreur de page (souris)', erreurs.slice(0, 3), []);
 verifier('aucune erreur de page (doigt)', erreursDoigt.slice(0, 3), []);
 verifier('aucune erreur de page (mouvement réduit)', erreursCalme.slice(0, 3), []);
 verifier('aucune erreur de page (mémoire prospective)', erreursPm.slice(0, 3), []);
+verifier('aucune erreur de page (modules)', erreursModules.slice(0, 3), []);
+verifier('aucune erreur de page (changement de règle)', erreursRegle.slice(0, 3), []);
 
 await nav.close();
 console.log(
