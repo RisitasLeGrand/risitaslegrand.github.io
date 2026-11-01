@@ -73,7 +73,22 @@ const sceller = async (cle: CryptoKey, texte: string) => {
  * et la panne ne rapporte rien : c'est le défaut qui a laissé passer le
  * sabotage « changer le mot de passe tire une clé neuve ».
  */
-const ouvrirLeScelle = async (cle: CryptoKey, scelle: { iv: Uint8Array; ct: ArrayBuffer }) => {
+/*
+   LE TYPE EST LU SUR LE PRODUCTEUR, et non réécrit à la main.
+
+   Cette signature annonçait « { iv: Uint8Array; ct: ArrayBuffer } ». Depuis
+   que « Uint8Array » est générique sur son tampon, « Uint8Array » tout court
+   vaut « Uint8Array<ArrayBufferLike> », qui comprend « SharedArrayBuffer » et
+   n'est donc pas un « BufferSource » recevable par « crypto.subtle ».
+
+   L'annotation était plus LÂCHE que la réalité : « sceller » rend un
+   « Uint8Array<ArrayBuffer> », puisqu'il vient de « new Uint8Array(12) ».
+   Plutôt que de resserrer la copie — qui pourrait dériver au prochain
+   changement de « sceller » —, on la lit sur la fonction elle-même.
+*/
+type Scelle = Awaited<ReturnType<typeof sceller>>;
+
+const ouvrirLeScelle = async (cle: CryptoKey, scelle: Scelle) => {
   try {
     return decodeur.decode(
       await crypto.subtle.decrypt({ name: 'AES-GCM', iv: scelle.iv }, cle, scelle.ct),

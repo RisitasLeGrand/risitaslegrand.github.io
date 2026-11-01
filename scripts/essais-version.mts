@@ -27,7 +27,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-// @ts-expect-error — module JavaScript du dépôt, sans déclaration de types.
+/*
+   La directive « @ts-expect-error » qui était ici ne sert plus : avec
+   « allowJs », tsconfig.scripts.json TYPE le module JavaScript par inférence,
+   donc l'import ne lève aucune erreur — et une directive qui n'attrape rien
+   est elle-même une erreur (TS2578), à juste titre : elle ferait taire la
+   vraie erreur du jour où cet import casserait.
+*/
 import { sansCommentaires } from './lib/sans-commentaires.mjs';
 import {
   FORME_DEPOT,

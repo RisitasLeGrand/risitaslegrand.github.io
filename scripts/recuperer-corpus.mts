@@ -89,7 +89,14 @@ const decodeur = new TextDecoder();
 type Source = {
   readonly description: string;
   texte(relatif: string): string | null;
-  octets(relatif: string): Uint8Array | null;
+  /*
+     « Uint8Array<ArrayBuffer> », pour la même raison qu'« ouvrirBinaire » plus
+     bas : les DEUX implémentations rendent « new Uint8Array(...) », donc des
+     octets adossés à un « ArrayBuffer » ordinaire. La déclaration promettait
+     moins qu'elles ne donnent, et c'est elle — non elles — qui empêchait le
+     déchiffrement de les accepter.
+  */
+  octets(relatif: string): Uint8Array<ArrayBuffer> | null;
   lister(dossier: string): string[];
 };
 
@@ -286,7 +293,16 @@ async function ouvrirJson(cle: CryptoKey, enveloppe: Enveloppe): Promise<unknown
  */
 async function ouvrirBinaire(
   cle: CryptoKey,
-  octets: Uint8Array,
+  /*
+     « Uint8Array<ArrayBuffer> », et non « Uint8Array » tout court : depuis que
+     le type est générique sur son tampon, le second vaut
+     « Uint8Array<ArrayBufferLike> », qui comprend « SharedArrayBuffer » et
+     n'est donc pas un « BufferSource » que « crypto.subtle » accepte. Les
+     appelants passent tous des octets lus d'un fichier, donc adossés à un
+     « ArrayBuffer » ordinaire ; dire « ArrayBufferLike » promettait moins que
+     ce qu'ils donnent et plus que ce que le déchiffrement peut prendre.
+  */
+  octets: Uint8Array<ArrayBuffer>,
   tailleIv: number,
 ): Promise<Uint8Array> {
   const iv = octets.subarray(0, tailleIv);
@@ -389,7 +405,21 @@ type Verdict = 'identique' | 'a-relire' | 'vide';
 function reconstruireSection(
   html: string,
   parties: Partie[],
-  indexGlossaire: Map<string, unknown>,
+  /*
+     L'INDEX DU GLOSSAIRE N'EST PAS UNE « Map », et cette annotation le disait
+     depuis le début.
+
+     « construireIndexGlossaire » rend « { regex, parForme } » : un motif
+     unique qui reconnaît toutes les formes, et la table qui les ramène à leur
+     terme. « rendreHtml » le passe tel quel à son greffon, qui lit les deux
+     champs. Le programme est juste ; la signature décrivait autre chose —
+     « Map<string, unknown> » — c'est-à-dire la table SEULE, sans le motif.
+
+     Le type est donc lu sur le producteur. L'écrire à la main une seconde fois
+     reproduirait la faute : c'est précisément une description recopiée qui
+     avait dérivé.
+  */
+  indexGlossaire: ReturnType<typeof construireIndexGlossaire>,
   avecIdentifiants: boolean,
 ): { markdown: string; verdict: Verdict; inconnues: string[]; htmlPublie: string | null } {
   if (!html?.trim()) return { markdown: '', verdict: 'vide', inconnues: [], htmlPublie: null };
