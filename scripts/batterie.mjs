@@ -3,7 +3,7 @@
  * La batterie complète, ou le socle seul : les essais dans l'ordre, et un verdict.
  *
  *   npm run batterie   # tout ce qui commence par « essais » — 329 au 26 octobre
- *   npm run socle      # les 40 transversaux, 18 minutes mesurées le 26 octobre
+ *   npm run socle      # les 44 transversaux, 18 minutes mesurées le 1er novembre
  *
  * CES DEUX NOMBRES SE PÉRIMENT, ET ILS SE SONT PÉRIMÉS DEUX FOIS. Cette ligne
  * annonçait « les 235 » et « les seize transversaux, onze minutes » alors que
@@ -338,6 +338,21 @@ const SOCLE = [
      appelant et refuse celui qu'on ajouterait sans le classer.
   */
   ['essais:manifeste-filtre', 'qui voit le corpus entier, et qui ne voit que son parcours'],
+  /*
+     Inscrit au socle par le pilote le 1er novembre, avec sa raison : le
+     registre des dimensions de Veridical Mapping est devenu la FRONTIÈRE qu'un
+     autre lot va franchir — une dimension s'ajoute désormais sans toucher au
+     rendu —, et cet essai en est le seul garde. Il tient les deux noms d'une
+     dimension, l'attribut qu'elle pilote, la garde qui interdit à deux
+     dimensions de se disputer le même, et le diviseur gelé des conversions
+     écrites avant le passage à l'échelle z.
+
+     IL N'ÉTAIT PAS ORPHELIN : la batterie complète prend toutes les commandes
+     « essais* » de package.json, donc il tournait. Il ne tournait pas AVANT
+     UNE POUSSÉE, et c'est précisément ce que le socle est. Il coûte une
+     seconde.
+  */
+  ['essais:veridical', 'les dimensions, l’escalier contre un observateur simulé, et le diviseur du passé'],
 ];
 
 /**
