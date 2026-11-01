@@ -259,6 +259,17 @@ function region(): HTMLElement {
 }
 
 /**
+ * LA MARQUE D'UN RÔLE QUE CE MODULE A POSÉ LUI-MÊME.
+ *
+ * Elle existe parce que les deux cas coexistent dans le dépôt :
+ * « initialisation.astro » déclare `role="alert"` sur sa zone, les onze
+ * autres non. Retirer le rôle sans distinguer effacerait celui qu'un gabarit
+ * a voulu ; ne jamais le retirer laisse les zones sans rôle en alerte à vie.
+ * La marque dit lequel des deux on a devant soi.
+ */
+const MARQUE_DU_ROLE = 'roleAgir';
+
+/**
  * Écrit un échec à l'écran, et le laisse.
  *
  * `zone` permet à un écran qui a déjà sa place réservée pour les messages de
@@ -275,7 +286,11 @@ export function direLEchec(message: string, zone?: HTMLElement | string | null):
     propre.textContent = message;
     propre.hidden = false;
     propre.classList.remove('hidden');
-    if (!propre.getAttribute('role')) propre.setAttribute('role', 'alert');
+    if (!propre.getAttribute('role')) {
+      propre.setAttribute('role', 'alert');
+      /* On note que le rôle vient d'ici, pour pouvoir le reprendre. */
+      propre.dataset[MARQUE_DU_ROLE] = '';
+    }
     return;
   }
   const commune = region();
@@ -283,7 +298,37 @@ export function direLEchec(message: string, zone?: HTMLElement | string | null):
   commune.hidden = false;
 }
 
-/** Retire le message, s'il y en a un. */
+/**
+ * Retire le message, s'il y en a un.
+ *
+ * ## LE RÔLE S'EN VA AVEC L'ÉCHEC — mais seulement celui qu'on a posé
+ *
+ * `direLEchec` pose `role="alert"` sur une zone qui n'en déclare pas, et rien
+ * ne le reprenait. Une zone partagée entre les échecs et les réussites —
+ * « message-sauvegarde », sur la progression et la bascule du coffre —
+ * repartait donc en ALERTE à chaque « Enregistré » suivant, pour qui écoute
+ * l'écran. Une alerte qui annonce une routine cesse d'être entendue comme une
+ * alerte, ce qui désarme celles qui comptent.
+ *
+ * On ne retire que le rôle marqué : `initialisation.astro` déclare le sien
+ * dans son gabarit, et il doit lui rester.
+ *
+ * ## ET L'ON CACHE PAR LA CLASSE, NON PAR LA PROPRIÉTÉ
+ *
+ * C'est le correctif le moins visible et le plus utile. Cette fonction posait
+ * `propre.hidden = true`, c'est-à-dire l'ATTRIBUT HTML. Les écrans, eux,
+ * montrent leurs messages avec `classList.remove('hidden')` — la classe
+ * Tailwind — parce que c'est ainsi que les douze zones sont déclarées.
+ *
+ * Deux mécanismes pour la même chose, et un seul défait par l'appelant : après
+ * un échec effacé, la zone gardait l'attribut, le message de succès s'y
+ * écrivait, et PERSONNE NE LE VOYAIT. Le succès devenait muet exactement
+ * quand il rassure — c'est-à-dire après un échec.
+ *
+ * Cacher par la classe suffit et se défait par le même geste que les écrans
+ * font déjà. L'attribut est donc retiré plutôt que posé : il ne doit pas
+ * rester d'une visite précédente.
+ */
 export function effacerLEchec(zone?: HTMLElement | string | null): void {
   const propre = zone
     ? typeof zone === 'string'
@@ -292,8 +337,12 @@ export function effacerLEchec(zone?: HTMLElement | string | null): void {
     : null;
   if (propre) {
     propre.textContent = '';
-    propre.hidden = true;
+    propre.hidden = false;
     propre.classList.add('hidden');
+    if (propre.dataset[MARQUE_DU_ROLE] !== undefined) {
+      propre.removeAttribute('role');
+      delete propre.dataset[MARQUE_DU_ROLE];
+    }
     return;
   }
   const commune = document.getElementById(ID_REGION);

@@ -521,6 +521,138 @@ console.log('\nUN TypeError NE MONTRE PAS SON TEXTE ANGLAIS');
   await ctx.close();
 }
 
+/* ── 8. La zone rendue au suivant : ni alerte collée, ni succès muet ─────── */
+
+/*
+   DEUX DÉFAUTS D'UNE MÊME ORIGINE : « effacerLEchec » ne défaisait pas ce que
+   « direLEchec » avait fait.
+
+   1. LE RÔLE RESTAIT. `direLEchec` pose `role="alert"` sur une zone qui n'en
+      déclare pas, et rien ne le reprenait. Les zones partagées entre échecs et
+      réussites — « message-sauvegarde », sur la progression et la bascule du
+      coffre — repartaient donc en ALERTE à chaque « Enregistré » suivant. Une
+      alerte qui annonce une routine cesse d'être entendue comme une alerte.
+
+   2. LE SUCCÈS ÉTAIT INVISIBLE, et c'est le plus coûteux des deux.
+      `effacerLEchec` posait `hidden = true`, c'est-à-dire l'ATTRIBUT. Les
+      écrans montrent leurs messages par `classList.remove('hidden')`, la
+      CLASSE, parce que c'est ainsi que les douze zones sont déclarées. Deux
+      mécanismes, un seul défait par l'appelant.
+
+      Relevé au navigateur sur « progression », avant le correctif : après
+      l'enchaînement réel — effacement puis message de succès —, la zone porte
+      le texte « Sauvegarde confirmée… », n'a PLUS la classe, garde l'attribut,
+      et `offsetWidth` comme `offsetHeight` valent zéro. Le mot est écrit et
+      personne ne le voit. Et comme `effacerLEchec` tourne après CHAQUE
+      réussite, pas seulement après un échec, ce message n'a jamais paru.
+
+      Le fichier porte d'ailleurs, juste au-dessus de ce `dire`, le
+      commentaire d'un essai antérieur qui avait trouvé « aucun mot à
+      l'écran » et corrigé une AUTRE cause — le message était écrit dans
+      l'action, donc effacé juste après. La cause corrigée était réelle ; elle
+      n'était pas la seule, et le symptôme était resté.
+
+   CE QUI SUIT ÉPROUVE LE CODE LIVRÉ, et non une imitation. La sonde qui a
+   servi au diagnostic rejouait les deux fonctions à la main dans la page :
+   elle établissait bien le défaut, mais n'aurait rien dit du correctif, qui
+   vit dans `agir.ts`. On fait donc échouer puis RÉUSSIR une vraie
+   suppression, et l'on relève la zone entre les deux.
+*/
+
+console.log('\nLA ZONE EST RENDUE AU SUIVANT');
+{
+  const { ctx, page } = await ouvrir();
+  await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
+
+  await page.evaluate(`
+    (() => {
+      globalThis.__ecrituresDOrigine = {
+        put: IDBObjectStore.prototype.put,
+        delete: IDBObjectStore.prototype.delete,
+        add: IDBObjectStore.prototype.add,
+      };
+      'rangé'
+    })();
+  `);
+
+  await page.locator('#kg').fill('77');
+  await page.locator('#peser').click();
+  await page
+    .locator('button:has-text("Supprimer")')
+    .first()
+    .waitFor({ state: 'visible', timeout: DELAI })
+    .catch(() => {});
+  const lignes = await page.locator('button:has-text("Supprimer")').count();
+  verifier('prémisse : il y a une ligne à supprimer', lignes > 0, true);
+
+  if (lignes === 0) {
+    await ctx.close();
+  } else {
+    const zone = page.locator('#erreur');
+    const releve = async () =>
+      page.evaluate(() => {
+        const e = document.getElementById('erreur');
+        if (!e) return null;
+        return {
+          role: e.getAttribute('role'),
+          attribut: e.hasAttribute('hidden'),
+          classe: e.classList.contains('hidden'),
+          visible: !!(e.offsetWidth || e.offsetHeight),
+        };
+      });
+
+    verifier('prémisse : la zone de cet écran ne déclare aucun rôle', await zone.getAttribute('role'), null);
+
+    /* ── 8a. L'échec : la zone s'annonce ─────────────────────────────── */
+    await page.evaluate(saboterLesEcritures(null));
+    await page.locator('button:has-text("Supprimer")').first().click();
+    await attendreLEchec(page);
+    const pendant = await releve();
+    verifier('pendant l’échec, la zone s’annonce', pendant?.role, 'alert');
+    verifier('et elle se voit', pendant?.visible, true);
+
+    /* ── 8b. La réussite : la zone est rendue propre ──────────────────── */
+    await page.evaluate(`
+      (() => {
+        const o = globalThis.__ecrituresDOrigine;
+        IDBObjectStore.prototype.put = o.put;
+        IDBObjectStore.prototype.delete = o.delete;
+        IDBObjectStore.prototype.add = o.add;
+        'rendu'
+      })();
+    `);
+    await page.locator('button:has-text("Supprimer")').first().click();
+    await page.waitForTimeout(1500);
+    const apres = await releve();
+
+    verifier('après la réussite, le rôle d’alerte est repris', apres?.role, null);
+    verifier('la zone est cachée — par la CLASSE', apres?.classe, true);
+    /*
+       L'ASSERTION QUI PORTE TOUT LE CORRECTIF, et la seule que l'ancien code
+       faisait rougir : tant que l'attribut restait posé, le message de succès
+       que l'écran écrit ensuite — en retirant la classe, et elle seule —
+       restait invisible.
+    */
+    verifier('et l’attribut « hidden » n’est PAS laissé derrière', apres?.attribut, false);
+
+    /* ── 8c. Et le message de succès se voit, par le geste des écrans ── */
+    /*
+       On fait ici ce que « progression » fait après une action réussie :
+       écrire dans la zone et retirer la CLASSE. Si l'attribut traînait, ce
+       geste ne suffirait pas — c'est exactement ce qui se passait.
+    */
+    const vu = await page.evaluate(() => {
+      const e = document.getElementById('erreur');
+      if (!e) return null;
+      e.textContent = 'Enregistré.';
+      e.classList.remove('hidden');
+      return !!(e.offsetWidth || e.offsetHeight);
+    });
+    verifier('un message de succès écrit ensuite SE VOIT', vu, true);
+    await ctx.close();
+  }
+}
+
 await nav.close();
 console.log(rouges === 0 ? '\n\x1b[32mTout est vert.\x1b[0m' : `\n\x1b[31m${rouges} rouge(s).\x1b[0m`);
 process.exit(rouges === 0 ? 0 : 1);
