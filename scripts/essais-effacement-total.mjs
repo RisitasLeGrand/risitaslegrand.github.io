@@ -61,6 +61,25 @@ const poser = () =>
     localStorage.setItem('cyclades.sport.refus', '{"temoin":true}');
     localStorage.setItem('autre-site.reglage', 'ne-pas-toucher');
     sessionStorage.setItem('cyclades.coffre.temoin', 'x');
+    /*
+       ET UN TÉMOIN À L'INTÉRIEUR DE LA CLÉ QUE L'APPLICATION RÉÉCRIT.
+
+       « cyclades.defilement » garde la position de lecture par écran. La page
+       la réécrit dès qu'elle se repeint — c'est-à-dire juste après
+       l'effacement, puisque l'écran reste affiché. Constater sa PRÉSENCE ne dit
+       donc rien ; ce qu'il faut constater, c'est que son CONTENU d'avant n'est
+       pas revenu.
+
+       On y met donc un écran que la page courante n'écrira jamais, avec une
+       valeur reconnaissable. Et le choix de l'écran n'est pas innocent : une
+       position de lecture sur « /odyssee/mes-regles/ » dit que la personne a
+       consulté son cycle, avant tout contenu. C'est exactement ce que
+       l'effacement total doit emporter.
+    */
+    sessionStorage.setItem(
+      'cyclades.defilement',
+      JSON.stringify({ '/odyssee/mes-regles/': 4242 }),
+    );
 
     // Un cache à nous, un cache étranger.
     const aNous = await caches.open('cyclades-sonde');
@@ -95,6 +114,15 @@ const relever = () =>
     return {
       locales: Object.keys(localStorage).sort(),
       session: Object.keys(sessionStorage).sort(),
+      /*
+         LES VALEURS, et pas seulement les noms. Un relevé qui ne donne que les
+         noms oblige à deviner ce qu'une clé présente contient, et c'est ce qui
+         a fait lire « une clé survit » là où l'application venait d'en écrire
+         une neuve.
+      */
+      valeursDeSession: Object.fromEntries(
+        Object.keys(sessionStorage).map((c) => [c, sessionStorage.getItem(c) ?? '']),
+      ),
       caches: (await caches.keys()).sort(),
       bases,
     };
@@ -166,9 +194,63 @@ console.log(`      bases   : ${apres.bases.join(', ') || '(aucune)'}`);
 v('aucun réglage de ce site ne survit',
   apres.locales.filter((c) => c.startsWith('revinsp') || c.startsWith('cyclades')),
   []);
-v('aucune clé de session de ce site ne survit',
-  apres.session.filter((c) => c.startsWith('revinsp') || c.startsWith('cyclades')),
+/*
+   CE QUE CETTE ASSERTION MESURAIT, ET CE QU'ELLE MESURE MAINTENANT.
+
+   Elle exigeait qu'aucune clé de session du site ne reste. Elle était ROUGE sur
+   « main », et pour une raison qui n'est pas un défaut de l'effacement :
+   « cyclades.defilement » est réécrite par la page dès qu'elle se repeint,
+   c'est-à-dire juste après l'effacement, puisque l'écran reste affiché.
+
+   Mesuré dans « src/lib/defilement.ts » : « noter() » relit la carte des
+   positions avant d'écrire, donc elle repart de rien après un effacement et la
+   nouvelle valeur ne porte que l'écran COURANT. L'effacement a bien fait son
+   travail ; c'était l'assertion qui lisait une absence à un instant où
+   l'application écrit légitimement.
+
+   On ne l'affaiblit pas pour autant — on lui rend son objet, qui est plus
+   exigeant que ce qu'elle disait : ce n'est pas « aucune clé ne reste », c'est
+   « rien de ce qui existait AVANT ne subsiste ». Les trois contrôles qui
+   suivent le mesurent, et le dernier des trois est le seul qui aurait attrapé
+   une vraie fuite logée à l'intérieur d'une clé recréée.
+*/
+v('les témoins de session posés avant sont tous partis',
+  apres.session.filter((c) => c === 'cyclades.coffre.temoin'),
   []);
+/*
+   ET CE QUI RESTE, S'IL RESTE QUELQUE CHOSE, EST NOMMÉ plutôt que toléré en
+   silence : une clé recréée doit pouvoir être reconnue, et une clé inattendue
+   doit se voir. On n'autorise donc pas « tout ce qui commence par cyclades » —
+   on autorise une liste, et elle est courte.
+*/
+const RECREEES_PAR_LA_PAGE = ['cyclades.defilement'];
+v('et aucune clé de session inattendue ne reste',
+  apres.session.filter(
+    (c) =>
+      (c.startsWith('revinsp') || c.startsWith('cyclades')) &&
+      !RECREEES_PAR_LA_PAGE.includes(c),
+  ),
+  []);
+/*
+   LE CONTRÔLE QUI COMPTE VRAIMENT. Une clé recréée ne doit rien porter de ce
+   qui a été effacé. Le témoin posé à l'intérieur de « cyclades.defilement »
+   nomme un écran que la page courante n'écrira jamais — et une position de
+   lecture sur « /odyssee/mes-regles/ » dit à elle seule que la personne a
+   consulté son cycle.
+
+   C'est le seul des trois qui attraperait une fuite logée DANS une clé
+   recréée, et aucune des deux versions précédentes de cet essai ne la voyait.
+*/
+v('et rien de ce qui existait avant ne reparaît dans ce qui a été recréé',
+  Object.entries(apres.valeursDeSession)
+    .filter(([, valeur]) => /mes-regles|4242/.test(valeur))
+    .map(([clef]) => clef),
+  []);
+console.log(`      session : ${
+  Object.entries(apres.valeursDeSession)
+    .map(([c, val]) => `${c} = ${val.slice(0, 60)}`)
+    .join(' · ') || '(aucune)'
+}`);
 v('aucun cache de ce site ne survit',
   apres.caches.filter((c) => c.startsWith('cyclades-')),
   []);
