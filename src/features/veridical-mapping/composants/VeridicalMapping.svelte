@@ -36,7 +36,13 @@
   import { gagnerXp, xpVeridical } from '../../../lib/gamification';
   import { debloquer, disponible } from '../audio';
   import { NOMS_FAMILLES, dimensionParId, type Famille } from '../dimensions';
-  import { escalierNeuf, repondre, seuil as seuilDe, statut as statutDe } from '../escalier';
+  import {
+    departPour,
+    escalierNeuf,
+    repondre,
+    seuil as seuilDe,
+    statut as statutDe,
+  } from '../escalier';
   import CorrectionPerceptive from '../../correction/composants/CorrectionPerceptive.svelte';
   import { aCorrectionDetaillee } from '../../correction/registre';
   import { ouvrirAssistant } from '../../assistant/monter';
@@ -234,10 +240,31 @@
     return tache === 'point' ? arete.id : `${arete.id}|${tache}`;
   }
 
-  /** Le seuil d'une arête, créé à la volée s'il n'existe pas encore. */
+  /**
+   * Le seuil d'une arête, créé à la volée s'il n'existe pas encore.
+   *
+   * UN ESCALIER NEUF NE PART PLUS DE ZÉRO DE CONNAISSANCE. Quand la tâche en
+   * jeu n'est pas la tâche de base et que celle-ci a déjà un seuil sur la même
+   * arête, l'escalier part de ce seuil multiplié par le facteur de la tâche.
+   * C'est la vingtaine d'essais que l'escalier passait à descendre depuis un
+   * écart trivialement visible — des essais qui ne mesuraient rien et qui
+   * fatiguaient.
+   *
+   * La référence est cherchée dans LE MÊME magasin, découverte comprise : une
+   * découverte ne doit pas se nourrir des seuils réels, ni l'inverse. C'est
+   * déjà la règle de la ligne au-dessus, et le départ la suit.
+   */
   function seuilDArete(arete: Arete): SeuilVeridical {
     const clef = clefSeuil(arete);
     const magasin = decouverte ? seuilsDecouverte : seuils;
+    /*
+       `arete.id` est la clef de la TÂCHE DE BASE — « clefSeuil » la laisse
+       nue. Pour la tâche de base elle-même, cette ligne est celle qu'on est en
+       train de créer, donc absente : la référence est nulle et le départ
+       général s'applique. C'est le bon comportement, et il vient de la
+       structure plutôt que d'un test sur le nom de la tâche.
+    */
+    const reference = magasin[arete.id]?.seuil ?? null;
     return (
       magasin[clef] ?? {
         id: clef,
@@ -246,10 +273,19 @@
         vers: arete.vers.id,
         horsFamille: arete.de.famille !== arete.vers.famille,
         transmodale: arete.transmodale,
-        escalier: escalierNeuf(),
+        escalier: escalierNeuf(departPour(enJeu.tache, reference)),
         seuil: null,
         statut: 'jamais' as const,
         majLe: new Date().toISOString(),
+        /*
+           LES DEUX MARQUEURS SONT POSÉS DÈS LA CRÉATION, et ce n'est pas une
+           précaution décorative : `reprendreUnSeuil` remet à zéro toute ligne
+           qui ne les porte pas. Sans eux, chaque chargement de l'écran
+           effacerait l'escalier en cours — la ligne serait prise pour une
+           mesure d'avant le 1er novembre, à chaque lecture.
+        */
+        echelle: 'z' as const,
+        regle: '3-down' as const,
       }
     );
   }
@@ -452,6 +488,8 @@
         reussis,
         paires: travaillees,
         seuilMedian: median,
+        /* Son unité, pour que la relecture ne la convertisse pas une seconde fois. */
+        echelle: 'z' as const,
         secondes,
       });
       const gain = await gagnerXp(xpVeridical(reussis, convergences.length), {
@@ -548,7 +586,7 @@
           'd’arrivée. C’est la tâche de base, et celle dont les seuils servent de référence.',
       },
       {
-        id: 'plan' as const,
+        id: 'couple' as const,
         nom: 'Un couple',
         disponible: superposable,
         explication: superposable
@@ -855,7 +893,7 @@
     {/if}
 
     <p class="mt-4 text-sm text-slate-600 dark:text-slate-300">
-      {#if essai.tache === 'plan'}
+      {#if essai.tache === 'couple'}
         La référence porte <strong class="font-medium">deux</strong> valeurs à la fois. Lequel
         des deux candidats les reproduit toutes les deux ? L'autre n'en manque qu'une — et vous
         ne savez pas laquelle.

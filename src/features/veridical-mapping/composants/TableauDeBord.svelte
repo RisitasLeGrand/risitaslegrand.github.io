@@ -17,11 +17,16 @@
    * Le mode sombre a ses propres pas, choisis contre le fond sombre, et non la
    * rampe claire inversée.
    */
-  import { nombreFr } from '../../../lib/noyau/accords';
   import { confirmer } from '../../../lib/boite';
   import { effacerVeridical, jourISO, type SessionVeridical, type SeuilVeridical } from '../../../lib/db';
-  import { DIMENSIONS, dimensionsDeFamille, type Famille } from '../dimensions';
-  import { INTITULES_STATUT } from '../escalier';
+  import {
+    DIMENSIONS,
+    dimensionsDeFamille,
+    ecartDit,
+    zDuPasHistorique,
+    type Famille,
+  } from '../dimensions';
+  import { INTITULES_STATUT, PLANCHER_MESURABLE } from '../escalier';
   import { arbreCouvrant, idArete } from '../hub';
   import { offrirLeFichier } from '../../../lib/telecharger';
 
@@ -54,16 +59,61 @@
     'bg-indigo-600 text-white dark:bg-indigo-400 dark:text-slate-950',
   ];
 
-  /** Bornes des pas, en pas de stimulus. Plus le seuil est petit, plus c'est fin. */
+  /**
+   * Bornes de la rampe, **en z**. Plus le seuil est petit, plus c'est fin.
+   *
+   * Elles valaient 24, 12, 6 et 3 pas, et elles sont écrites comme telles
+   * plutôt que converties à la main : recopier 0,2017, 0,1008, 0,0504 et 0,0252
+   * aurait donné quatre nombres sans origine.
+   *
+   * **Mais converties par la grille D'ALORS, et non par la courante.** Elles
+   * passaient par `zDuPas`, qui suit la grille de dessin : celle-ci ayant
+   * passé de 120 à 1001 points le 1er novembre, les quatre bornes auraient
+   * été divisées par dix d'un seul coup. Toute la rampe aurait basculé au pas
+   * le plus foncé — un tableau de bord entièrement « très fin », donc
+   * illisible, et un progrès affiché que personne n'aurait fait. Rien n'aurait
+   * levé : quatre nombres plus petits restent quatre nombres valides.
+   *
+   * Ces quatre pas sont un choix d'affichage daté. Ils se convertissent donc
+   * avec `zDuPasHistorique`, qui ne bougera plus.
+   */
+  const BORNES_RAMPE = [24, 12, 6, 3].map(zDuPasHistorique);
+
+  /**
+   * LE PLANCHER DE LA MESURE, DIT À LA PERSONNE.
+   *
+   * La procédure ne présente pas d'écart plus petit que `deltaMinimum`. Un
+   * seuil réellement plus fin que le DOUBLE de cette borne ne peut donc pas
+   * être encadré : les excursions vers le bas sont tronquées, et la moyenne
+   * des rebroussements se place au-dessus du seuil vrai. Le biais est vers le
+   * HAUT, toujours — c'est la direction protectrice, puisqu'elle sous-estime
+   * ce que la personne distingue —, mais il faut le dire, sans quoi un palier
+   * à cette valeur se lit comme un palier de l'aptitude.
+   *
+   * **Le chiffre est LU et non recopié, ni calculé ici.** Écrire « 4 % » dans
+   * la phrase aurait produit un texte faux au premier changement de la borne,
+   * et faux sans rien casser : une phrase d'aide ne lève pas.
+   *
+   * Et le calcul lui-même ne vit pas ici. Cette ligne multipliait la borne
+   * basse par deux ; un sabotage a montré que supprimer ce facteur laissait
+   * l'écran afficher « 2 % » sans qu'aucune assertion rougisse — une vue qui
+   * calcule une grandeur de la mesure est une seconde source. Le facteur et sa
+   * raison vivent dans `escalier.ts`, et cette ligne lit un nom.
+   *
+   * `essais:veridical` mesure déjà ce biais sur l'observateur simulé — ligne
+   * « sous le double de la borne basse — biais vers le HAUT, jamais vers le
+   * bas ». Cette phrase ne fait que porter à l'écran ce qui est mesuré.
+   */
+  const PLANCHER_DIT = ecartDit(PLANCHER_MESURABLE);
+
   function classeDuSeuil(valeur: number | null | undefined): string {
     if (valeur === null || valeur === undefined) {
       return 'bg-slate-50 text-slate-400 dark:bg-slate-900 dark:text-slate-500';
     }
-    if (valeur > 24) return PAS_RAMPE[0];
-    if (valeur > 12) return PAS_RAMPE[1];
-    if (valeur > 6) return PAS_RAMPE[2];
-    if (valeur > 3) return PAS_RAMPE[3];
-    return PAS_RAMPE[4];
+    for (let i = 0; i < BORNES_RAMPE.length; i += 1) {
+      if (valeur > BORNES_RAMPE[i]) return PAS_RAMPE[i];
+    }
+    return PAS_RAMPE[PAS_RAMPE.length - 1];
   }
 
   function cellule(de: string, vers: string): SeuilVeridical | undefined {
@@ -179,8 +229,11 @@
       Toutes les paires
     </h4>
     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-      Seuil en pas, de la ligne vers la colonne. Plus la cellule est foncée, plus le seuil est fin.
+      Seuil en part de l’étendue, de la ligne vers la colonne. Plus la cellule est foncée, plus le
+      seuil est fin.
       Les deux sens d'une paire se lisent de part et d'autre de la diagonale.
+      En dessous d’environ {PLANCHER_DIT}, la mesure peut surestimer l’écart : pour l’encadrer, il
+      lui faudrait présenter des écarts plus fins encore, et elle n’en présente pas.
     </p>
     <div class="mt-2 overflow-x-auto">
       <table class="text-xs">
@@ -211,7 +264,7 @@
                         ? `${donnee.escalier.essais} essais, ${INTITULES_STATUT[donnee.statut]}`
                         : 'jamais travaillée'}"
                     >
-                      {donnee?.seuil ? nombreFr(donnee.seuil, 1) : donnee?.escalier.essais ? '…' : '—'}
+                      {donnee?.seuil ? ecartDit(donnee.seuil) : donnee?.escalier.essais ? '…' : '—'}
                     </button>
                   {/if}
                 </td>
@@ -228,7 +281,7 @@
         {detail.escalier.reussis} réussi{detail.escalier.reussis > 1 ? 's' : ''},
           {detail.escalier.inversions.length}
           inversion{detail.escalier.inversions.length > 1 ? 's' : ''},
-        {INTITULES_STATUT[detail.statut]}{#if detail.seuil}, seuil {nombreFr(detail.seuil, 2)} pas{/if}.
+        {INTITULES_STATUT[detail.statut]}{#if detail.seuil}, seuil {ecartDit(detail.seuil)} de l’étendue{/if}.
         {#if detail.horsFamille}<span class="text-amber-700 dark:text-amber-300"> Paire hors famille.</span>{/if}
       </p>
     {/if}
@@ -256,7 +309,7 @@
               <td class="py-1 font-mono text-slate-600 dark:text-slate-300">{entree.aretes}</td>
               <td class="py-1 font-mono text-slate-600 dark:text-slate-300">{entree.stabilisees}</td>
               <td class="py-1 font-mono text-slate-600 dark:text-slate-300">
-                {entree.moyen === null ? '—' : `${nombreFr(entree.moyen, 1)} pas`}
+                {entree.moyen === null ? '—' : ecartDit(entree.moyen)}
               </td>
             </tr>
           {/each}
@@ -292,7 +345,9 @@
     </h4>
     {#if courbe.length}
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-        En pas. Une courbe qui descend est un progrès : le seuil devient plus fin.
+        En part de l’étendue. Une courbe qui descend est un progrès : le seuil devient plus fin.
+        Elle ne descend pas sous environ {PLANCHER_DIT} : c’est le plancher de la mesure, et non le
+        vôtre.
       </p>
       <svg viewBox="0 0 {LARGEUR} {HAUTEUR}" class="mt-2 h-auto w-full max-w-xl" role="img"
         aria-label="Écart médian sur {courbe.length} session{courbe.length > 1 ? 's' : ''}">
@@ -308,7 +363,7 @@
         {#each courbe as point, i (point.le)}
           <circle cx={abscisse(i)} cy={ordonnee(point.valeur)} r="4.5"
             class="fill-indigo-600 stroke-white dark:fill-indigo-400 dark:stroke-slate-900" stroke-width="2">
-            <title>{jour(point.le)} — {nombreFr(point.valeur, 2)} pas</title>
+            <title>{jour(point.le)} — {ecartDit(point.valeur)} de l’étendue</title>
           </circle>
         {/each}
       </svg>
@@ -352,7 +407,7 @@
                   {session.essais ? Math.round((session.reussis / session.essais) * 100) : 0} %
                 </td>
                 <td class="py-1 font-mono text-slate-600 dark:text-slate-300">
-                  {session.seuilMedian === null ? '—' : nombreFr(session.seuilMedian, 1)}
+                  {session.seuilMedian === null ? '—' : ecartDit(session.seuilMedian)}
                 </td>
               </tr>
             {/each}

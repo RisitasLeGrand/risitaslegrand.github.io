@@ -14,6 +14,9 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
    taille d'ensemble.
 */
 import { signalerEcriture } from './sync/signal-ecriture';
+import { PAS_HISTORIQUE } from '../features/veridical-mapping/dimensions';
+import { reprendreUnSeuil } from '../features/veridical-mapping/escalier';
+import { clefNormalisee, seuilsRelus } from '../features/veridical-mapping/hub';
 /*
    Imports de **types seulement** : « noyau/revisions.ts » importe « fsrsNeuf »
    d'ici, et un import de valeur dans l'autre sens formerait un cycle au
@@ -369,10 +372,51 @@ export interface SeuilVeridical {
     essais: number;
     reussis: number;
   };
-  /** Seuil en pas, comparable d'une dimension à l'autre. Null tant qu'il manque des inversions. */
+  /**
+   * Seuil **en z**, part de l'étendue de la dimension, de 0 à 1. Null tant
+   * qu'il manque des inversions.
+   *
+   * Il était en pas jusqu'au 1er novembre 2026. `echelle` dit lequel des deux,
+   * et sans ce champ aucune relecture ne saurait le dire : 0,3 serait à la
+   * fois un seuil fin en z et un seuil très fin en pas.
+   */
   seuil: number | null;
   statut: 'jamais' | 'en-cours' | 'converge';
   majLe: string;
+  /**
+   * L'UNITÉ DE `seuil`, DE `escalier.delta` ET DE `escalier.inversions`.
+   *
+   * **Absent se lit « pas »**, et c'est ce qui rend ce champ utile : les lignes
+   * écrites avant le 1er novembre 2026 ne le portent pas, et les relire comme
+   * des z les rendrait absurdes — un seuil de 7,3 pas deviendrait 730 % de
+   * l'étendue, soit seize fois la borne haute de l'escalier.
+   *
+   * La conversion a lieu à la LECTURE, dans `reprendreUnSeuil`. Le réécriture
+   * du magasin est la migration, et elle attend le prompt 58 p2 — mais la
+   * lecture ne peut pas attendre, parce que le code qui lit est déjà le
+   * nouveau.
+   */
+  echelle?: 'pas' | 'z';
+  /**
+   * LA RÈGLE SOUS LAQUELLE CE SEUIL A ÉTÉ MESURÉ.
+   *
+   * **Absent se lit « 2-down »**. Un 2-down converge vers 70,7 % de réussite,
+   * un 3-down vers 79,4 % : les deux nombres ne désignent pas le même point de
+   * la courbe psychométrique, et poursuivre un escalier 2-down sous les règles
+   * du 3-down donnerait un seuil qui ne mesure ni l'un ni l'autre.
+   *
+   * D'où la décision du pilote : les anciennes mesures sont GARDÉES et
+   * affichées « ancienne mesure », et chaque paire repart d'un escalier neuf.
+   */
+  regle?: '2-down' | '3-down';
+  /**
+   * L'ancienne mesure, convertie en z, gardée pour l'affichage.
+   *
+   * Elle n'alimente aucun calcul : elle se montre à côté du nouveau seuil, et
+   * c'est tout. La mêler au nouveau serait moyenner deux points différents de
+   * la courbe.
+   */
+  ancienneMesure?: number | null;
 }
 
 /** Une session de Veridical Mapping. */
@@ -393,8 +437,16 @@ export interface SessionVeridical {
   reussis: number;
   /** Les arêtes travaillées. */
   paires: string[];
-  /** Seuil médian des arêtes travaillées, en pas. */
+  /**
+   * Seuil médian des arêtes travaillées, **en z** depuis le 1er novembre 2026.
+   *
+   * Les sessions d'avant le portent en pas, et `echelle` le dit — absent se lit
+   * « pas ». Une session est un fait daté qu'on ne récrit pas : la conversion
+   * a donc lieu à la lecture, comme pour les seuils.
+   */
   seuilMedian: number | null;
+  /** L'unité de `seuilMedian`. Absent se lit « pas ». */
+  echelle?: 'pas' | 'z';
   secondes: number;
 }
 
@@ -2533,8 +2585,46 @@ export async function toutesLesSessionsRelationnelles(): Promise<SessionRelation
   return (await db()).getAll('relationnel');
 }
 
+/**
+ * Les seuils de Veridical Mapping, **repris à la lecture**.
+ *
+ * Une ligne écrite avant le 1er novembre 2026 porte ses écarts en pas et son
+ * escalier sous la règle 2-down. `reprendreUnSeuil` convertit l'unité et
+ * repart d'un escalier neuf quand la règle a changé, en gardant l'ancienne
+ * mesure pour l'affichage. Rien n'est réécrit ici : la réécriture du magasin
+ * est la migration du prompt 58 p2.
+ *
+ * La reprise vit dans `escalier.ts` et non ici : elle est pure, elle se
+ * contrôle sans base, et c'est ce qui permet à `essais:veridical` de
+ * l'éprouver — notamment son idempotence, sans laquelle deux lectures
+ * diviseraient deux fois par la même étendue.
+ */
 export async function tousLesSeuilsVeridical(): Promise<SeuilVeridical[]> {
-  return (await db()).getAll('vmSeuils');
+  const lignes = await (await db()).getAll('vmSeuils');
+  /*
+     DEUX REPRISES, ET DANS CET ORDRE.
+
+     `reprendreUnSeuil` convertit l'unité et la règle. `seuilsRelus` ramène
+     ensuite les noms de dimensions à leur forme de rangement — une dimension
+     en a deux depuis le 1er novembre — et réduit à une les lignes qui
+     désignaient la même arête sous deux noms.
+
+     L'ordre importe : la réduction choisit la ligne la mieux estimée, donc
+     elle doit voir des escaliers déjà comparables.
+  */
+  return seuilsRelus(
+    lignes.map((ligne) => ({
+      ...ligne,
+      /*
+         `PAS_HISTORIQUE`, ET NON `PAS` : le diviseur d'une conversion passée
+         appartient au passé. Ces écarts ont été écrits en pas de la grille de
+         cent vingt points ; la grille courante en compte mille un, et diviser
+         par elle rendrait un seuil huit fois trop fin, dans les bornes, sans
+         rien lever.
+      */
+      ...reprendreUnSeuil(ligne, PAS_HISTORIQUE - 1),
+    })),
+  );
 }
 
 export async function ecrireSeuilVeridical(seuil: SeuilVeridical) {
@@ -2547,8 +2637,40 @@ export async function ajouterSessionVeridical(session: SessionVeridical) {
   await journaliser('vmSessions', avecId);
 }
 
+/**
+ * Le journal des séances, repris à la lecture : son seuil médian, et ses clefs.
+ *
+ * Une séance est un fait daté : on ne la récrit pas. Les deux reprises ont donc
+ * lieu ici.
+ *
+ * `seuilMedian` était en pas avant le 1er novembre, et `echelle` le dit.
+ *
+ * `paires` PORTE DES CLEFS DE SEUIL, et c'est moins visible : le champ se lit
+ * « les arêtes travaillées », mais ce que la séance y écrit est la clef, donc
+ * « <arête>|<tâche> ». Une séance d'avant le renommage de la tâche y a laissé
+ * des « |plan », et une séance d'avant les alias de dimensions peut y avoir
+ * laissé un nom canonique. Sans cette reprise, une clef du journal ne
+ * retrouverait plus sa ligne dans les seuils, et le rapprochement rendrait
+ * « aucune mesure » là où la mesure existe — un vide, pas une erreur, donc rien
+ * à voir à la relecture.
+ *
+ * Rien ne lit ce champ aujourd'hui. On le reprend quand même, parce que le
+ * moment où quelqu'un le lira est précisément celui où personne ne pensera à
+ * cette conversion.
+ */
 export async function toutesLesSessionsVeridical(): Promise<SessionVeridical[]> {
-  return (await db()).getAll('vmSessions');
+  const lignes = await (await db()).getAll('vmSessions');
+  return lignes.map((ligne) => {
+    const paires = ligne.paires.map(clefNormalisee);
+    if (ligne.echelle === 'z' || ligne.seuilMedian === null) return { ...ligne, paires };
+    return {
+      ...ligne,
+      paires,
+      // Même raison qu'au-dessus : la grille de l'écriture, pas la courante.
+      seuilMedian: ligne.seuilMedian / (PAS_HISTORIQUE - 1),
+      echelle: 'z' as const,
+    };
+  });
 }
 
 /* --- Séances de révision -------------------------------------------------- */

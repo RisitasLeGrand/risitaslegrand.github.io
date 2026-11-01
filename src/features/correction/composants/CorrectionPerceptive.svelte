@@ -18,7 +18,7 @@
    * même question :
    *
    * - **point** : deux échelles, la référence, l'attendu, le donné ;
-   * - **plan** : deux fois deux échelles, et la correction **nomme l'axe
+   * - **couple** : deux fois deux échelles, et la correction **nomme l'axe
    *   fautif** — le leurre ne se trompe que sur un, et savoir lequel est tout ce
    *   que la tâche enseigne ;
    * - **modulaire** : deux arcs sur un cercle. Une échelle droite mentirait, la

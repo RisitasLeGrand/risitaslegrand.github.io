@@ -13,7 +13,7 @@
  * tête sans toucher à la mesure — ce que le cahier des charges demande
  * précisément : une difficulté indépendante du seuil perceptif.
  */
-import { PAS, borner, ecartEnPas, type Dimension, type Famille } from './dimensions';
+import { PAS, borner, ecartEnPas, pasDuZ, type Dimension, type Famille } from './dimensions';
 import { arbreCouvrant, aretesDeFamille, aretesHorsFamille, idArete, type Arete } from './hub';
 import { stimulus, superposables, superposer, type Stimulus } from './stimulus';
 
@@ -28,7 +28,7 @@ export type Mode = 'squelette' | 'exhaustif';
  *
  *  - **`point`** : une valeur sur la dimension de départ, une valeur sur celle
  *    d'arrivée, au même rang. C'est la tâche de base.
- *  - **`plan`** : un **couple** de valeurs, porté par un seul objet — un disque
+ *  - **`couple`** : un **couple** de valeurs, porté par un seul objet — un disque
  *    à la fois grand et clair. Le leurre ne se trompe que sur **un** des deux
  *    axes, et l'on ne sait pas lequel : il faut donc tenir les deux, sans quoi
  *    une moitié des essais serait perdue au hasard.
@@ -39,7 +39,23 @@ export type Mode = 'squelette' | 'exhaustif';
  *    décalage près. C'est la mise en correspondance d'une **structure** et non
  *    d'un point.
  */
-export type Tache = 'point' | 'plan' | 'modulaire';
+/*
+   LA TÂCHE DU COUPLE S'APPELAIT « plan », ET L'ÉCRAN DISAIT « Un couple ».
+
+   Deux vocabulaires pour une même chose : celui du code et celui du produit.
+   L'écart ne gêne pas la machine, il gêne la relecture — et c'est la relecture
+   qui attrape les défauts. Le nom affiché ne change pas ; c'est l'identifiant
+   qui rejoint l'écran.
+
+   CE QUI N'EST PAS GRATUIT : la tâche voyage dans la CLEF des seuils, qui vaut
+   « <arête>|<tâche> ». Tout seuil mesuré sur cette tâche est donc rangé sous
+   « |plan », et renommer sans plus orphelinerait ces mesures — l'escalier
+   repartirait de zéro sur une paire déjà travaillée, en silence. « |plan » est
+   traité comme l'ALIAS de « |couple » à la relecture, dans `clefNormalisee`,
+   exactement comme « vision.size » est l'alias de « taille » : rien n'est
+   réécrit dans le magasin.
+*/
+export type Tache = 'point' | 'couple' | 'modulaire';
 
 export const LONGUEURS = [48, 96, 160] as const;
 
@@ -91,7 +107,7 @@ export interface Candidat {
   ancre?: number;
   ancreStimulus?: Stimulus;
   /**
-   * En tâche « plan », le rang porté sur le **second** axe.
+   * En tâche « un couple », le rang porté sur le **second** axe.
    *
    * Le stimulus le porte déjà, superposé, mais un stimulus ne se relit pas :
    * sans ce rang, la correction ne pourrait pas dire lequel des deux axes le
@@ -110,7 +126,7 @@ export interface SousEssai {
    */
   pasReference2?: number;
   reference2?: Stimulus;
-  /** En tâche « plan », le rang de la référence sur le second axe. */
+  /** En tâche « un couple », le rang de la référence sur le second axe. */
   pasReferenceSecondaire?: number;
 }
 
@@ -122,7 +138,7 @@ export interface Essai {
   partiel: boolean;
   tache: Tache;
   /**
-   * La seconde dimension du couple, en tâche « plan ». Les stimulus la portent
+   * La seconde dimension du couple, en tâche « un couple ». Les stimulus la portent
    * déjà ; on la nomme ici pour la consigne et le tableau de bord.
    */
   secondaire?: { de: string; vers: string };
@@ -211,8 +227,8 @@ function restreindreALaTache(aretes: readonly Arete[], tache: Tache): Arete[] {
     const circulaires = aretes.filter((arete) => arete.vers.circulaire);
     return circulaires.length ? circulaires : [...aretes];
   }
-  if (tache === 'plan') {
-    // Il faut qu'une seconde paire superposable existe, sinon `tirerPlan`
+  if (tache === 'couple') {
+    // Il faut qu'une seconde paire superposable existe, sinon `tirerCouple`
     // retombe sur la tâche de base.
     const utilisables = aretes.filter((arete) =>
       aretes.some(
@@ -240,18 +256,37 @@ export function chargeAdmise(arete: Arete, charge: number): number {
  * La référence est choisie avec une marge suffisante pour que le leurre reste
  * dans la plage — sauf sur une dimension circulaire, où il n'y a pas de bord.
  */
+/**
+ * LA COUTURE ENTRE LA MESURE ET LE DESSIN, et elle tient en une ligne.
+ *
+ * `delta` arrive **en z** — c'est l'unité de l'escalier depuis le
+ * 31 octobre — et un stimulus se dessine sur la grille de 120 points. C'est
+ * ici, et nulle part ailleurs, que la quantification `qz` a lieu.
+ *
+ * Le plancher d'un pas est ce qui empêche un écart de s'annuler : z = 0,002
+ * arrondirait à 0, les deux candidats seraient identiques, et l'essai
+ * mesurerait un tirage au sort en se présentant comme une discrimination. La
+ * borne basse de l'escalier (z = 0,02, soit deux pas et demi) est au-dessus,
+ * mais le plancher reste, parce qu'il garde l'invariant plutôt que la valeur
+ * d'un réglage.
+ *
+ * **Si l'on voulait un jour des dimensions vraiment continues**, c'est cette
+ * fonction-ci qui changerait, et rien dans la mesure n'en dépend.
+ */
+const ecartEnPasDuZ = (z: number): number => Math.max(1, pasDuZ(z));
+
 export function tirerEssai(
   arete: Arete,
   delta: number,
   reglages: Reglages,
   hasard: Hasard,
 ): Essai {
-  if (reglages.tache === 'plan') return tirerPlan(arete, delta, reglages, hasard);
+  if (reglages.tache === 'couple') return tirerCouple(arete, delta, reglages, hasard);
   if (reglages.tache === 'modulaire' && arete.vers.circulaire) {
     return tirerModulaire(arete, delta, reglages, hasard);
   }
 
-  const ecart = Math.max(1, Math.round(delta));
+  const ecart = ecartEnPasDuZ(delta);
   const charge = chargeAdmise(arete, reglages.charge);
   const sousEssais: SousEssai[] = [];
 
@@ -288,7 +323,7 @@ export function tirerEssai(
 }
 
 /**
- * Tâche « plan » : un couple de valeurs à transporter.
+ * Tâche « un couple » : deux valeurs à transporter d'un seul coup.
  *
  * La référence porte deux valeurs superposées, sur l'arête donnée et sur une
  * seconde arête tirée parmi les dimensions superposables. Les deux candidats
@@ -302,11 +337,11 @@ export function tirerEssai(
  * sans changer le niveau du hasard, qui reste à **50 %** : le point de
  * convergence de l'escalier, et donc la comparabilité des seuils, est préservé.
  */
-function tirerPlan(arete: Arete, delta: number, reglages: Reglages, hasard: Hasard): Essai {
-  const ecart = Math.max(1, Math.round(delta));
+function tirerCouple(arete: Arete, delta: number, reglages: Reglages, hasard: Hasard): Essai {
+  const ecart = ecartEnPasDuZ(delta);
 
   // La seconde paire est cherchée dans le vivier de la **tâche de base** : la
-  // restriction propre à « plan » ne s'applique qu'à l'arête principale, celle
+  // restriction propre au couple ne s'applique qu'à l'arête principale, celle
   // dont le seuil est mesuré. La seconde n'a qu'à être superposable.
   const candidates = vivierDAretes({ ...reglages, tache: 'point' }, () => 0).filter(
     (autre) =>
@@ -353,7 +388,7 @@ function tirerPlan(arete: Arete, delta: number, reglages: Reglages, hasard: Hasa
     arete,
     delta: ecart,
     partiel: reglages.partiel,
-    tache: 'plan',
+    tache: 'couple',
     secondaire: { de: seconde.de.id, vers: seconde.vers.id },
     secondaireDimensions: { de: seconde.de, vers: seconde.vers },
     sousEssais: [
@@ -388,7 +423,7 @@ function tirerPlan(arete: Arete, delta: number, reglages: Reglages, hasard: Hasa
  * comparer.
  */
 function tirerModulaire(arete: Arete, delta: number, reglages: Reglages, hasard: Hasard): Essai {
-  const ecart = Math.max(1, Math.round(delta));
+  const ecart = ecartEnPasDuZ(delta);
   // L'intervalle à reproduire : au moins trois fois l'erreur, pour que le leurre
   // ne soit pas identifiable à sa dégénérescence.
   const minimum = Math.min(Math.floor(PAS / 3), 3 * ecart + 2);

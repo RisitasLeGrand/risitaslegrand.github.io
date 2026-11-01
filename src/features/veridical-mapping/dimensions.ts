@@ -26,8 +26,51 @@
 export type Famille = 'prothetique' | 'metathetique';
 export type Modalite = 'visuelle' | 'auditive';
 
+/**
+ * L'ATTRIBUT DE STIMULUS QU'UNE DIMENSION PILOTE.
+ *
+ * Déclaré ici et non dans `stimulus.ts`, pour deux raisons. C'est une propriété
+ * de la DIMENSION — « la taille pilote la taille en pixels » —, et la déclarer
+ * du côté du stimulus obligeait celui-ci à connaître la liste des dimensions,
+ * ce qu'il faisait par un `switch` de sept cas.
+ *
+ * Ce `switch` était la frontière qui empêchait d'ajouter une dimension sans
+ * toucher au rendu. Elle est levée : `stimulus` lit l'attribut sur la dimension
+ * et ne connaît plus la liste.
+ */
+export type AttributDeStimulus =
+  | 'taillePx'
+  | 'clarte'
+  | 'teinte'
+  | 'positionPct'
+  | 'frequenceHz'
+  | 'niveauDb'
+  | 'dureeMs';
+
 export interface Dimension {
+  /**
+   * L'IDENTIFIANT DE RANGEMENT — celui sous lequel les seuils sont écrits.
+   *
+   * Les sept dimensions d'origine gardent leur nom français, et ce n'est pas
+   * une coquetterie : l'identifiant d'une paire mesurée est « de>vers », donc
+   * renommer `taille` en `vision.size` orphelinerait tous les seuils déjà
+   * mesurés. Décision du pilote du 1er novembre : les sept restent, le registre
+   * les tient pour **alias** de leur identifiant canonique, et les dimensions
+   * nouvelles prennent directement le canonique.
+   */
   id: string;
+  /**
+   * L'IDENTIFIANT CANONIQUE, de la forme « domaine.nom ».
+   *
+   * Celui de la référence de comportement, et celui que porteront les
+   * dimensions nouvelles. Égal à `id` pour celles-ci ; distinct pour les sept
+   * d'origine, dont il est l'autre nom.
+   *
+   * `dimensionParId` accepte les deux formes, et la liste `DIMENSIONS` ne
+   * contient chaque dimension qu'UNE fois : rien n'est donc compté deux fois,
+   * et c'est structurel plutôt que gardé par un contrôle.
+   */
+  canonique: string;
   nom: string;
   famille: Famille;
   /**
@@ -43,16 +86,81 @@ export interface Dimension {
   unite: string;
   /** La dimension reboucle-t-elle sur elle-même ? Seule la teinte le fait. */
   circulaire?: boolean;
+  /**
+   * L'attribut de stimulus que cette dimension fait varier, et lui seul.
+   *
+   * « Et lui seul » est un invariant, non une habitude : `superposer` reporte
+   * l'attribut que le second stimulus a fait varier, et deux dimensions qui
+   * pilotaient le même produiraient un stimulus où la seconde effacerait la
+   * première. `superposables` le vérifie désormais — son commentaire
+   * l'affirmait déjà, mais le contrôle n'existait pas.
+   */
+  attribut: AttributDeStimulus;
   /** Valeur physique au pas donné, de 0 à PAS - 1. */
   valeur(pas: number): number;
 }
 
 /**
- * Nombre de pas par dimension. Cent vingt est assez fin pour qu'un seuil
- * expérimenté se loge dans les premiers pas, et assez grossier pour que chaque
- * pas reste au voisinage du discriminable.
+ * NOMBRE DE POINTS DE LA GRILLE DE DESSIN, PAR DIMENSION.
+ *
+ * ## Pourquoi mille un, et non cent vingt
+ *
+ * Cent vingt points donnaient des pas de z valant 1/119 ≈ 0,0084. Or l'écart à
+ * montrer est quantifié sur cette grille : au plancher de l'escalier, z = 0,02
+ * demandait `Math.round(0,02 × 119)` = 2 pas, soit **0,0168** — un écart
+ * inférieur de 16 % à celui que la mesure croyait présenter. L'escalier
+ * convergeait donc sur un seuil systématiquement optimiste, et rien ne le
+ * disait : les deux candidats différaient bien, l'essai se déroulait
+ * normalement, et le biais ne vivait que dans l'arrondi.
+ *
+ * Mille un points donnent `PAS - 1` = 1000, donc un pas de z de **0,001 pile**.
+ * Au plancher, `Math.round(0,02 × 1000)` = 20 pas, soit 0,020 exactement :
+ * l'erreur de quantification disparaît là où elle était la plus grande, et
+ * reste bornée à 0,0005 partout ailleurs. Décision du pilote du 1er novembre.
+ *
+ * ## Pourquoi cela ne demande aucune migration
+ *
+ * **Parce que la grille n'est pas dans la mesure.** Depuis le 31 octobre, les
+ * seuils, l'escalier et ses inversions sont en z, part sans unité de l'étendue
+ * de la dimension. La grille ne sert qu'à DESSINER, et un dessin ne
+ * s'enregistre pas. Changer sa finesse ne déplace donc aucune valeur
+ * enregistrée — ce qui est exactement ce que le passage en z avait pour but de
+ * rendre possible.
+ *
+ * Deux endroits auraient pourtant suivi cette constante à tort, et c'est le
+ * vrai contenu du changement : voir `PAS_HISTORIQUE`.
  */
-export const PAS = 120;
+export const PAS = 1001;
+
+/**
+ * LA GRILLE QUI AVAIT COURS AVANT LE 1er NOVEMBRE 2026, ET QUI NE BOUGERA PLUS.
+ *
+ * Elle n'est pas un réglage : c'est un **fait daté**. Une ligne enregistrée
+ * avant le passage en z porte ses écarts en pas DE CETTE GRILLE-LÀ, et la
+ * convertir demande de diviser par 119 — aujourd'hui, demain, et quelle que
+ * soit la finesse de la grille courante.
+ *
+ * Écrire `PAS - 1` à cet endroit marchait tant que la grille ne changeait pas.
+ * C'était une coïncidence, et elle a cessé : avec 1001 points, une ligne
+ * d'avant-hier aurait été divisée par 1000 au lieu de 119, rendant un seuil
+ * huit fois trop fin. Aucune exception ne serait levée, la valeur resterait
+ * dans les bornes, et le tableau de bord aurait affiché un progrès que
+ * personne n'avait fait.
+ *
+ * La règle qui en sort, et qui vaut au-delà d'ici : **le diviseur d'une
+ * conversion passée appartient au passé.** Il se nomme, il se gèle, et il ne
+ * suit pas la constante courante.
+ */
+export const PAS_HISTORIQUE = 120;
+
+/**
+ * Un écart écrit en pas de l'ancienne grille, ramené en z.
+ *
+ * Nommée plutôt que recopiée aux trois endroits qui en ont besoin : la base,
+ * le tableau de bord et les essais. Trois recopies auraient fini par donner
+ * trois diviseurs, dont au moins un aurait suivi `PAS`.
+ */
+export const zDuPasHistorique = (pas: number): number => pas / (PAS_HISTORIQUE - 1);
 
 /** Interpolation linéaire entre deux bornes. */
 const lineaire = (bas: number, haut: number) => (pas: number) =>
@@ -65,6 +173,8 @@ const geometrique = (bas: number, haut: number) => (pas: number) =>
 export const DIMENSIONS: Dimension[] = [
   {
     id: 'taille',
+    canonique: 'vision.size',
+    attribut: 'taillePx',
     nom: 'Taille',
     famille: 'prothetique',
     modalite: 'visuelle',
@@ -76,6 +186,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'luminosite',
+    canonique: 'vision.luminance',
+    attribut: 'clarte',
     nom: 'Luminosité',
     famille: 'prothetique',
     modalite: 'visuelle',
@@ -86,6 +198,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'intensite',
+    canonique: 'audition.level',
+    attribut: 'niveauDb',
     nom: 'Intensité sonore',
     famille: 'prothetique',
     modalite: 'auditive',
@@ -96,6 +210,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'duree',
+    canonique: 'audition.duration',
+    attribut: 'dureeMs',
     nom: 'Durée',
     famille: 'prothetique',
     modalite: 'auditive',
@@ -105,6 +221,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'hauteur',
+    canonique: 'audition.pitch',
+    attribut: 'frequenceHz',
     nom: 'Hauteur',
     famille: 'metathetique',
     modalite: 'auditive',
@@ -115,6 +233,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'position',
+    canonique: 'vision.position',
+    attribut: 'positionPct',
     nom: 'Position',
     famille: 'metathetique',
     modalite: 'visuelle',
@@ -124,6 +244,8 @@ export const DIMENSIONS: Dimension[] = [
   },
   {
     id: 'teinte',
+    canonique: 'vision.hue',
+    attribut: 'teinte',
     nom: 'Teinte',
     famille: 'metathetique',
     modalite: 'visuelle',
@@ -136,8 +258,84 @@ export const DIMENSIONS: Dimension[] = [
   },
 ];
 
+/* ── L'ÉCHELLE z, ET LA QUANTIFICATION ─────────────────────────────────── */
+
+/**
+ * L'ÉCHELLE z : UN ÉCART SANS UNITÉ, DE 0 À 1.
+ *
+ * ## Pourquoi elle remplace les pas comme unité de mesure
+ *
+ * Un seuil « en pas » dépend du découpage choisi : changer `PAS` changerait
+ * tous les seuils enregistrés sans que la personne ait rien appris. `z` est la
+ * position RELATIVE sur l'étendue utile de la dimension — 0 au plus bas, 1 au
+ * plus haut —, donc indépendante du découpage, et directement comparable d'une
+ * dimension à l'autre comme d'une version du logiciel à l'autre.
+ *
+ * ## Ce que la grille de 120 points devient
+ *
+ * Elle reste, et c'est délibéré : elle est ce qui rend un stimulus
+ * REPRODUCTIBLE. `z` est l'unité de la mesure — l'escalier, les seuils, les
+ * bornes —, et `pasDuZ` ramène un `z` sur la grille au moment de dessiner.
+ * C'est la quantification `qz` : les dimensions discrètes en ont besoin par
+ * nature — on ne dessine pas 3,4 points —, et les continues y gagnent de ne
+ * pas dépendre de la précision d'un flottant pour être redessinées à
+ * l'identique.
+ *
+ * Si l'on voulait un jour des dimensions vraiment continues, une seule ligne
+ * changerait : celle qui appelle `pasDuZ` au moment du tirage. Rien dans la
+ * mesure n'en dépend.
+ *
+ * ## La conversion, et son dénominateur
+ *
+ * `PAS - 1`, et non `PAS` : le pas 0 vaut z = 0 et le pas 119 vaut z = 1. Avec
+ * `PAS` au dénominateur, le dernier pas vaudrait 0,9917 et l'étendue ne serait
+ * jamais atteinte. C'est le même dénominateur que `positionSurEchelle` dans
+ * `correction.ts`, qui faisait déjà cette conversion pour l'affichage.
+ */
+export const zDuPas = (pas: number): number => pas / (PAS - 1);
+
+/**
+ * La quantification : un `z` ramené sur la grille des pas.
+ *
+ * Arrondi, et non tronqué : tronquer décalerait tout vers le bas d'un
+ * demi-pas, ce qui biaiserait un escalier qui vit justement de petits écarts.
+ */
+export const pasDuZ = (z: number): number => Math.round(z * (PAS - 1));
+
+/**
+ * Écart entre deux positions en z, en tenant compte du rebouclage.
+ *
+ * Le pendant de `ecartEnPas` sur l'échelle de mesure. Sur une dimension
+ * circulaire, z = 0,02 et z = 0,98 sont voisins : les traiter comme distants
+ * de 0,96 fausserait aussi bien la génération d'un leurre que la lecture d'un
+ * seuil.
+ */
+export function ecartEnZ(dimension: Dimension, a: number, b: number): number {
+  const brut = Math.abs(a - b);
+  return dimension.circulaire ? Math.min(brut, 1 - brut) : brut;
+}
+
+/**
+ * Un écart en z, dit à la personne.
+ *
+ * **En pourcentage de l'étendue, et pas en « z ».** Le mot `z` est du jargon,
+ * et « 0,067 » ne dit rien à qui le lit. « 6,7 % de l'étendue » se comprend :
+ * c'est la part de la plage utile de la dimension que la personne distingue
+ * encore. L'ancien affichage disait « 7,3 pas », ce qui ne voulait rien dire
+ * non plus — la grille était un détail d'implantation.
+ */
+export const ecartDit = (z: number): string =>
+  `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(z * 100)} %`;
+
+/**
+ * La dimension portant cet identifiant, **de rangement ou canonique**.
+ *
+ * Les deux formes mènent au même objet, et `DIMENSIONS` ne contient chaque
+ * dimension qu'une fois : un seuil écrit sous « taille>intensite » se relit
+ * donc aussi bien par le canonique, sans que la paire existe deux fois.
+ */
 export function dimensionParId(id: string): Dimension | undefined {
-  return DIMENSIONS.find((dimension) => dimension.id === id);
+  return DIMENSIONS.find((dimension) => dimension.id === id || dimension.canonique === id);
 }
 
 export function dimensionsDeFamille(famille: Famille): Dimension[] {
