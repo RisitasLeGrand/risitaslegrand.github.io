@@ -59,6 +59,22 @@ const BASE = exempleAnalyse({
   unite: 'secondes',
 });
 
+/*
+   LA FORME QUE CET ESSAI LIT DANS L'EXEMPLE, nommée une fois.
+
+   « exempleAnalyse » rend volontairement un « Record<string, unknown> » : une
+   analyse est un document JSON que le SCHÉMA valide à l'exécution, et c'est
+   lui la source de vérité, pas un type. Le choix est juste pour le programme.
+
+   Il laisse en revanche l'essai sans prise : « constatsDe(BASE)[0] » est
+   « unknown », et trois endroits l'indexaient quand même. On nomme donc ici
+   la seule chose que ces trois endroits ont besoin de savoir — que
+   « constats » est une liste —, plutôt que de répéter l'affirmation à chaque
+   usage.
+*/
+const constatsDe = (analyse: Record<string, unknown>): Record<string, unknown>[] =>
+  analyse.constats as Record<string, unknown>[];
+
 const texteDe = (analyse: unknown) => JSON.stringify(analyse);
 /** Une copie modifiable de l'exemple. */
 const copie = () => structuredClone(BASE) as Record<string, any>;
@@ -243,7 +259,7 @@ console.log('\n\x1b[1mLa forme : chaque message porte son chemin\x1b[0m');
 }
 {
   const a = copie();
-  a.constats = Array.from({ length: PLAFONDS.constats + 1 }, () => structuredClone(BASE.constats[0]));
+  a.constats = Array.from({ length: PLAFONDS.constats + 1 }, () => structuredClone(constatsDe(BASE)[0]));
   const verdict = validerTexte(texteDe(a), CONTEXTE);
   v('une liste au-delà du plafond est refusée', verdict.erreurs[0].chemin, 'constats');
   vrai('et la raison compte', verdict.erreurs[0].raison.includes(`${PLAFONDS.constats} au plus`));
@@ -346,7 +362,7 @@ console.log('\n\x1b[1mLes références croisées\x1b[0m');
 }
 {
   const a = copie();
-  a.constats.push({ ...structuredClone(BASE.constats[0]), id: 'c1' });
+  a.constats.push({ ...structuredClone(constatsDe(BASE)[0]), id: 'c1' });
   const verdict = validerTexte(texteDe(a), CONTEXTE);
   v('un identifiant en double est refusé', verdict.erreurs[0].chemin, 'constats[1].id');
   vrai('et la raison dit où il était déjà', verdict.erreurs[0].raison.includes('constats[0].id'));
@@ -434,7 +450,7 @@ console.log('\n\x1b[1mRien n’est importé partiellement\x1b[0m');
 {
   const a = copie();
   a.constats = Array.from({ length: 10 }, (_, i) => ({
-    ...structuredClone(BASE.constats[0]),
+    ...structuredClone(constatsDe(BASE)[0]),
     id: `c${i + 1}`,
     domaine: 'astrologie',
     type: 'divination',

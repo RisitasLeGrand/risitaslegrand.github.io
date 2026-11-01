@@ -22,6 +22,7 @@
 import { TYPES_SERIE } from '../src/lib/odyssee/activite';
 import { projeterFaitsOdyssee, type ContenuOdyssee } from '../src/lib/odyssee/faits-odyssee';
 import type { Occurrence, Tache } from '../src/lib/odyssee/modele';
+import type { IdDomaine } from '../src/lib/noyau/domaines';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -40,6 +41,10 @@ const tache = (id: string, action?: string): Tache => ({
   titre: 'Quelque chose',
   domaine: 'ordre',
   faiteLe: null,
+  echeance: null,
+  abandonneeLe: null,
+  motifAbandon: null,
+  note: '',
   creeeLe: '2026-10-12T08:00:00.000Z',
   majLe: '2026-10-12T08:00:00.000Z',
   lien: action ? { branche: 'x', action } : null,
@@ -105,7 +110,16 @@ console.log('\nSeules les occurrences pointées comptent');
 
 const abandonnee = projeter({
   taches: [tache('E')],
-  occurrences: [{ ...pointee('E'), etat: 'abandonnee', motifAbandon: 'pas-le-temps' }],
+  /*
+     « manque-de-temps », et non « pas-le-temps » : « MotifNonFait » énumère
+     dix valeurs et celle-ci n'en fait pas partie. Un motif voisin, écrit de
+     mémoire. Rien dans « src/ » ne branche sur « motifAbandon » — vérifié,
+     zéro comparaison —, et l'assertion ci-dessous porte de toute façon sur
+     « etat », donc elle n'était pas verte pour une mauvaise raison. Mais une
+     occurrence abandonnée pour un motif que le programme ne connaît pas
+     n'existe pas.
+  */
+  occurrences: [{ ...pointee('E'), etat: 'abandonnee', motifAbandon: 'manque-de-temps' }],
 });
 v('une occurrence abandonnée n’émet rien', occurrences(abandonnee).length, 0);
 
@@ -124,7 +138,21 @@ v(
 );
 
 const sansDomaine = projeter({
-  taches: [{ ...tache('H'), domaine: null }],
+  /*
+     ICI L'INVALIDITÉ EST LE SUJET DE L'ESSAI, et c'est le seul endroit de ce
+     chantier où une valeur hors type est volontaire.
+
+     « Tache.domaine » est un « IdDomaine », jamais nul : le type l'interdit.
+     Cet essai vérifie pourtant qu'une tâche SANS domaine n'émet rien — un
+     contrôle qui a du sens, parce que la base peut porter des lignes écrites
+     par une version antérieure, et que le type ne garde que le code, pas les
+     données déjà enregistrées.
+     
+     L'invalidité est donc affirmée explicitement, et dite. Elle l'était déjà
+     avant ce chantier ; la différence est qu'elle se voyait comme une erreur
+     de typage parmi vingt-sept, et qu'on la lisait comme un oubli.
+  */
+  taches: [{ ...tache('H'), domaine: null as unknown as IdDomaine }],
   occurrences: [pointee('H')],
 });
 v('une tâche sans domaine n’émet rien', occurrences(sansDomaine).length, 0);
