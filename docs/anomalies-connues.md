@@ -111,6 +111,53 @@ Je ne les avais pas inscrits — faute d'avoir mesuré moi-même. Cette abstenti
 est la seule raison pour laquelle ce tableau ne porte pas deux lignes de plus
 qui auraient dû en sortir.
 
+## Un essai INSTABLE, ce qui est pire qu'un essai rouge
+
+Un rouge se compare à ce tableau. Un essai dont les rouges CHANGENT d'un
+passage à l'autre ne se compare à rien : celui qui le lance juste après avoir
+modifié quelque chose l'attribuera à sa modification, et cherchera des heures
+dans un diff qui n'y est pour rien. C'est arrivé le 1er novembre, et la mesure
+ci-dessous est ce qui l'a arrêté.
+
+### `essais:cog:navigateur` — entre un et six rouges, sur n'importe quel arbre
+
+Relevé le 1er novembre. L'essai a été joué **trois fois sur chaque arbre**, le
+même, avec deux `dist/` distincts servis en parallèle — ma branche sur le port
+4321, `origin/main` à 908032c dans un arbre détaché sur le port 4322 :
+
+| passage | `claude/a-p63-l1` | `origin/main` |
+|---|---|---|
+| 1 | 2 rouges | 3 rouges |
+| 2 | 6 rouges | 1 rouge |
+| 3 | 4 rouges | 6 rouges |
+
+Les libellés sont les mêmes des deux côtés, et ils tournent : « Mémoire de
+travail · téléphone · clair », puis « · sombre », puis « Raisonnement
+relationnel · ordinateur · clair »… Et la grandeur mesurée change à chaque
+passage pour le MÊME écran : 940, 960, 1004, 1058, 1082 puis 1112 px de hauteur
+de zone de jeu.
+
+**La cause est là.** L'essai mesure si la zone de jeu tient dans la fenêtre. Or
+la hauteur de cette zone dépend de la question TIRÉE AU HASARD : un énoncé long
+déborde, un court passe. L'essai confronte donc une page de taille aléatoire à
+une fenêtre fixe, et son verdict est un tirage. Les « haut à -194 px » sont la
+seconde moitié du même problème : la zone est alors hors écran vers le haut,
+c'est-à-dire mesurée avant que la mise en page se soit posée.
+
+**Ce qui n'est PAS la cause** : aucune des assertions de « Correspondance
+perceptive » n'échoue, dans aucun des six passages. Les deux écrans concernés
+sont « Mémoire de travail » et « Raisonnement relationnel ».
+
+Cet essai n'est pas au socle, et c'est pour cela que son instabilité a vécu
+jusqu'ici sans être vue. **Il ne doit pas y entrer tant qu'il est instable** :
+un socle qui rougit au hasard ne garde rien, et apprend à ne plus le lire.
+
+Ce qu'il faudrait pour le réparer, à confier à qui tient ces deux écrans :
+soit fixer la question tirée pendant la mesure — une graine —, soit mesurer
+une page dont le contenu est borné, soit laisser la mise en page se poser avant
+de lire la hauteur. La troisième seule ne suffirait pas : elle corrigerait les
+« -194 px » et laisserait le tirage.
+
 ## Deux manières de mesurer qui rendent zéro
 
 Ce tableau liste des rouges. Ces deux lignes-ci listent le contraire : des
