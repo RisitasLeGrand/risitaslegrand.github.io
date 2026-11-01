@@ -27,12 +27,58 @@ Créé le 31 octobre 2026 par l'agent A, à la demande du pilote.
 une cause ; « rouge à l'identique sur `origin/main`, trois assertions nommées »
 en est une. Une ligne sans mesure est une permission de ne pas regarder.
 
-## Les rouges connus — AUCUN au 1er novembre 2026
+## Les rouges connus — UN au 1er novembre 2026
 
-Et c'est une information, non une page blanche : les trois entrées qu'a portées
-ce tableau le 31 octobre en sont toutes sorties, et chacune pour la même
-raison. Elles sont gardées ci-dessous plutôt qu'effacées, parce qu'un tableau
-qui ne montre que son état courant ne dit pas comment il s'est trompé.
+Il n'y en avait aucun ce matin, et c'était une information, non une page
+blanche : les trois entrées qu'a portées ce tableau le 31 octobre en sont
+toutes sorties, et chacune pour la même raison. Elles sont gardées plus bas
+plutôt qu'effacées, parce qu'un tableau qui ne montre que son état courant ne
+dit pas comment il s'est trompé.
+
+Un seul rouge est inscrit, et il n'appartient à personne qui travaille
+aujourd'hui : il est antérieur à tout le chantier, et deux mesures
+indépendantes le disent.
+
+### `essais:mots-cog` — cinq rouges, et ils sont ANTÉRIEURS à tout le chantier
+
+Cinq rouges, tous dans `src/features/quad-n-back/composants/QuadNBack.svelte`,
+aux lignes 1062, 1213, 1217, 1239 et 1243 :
+
+| ligne | ce que l'essai reproche |
+|---|---|
+| 1062 | « interférence » sans « presque juste » — `libelle="le taux d’interférence"` |
+| 1213 | « seuil » sans sa glose — `id="seuil-montee"` |
+| 1217 | « seuil » sans sa glose — `libelle="le seuil de montée"` |
+| 1239 | « seuil » sans sa glose — `id="seuil-descente"` |
+| 1243 | « seuil » sans sa glose — `libelle="le seuil de descente"` |
+
+La glose attendue pour « seuil » est « le plus petit écart que vous
+distinguez ». L'essai relève en outre, en jaune et non en rouge, six noms de
+type de question portant un terme technique, couverts par une exception motivée
+dont la décision est remontée au pilote.
+
+**La mesure, et elle est double.** Relevé par l'agent A le 1er novembre sur
+`claude/a-p63-l1` : cinq rouges, aux cinq lignes ci-dessus. Relevé
+indépendamment par le constructeur dans un arbre détaché à `ec1843bd` — donc
+avant sa série de fusions — **et** sur `main` : les mêmes cinq, finding pour
+finding, aux numéros de ligne près. Ni la branche de A, ni celle de B, ni la
+série de fusions n'en est la cause.
+
+Le constructeur avait d'abord soupçonné le `CurseurRegle` de l'agent C pour les
+deux « libelle= » ; c'était faux, et c'est le compte identique des deux côtés
+qui l'a dit. Une cause supposée aurait fait chercher au mauvais endroit.
+
+**Ce qui reste à faire, et par qui.** Les cinq gloses sont confiées à l'agent C
+par le pilote, avec la ligne de chacune.
+
+**Et pourquoi cet essai n'est PAS au socle.** Il n'y a aucune raison de fond de
+l'en tenir dehors : c'est un balayage de source, sans navigateur ni aperçu, et
+il coûte peu. Mais il rougirait cinq fois, et inscrire au socle un rouge connu
+est exactement ce que ce tableau sert à éviter — un socle qu'on prend
+l'habitude de voir rouge ne garde plus rien. Il entre quand les cinq gloses
+sont sur `main`. C'est la règle qu'on a déjà appliquée à
+`essais:essais-branches`, inscrit seulement une fois ses huit orphelins
+branchés.
 
 
 ### `essais:centre-m14` — RETIRÉ le 1er novembre : c'était un faux rouge
@@ -64,6 +110,44 @@ assouplir les motifs**.
 Je ne les avais pas inscrits — faute d'avoir mesuré moi-même. Cette abstention
 est la seule raison pour laquelle ce tableau ne porte pas deux lignes de plus
 qui auraient dû en sortir.
+
+## Deux manières de mesurer qui rendent zéro
+
+Ce tableau liste des rouges. Ces deux lignes-ci listent le contraire : des
+VERTS qui ne valaient rien. Elles y sont parce qu'un vert faux coûte plus cher
+qu'un rouge connu — le rouge se regarde, le vert se croit.
+
+### Le périmètre d'une mesure doit suivre celui du changement
+
+Le 1er novembre, l'agent A a porté la grille de dessin de Veridical Mapping de
+120 à 1001 points, puis mesuré le socle : 43 verts, 0 rouge, et poussé.
+`essais:correction` n'est pas au socle. Il portait une fixture écrite en pas de
+l'ancienne grille — « les rangs 2 et 118 sont voisins sur la teinte » —, juste
+sur 120 points et fausse sur 1001. **La poussée est donc partie avec un rouge**,
+et le socle vert n'avait rien de faux : il ne couvrait simplement pas ce que le
+changement touchait.
+
+La règle qui en sort : quand un changement porte sur une constante PARTAGÉE, la
+mesure se choisit d'après ce qui l'importe — ici, tous les essais qui importent
+le module —, et non d'après la liste qu'on a l'habitude de lancer.
+
+### Une garde qui se mesure à elle-même rend toujours zéro
+
+Même jour, même lot. Un balayage vérifiait qu'aucun fichier ne nommait plus
+l'ancien nom d'une tâche, et comptait les fichiers lus :
+
+    verifier('les cinq fichiers ont été lus', lus, FICHIERS.length);
+
+Retirer un fichier de `FICHIERS` retirait aussi l'attendu. Le contrôle restait
+VERT en ayant cessé de balayer ce fichier — mesuré par sabotage, et c'est le
+seul des sept de cette série qui n'a pas mordu. Le compte va désormais à un
+littéral, et les quatre fichiers qui portent la tâche sont nommés un par un,
+pour que le rouge dise LEQUEL manque.
+
+C'est la troisième forme du même défaut rencontrée sur ce prompt, après la
+virgule finale qui vidait un argument et l'exclusion qui ne portait sur rien.
+Un analyseur cassé ne lève pas : il rend ZÉRO — et zéro est ce que rend un
+dépôt propre.
 
 ## La règle qui aurait évité les trois faux rouges du 31 octobre
 
