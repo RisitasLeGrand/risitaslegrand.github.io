@@ -309,17 +309,45 @@ console.log('\nCe qui ordonne le rejeu d’un journal de révisions');
   vrai('prémisse : l’identifiant et l’horloge se contredisent bien',
     aa.id < bb.id && aa.hlc > bb.hlc);
 
-  const parLIdentifiant = recalculerCarte([aa, bb]);
-  const dansLAutreSens = recalculerCarte([bb, aa]);
-  v('le rejeu ne dépend pas de l’ordre du tableau', dansLAutreSens, parLIdentifiant);
+  /*
+     TOUT PASSE PAR « tenter », ET C'EST LE SABOTAGE QUI L'A EXIGÉ.
+
+     Première rédaction : des appels nus. En sabotant le rejeu pour qu'il
+     suive l'horloge, l'essai n'a pas rougi — il est MORT. L'ordre de
+     l'horloge rejoue ces deux entrées à rebours du calendrier, FSRS refuse
+     un intervalle de −31 jours, et l'exception a tué le processus au milieu
+     du fichier. Les sections suivantes ne tournaient plus du tout.
+
+     Un essai qui meurt est rouge, donc ce n'était pas un faux vert ; mais
+     c'est le pire des rouges : il ne nomme pas ce qui a cassé, et il emporte
+     tout ce qui venait après. La règle est la même que pour la région
+     d'échec du site — un contrôle doit échouer LISIBLEMENT.
+
+     Et la panne est elle-même un résultat qu'il vaut mieux consigner que
+     subir : si le rejeu passait à l'horloge, ces données ne seraient pas
+     mal recalculées, elles seraient INREJOUABLES.
+  */
+  const tenter = <T,>(quoi: () => T): { ok: boolean; valeur: T | null } => {
+    try {
+      return { ok: true, valeur: quoi() };
+    } catch {
+      return { ok: false, valeur: null };
+    }
+  };
+
+  const direct = tenter(() => recalculerCarte([aa, bb]));
+  const inverse = tenter(() => recalculerCarte([bb, aa]));
+  vrai('le rejeu aboutit, sans panne', direct.ok && inverse.ok);
+  const parLIdentifiant = direct.valeur;
+  v('le rejeu ne dépend pas de l’ordre du tableau', inverse.valeur, parLIdentifiant);
 
   /*
      Et voici la décision elle-même : la dernière note appliquée est celle de
      l'entrée au PLUS GRAND IDENTIFIANT, donc « facile ». Si le rejeu suivait
      l'horloge, ce serait « oublie », et l'intervalle serait tout autre.
   */
-  const commeSiLHorloge = recalculerCarte([bb]);
-  const commeSiLIdentifiant = recalculerCarte([aa]);
+  const commeSiLHorloge = tenter(() => recalculerCarte([bb])).valeur;
+  const commeSiLIdentifiant = tenter(() => recalculerCarte([aa])).valeur;
   vrai('prémisse : les deux notes ne mènent pas au même état',
     commeSiLHorloge?.fsrs.scheduled_days !== commeSiLIdentifiant?.fsrs.scheduled_days);
   /*
