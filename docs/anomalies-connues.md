@@ -27,17 +27,18 @@ Créé le 31 octobre 2026 par l'agent A, à la demande du pilote.
 une cause ; « rouge à l'identique sur `origin/main`, trois assertions nommées »
 en est une. Une ligne sans mesure est une permission de ne pas regarder.
 
-## Les rouges connus — UN au 1er novembre 2026
+## Les rouges connus
 
-Il n'y en avait aucun ce matin, et c'était une information, non une page
-blanche : les trois entrées qu'a portées ce tableau le 31 octobre en sont
-toutes sorties, et chacune pour la même raison. Elles sont gardées plus bas
-plutôt qu'effacées, parce qu'un tableau qui ne montre que son état courant ne
-dit pas comment il s'est trompé.
+**Ce titre ne porte plus de compte, et c'est une leçon payée deux fois.** Il
+disait « AUCUN au 1er novembre », puis « UN » : le second a provoqué un conflit
+de fusion dès qu'une entrée est arrivée d'ailleurs, et le compte était faux
+avant même d'être relu. C'est exactement ce que l'en-tête de `batterie.mjs`
+raconte de ses deux nombres périmés. Le compte, c'est la liste qui le donne.
 
-Un seul rouge est inscrit, et il n'appartient à personne qui travaille
-aujourd'hui : il est antérieur à tout le chantier, et deux mesures
-indépendantes le disent.
+Les trois entrées qu'a portées ce tableau le 31 octobre en sont toutes sorties,
+et chacune pour la même raison. Elles sont gardées plus bas plutôt qu'effacées,
+parce qu'un tableau qui ne montre que son état courant ne dit pas comment il
+s'est trompé.
 
 ### `essais:mots-cog` — cinq rouges, et ils sont ANTÉRIEURS à tout le chantier
 
