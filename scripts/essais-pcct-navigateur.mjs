@@ -828,7 +828,21 @@ verifier(
 */
 const rangOrdinaire = await attendreUnEssai(pageInh, false);
 verifier('un essai NON signalé paraît', rangOrdinaire !== null, true);
-await pageInh.tap('[data-retenir]');
+/*
+   ET « RETENIR » Y EST OFFERT AUSSI. C'est la garde du défaut de la référence
+   pris à l'envers : un bouton qui n'apparaîtrait que sur les essais signalés
+   DIRAIT le signal, rendrait l'inhibition gratuite et la fausse alarme
+   impossible. Le compte est lu sur un essai dont on sait qu'il ne porte pas
+   le signal.
+*/
+verifier(
+  'et « Retenir » y est offert AUSSI, sans quoi la fausse alarme serait impossible',
+  await pageInh.locator('[data-retenir]').count(),
+  1,
+);
+/* Le geste est rattrapé : si le bouton manquait, le `tap` lèverait et l'essai
+   mourrait sur une exception au lieu de rendre les rouges ci-dessus. */
+await pageInh.tap('[data-retenir]').catch(() => {});
 await attendreLEssaiSuivant(pageInh, rangOrdinaire);
 verifier(
   'retenir sans signal est annoncé « fausse alarme »',
