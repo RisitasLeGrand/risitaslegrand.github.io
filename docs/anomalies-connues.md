@@ -59,56 +59,6 @@ la relecture, qui trancheraient entre le transport et la bâtisse.
 
 ---
 
-### `essais:parametres-navigateur` — l'ancre `#sport` n'emmène nulle part, une fois sur six
-
-**Mesuré, et la cause est dans l'écran, pas dans l'essai.** Inscrit le
-1er novembre 2026 par le constructeur.
-
-L'assertion « `#sport` amène la section dans l'écran » rougit par
-intermittence : cinq rouges de suite, puis un vert, sur le même code. Elle est
-rouge à `bc02395a`, à `f64a4cdb` et à `7af82285` — donc AVANT les fusions de
-branches `src/` du jour, qui n'y sont pour rien. L'essai est hors socle : rien
-ne le surveillait.
-
-**Ce que la sonde a relevé**, en faisant imprimer à l'essai ce qu'il lit :
-
-    ancre=11420 puis {"top":11420,"hauteur":761,"defilement":190,"hauteurDoc":15309}
-
-La page a défilé de **190 px**, et la section se trouve à **11 420 px**. Les
-deux mesures, prises à cinquante millisecondes d'intervalle, sont identiques :
-rien ne bougeait plus, donc `attendreLaFinDuDefilement` a vu juste. **La page
-n'a simplement jamais défilé jusqu'à l'ancre.** Sur la course verte, le même
-relevé donnait `defilement: 11499`.
-
-**Le mécanisme, lu ensuite.** `src/lib/defilement.ts:242` s'écarte
-délibérément quand l'adresse porte une ancre — « Une ancre dans l'adresse a
-toujours raison : c'est une position demandée ». Le défilement est donc laissé
-au navigateur, qui le fait à l'analyse du document, quand les blocs situés
-au-dessus n'ont pas encore reçu leurs commandes et que la page est deux fois
-plus courte. Les blocs grandissent ensuite, la section descend, et plus rien ne
-repose la position. Le 190 px est le défilement natif vers l'endroit où la
-section se trouvait alors.
-
-**Ce n'est pas qu'un défaut d'essai : c'est un défaut d'écran.** Ouvrir
-`/parametres/#sport` dépose la personne au mauvais endroit, et l'intermittence
-ne fait que suivre l'ordre d'arrivée des commandes. Le correctif de l'ancre du
-prompt 43 (`p43-e3-ancres`) traitait un autre point — une ancre qui atterrit
-SOUS ce qui est collé en haut — et ne couvre pas la croissance qui suit.
-
-**Et la machinerie du correctif existe déjà, dans ce même module.**
-`rendreLaPosition` repose la position à CHAQUE changement de hauteur pendant
-une fenêtre de grâce, avec `overflow-anchor: none` et un abandon au premier
-geste de la personne. C'est exactement ce dont une ancre a besoin ; elle en est
-seulement exclue par le retour anticipé de la ligne 242. Proposition, à
-arbitrer par le pilote puisque le lot des ancres n'est pas le mien : traiter la
-cible d'une ancre comme une position demandée — donc la reposer de la même
-façon — au lieu de s'en remettre au seul défilement natif.
-
-**Ce qui retire cette ligne.** Que l'ancre reste en place après la croissance
-de la page, mesuré sur dix courses de suite.
-
----
-
 ## Les rouges connus au 31 octobre — tous retirés le 1er novembre
 
 Et c'est une information, non une page blanche : les trois entrées qu'a portées
@@ -133,6 +83,44 @@ trois d'entre nous le même jour.
 
 Rien ne reste donc dans ce tableau au titre de `centre-m14`. Ce qui reste est la
 règle ci-dessous, qui est la vraie leçon.
+
+### `essais:parametres-navigateur` — RETIRÉ le 1er novembre : l'ancre lointaine est corrigée
+
+L'entrée disait juste sur l'essentiel : ce n'était pas un défaut d'essai mais un
+défaut d'ÉCRAN, et la machinerie du correctif existait déjà dans le module. Sa
+proposition — traiter la cible d'une ancre comme une position demandée, donc la
+reposer de la même façon — est exactement ce qui a été fait
+(`claude/tri-ancre-lointaine`).
+
+**Deux choses qu'elle n'avait pas vues**, et qui ont demandé une sonde :
+
+Le défaut avait DEUX chemins. L'entrée décrivait le premier — une page ouverte
+directement sur son ancre —, et il était bien réel : mesuré en fenêtre de
+390 px, la section restait 1 907 px trop haut, hors écran. Mais le chemin que
+l'essai emprunte, lui, est le SECOND : une navigation dans le même document,
+où `brancherLeDefilement` ne repasse jamais puisque rien ne recharge. Le
+correctif du premier chemin laissait le rouge entier ; il a fallu écouter
+`hashchange`.
+
+Et son relevé — « la page n'a simplement jamais défilé jusqu'à l'ancre » —
+méritait d'être précisé. La sonde a montré `aBouge: true, parScrollend: true` :
+le défilement a bien eu lieu et s'est bien TERMINÉ, à 190 px, là où `#sport` se
+trouvait alors. Ce sont les sections du dessus qui ont grandi ensuite. La page
+n'était pas immobile : elle visait juste, trop tôt.
+
+**La condition de levée était dix courses de suite. Elle est tenue** :
+10 courses, code 0, zéro croix, zéro plantage. Et deux gardes la tiennent
+désormais, là où l'entrée notait qu'« aucune ne surveillait » : la section
+« arrivée à froid » de `essais:ancres:navigateur`, **qui est dans la
+batterie**, et l'attente réparée de `essais:parametres-navigateur`, qui
+comptait dix trames immobiles — ce qui est vrai AVANT qu'une animation
+commence.
+
+**Et une leçon de compteur.** En vérifiant les dix courses, j'ai lu « 0 croix
+sur dix courses » sur DIX PLANTAGES : le script ne compilait plus, et un script
+qui ne démarre pas ne rend aucune croix. La consigne dit de lire le nombre de
+croix et non le code de sortie ; elle vaut dans ce sens-là, mais **zéro croix ne
+vaut que si le code vaut zéro aussi**.
 
 ### Et deux entrées qui n'ont jamais eu à être écrites
 

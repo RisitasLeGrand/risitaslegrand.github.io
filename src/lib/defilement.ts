@@ -105,7 +105,7 @@ const cleDeLEcran = (): string => location.pathname + location.search;
  * s'arrête net. Rien n'est plus désagréable qu'une page qui se reprend la
  * main sous le doigt.
  */
-function tenirPendantLaGrace(viser: () => void, poserMaintenant = true): void {
+function tenirPendantLaGrace(viser: () => void, poserMaintenant = true): () => void {
   let fini = false;
   const racine = document.documentElement;
   const ancrageInitial = racine.style.overflowAnchor;
@@ -152,6 +152,7 @@ function tenirPendantLaGrace(viser: () => void, poserMaintenant = true): void {
      si la page GRANDIT sous elle, ce qui est le seul cas qui l'égare.
   */
   if (poserMaintenant) poser();
+  return terminer;
 }
 
 /** Repose la page à une HAUTEUR fixe — la reprise d'un retour en arrière. */
@@ -195,8 +196,26 @@ function rendreLaPosition(cible: number): void {
  * Le reste est hérité : un geste de la personne l'emporte toujours, et la
  * reprise s'arrête net.
  */
+/*
+   UNE SEULE TENUE D'ANCRE À LA FOIS.
+
+   Chaque tenue vit jusqu'à trois secondes et vise l'élément qu'on lui a donné.
+   Deux changements de fragment rapprochés — deux clics dans un sommaire —
+   laisseraient donc la PREMIÈRE encore active, à ramener la page vers l'ancienne
+   cible pendant que la seconde vise la nouvelle. On arrête la précédente avant
+   d'en ouvrir une autre.
+
+   Trouvé en relisant, et non mesuré : deux clics à moins de trois secondes
+   d'intervalle dans un sommaire sont un geste ordinaire, mais je n'ai pas
+   d'écran où le reproduire aujourd'hui. Je l'écris donc comme ce que c'est —
+   un défaut vu dans la logique, corrigé par construction plutôt que gardé par
+   une mesure que je n'ai pas.
+*/
+let arreterLaTenue: (() => void) | null = null;
+
 function tenirLAncre(ancre: Element, poserMaintenant = true): void {
-  tenirPendantLaGrace(() => {
+  arreterLaTenue?.();
+  arreterLaTenue = tenirPendantLaGrace(() => {
     ancre.scrollIntoView({ block: 'start', inline: 'nearest' });
   }, poserMaintenant);
 }
