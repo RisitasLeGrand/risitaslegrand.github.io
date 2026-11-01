@@ -19,7 +19,13 @@
    */
   import { confirmer } from '../../../lib/boite';
   import { effacerVeridical, jourISO, type SessionVeridical, type SeuilVeridical } from '../../../lib/db';
-  import { DIMENSIONS, dimensionsDeFamille, ecartDit, zDuPas, type Famille } from '../dimensions';
+  import {
+    DIMENSIONS,
+    dimensionsDeFamille,
+    ecartDit,
+    zDuPasHistorique,
+    type Famille,
+  } from '../dimensions';
   import { INTITULES_STATUT } from '../escalier';
   import { arbreCouvrant, idArete } from '../hub';
   import { offrirLeFichier } from '../../../lib/telecharger';
@@ -56,12 +62,22 @@
   /**
    * Bornes de la rampe, **en z**. Plus le seuil est petit, plus c'est fin.
    *
-   * Elles valaient 24, 12, 6 et 3 pas. Elles sont écrites avec `zDuPas` plutôt
-   * que converties à la main : les quatre seuils de couleur restent ainsi les
-   * mêmes qu'avant, et une relecture voit d'où ils viennent. Recopier 0,2017,
-   * 0,1008, 0,0504 et 0,0252 aurait donné quatre nombres sans origine.
+   * Elles valaient 24, 12, 6 et 3 pas, et elles sont écrites comme telles
+   * plutôt que converties à la main : recopier 0,2017, 0,1008, 0,0504 et 0,0252
+   * aurait donné quatre nombres sans origine.
+   *
+   * **Mais converties par la grille D'ALORS, et non par la courante.** Elles
+   * passaient par `zDuPas`, qui suit la grille de dessin : celle-ci ayant
+   * passé de 120 à 1001 points le 1er novembre, les quatre bornes auraient
+   * été divisées par dix d'un seul coup. Toute la rampe aurait basculé au pas
+   * le plus foncé — un tableau de bord entièrement « très fin », donc
+   * illisible, et un progrès affiché que personne n'aurait fait. Rien n'aurait
+   * levé : quatre nombres plus petits restent quatre nombres valides.
+   *
+   * Ces quatre pas sont un choix d'affichage daté. Ils se convertissent donc
+   * avec `zDuPasHistorique`, qui ne bougera plus.
    */
-  const BORNES_RAMPE = [24, 12, 6, 3].map(zDuPas);
+  const BORNES_RAMPE = [24, 12, 6, 3].map(zDuPasHistorique);
 
   function classeDuSeuil(valeur: number | null | undefined): string {
     if (valeur === null || valeur === undefined) {

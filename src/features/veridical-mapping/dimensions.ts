@@ -101,11 +101,66 @@ export interface Dimension {
 }
 
 /**
- * Nombre de pas par dimension. Cent vingt est assez fin pour qu'un seuil
- * expérimenté se loge dans les premiers pas, et assez grossier pour que chaque
- * pas reste au voisinage du discriminable.
+ * NOMBRE DE POINTS DE LA GRILLE DE DESSIN, PAR DIMENSION.
+ *
+ * ## Pourquoi mille un, et non cent vingt
+ *
+ * Cent vingt points donnaient des pas de z valant 1/119 ≈ 0,0084. Or l'écart à
+ * montrer est quantifié sur cette grille : au plancher de l'escalier, z = 0,02
+ * demandait `Math.round(0,02 × 119)` = 2 pas, soit **0,0168** — un écart
+ * inférieur de 16 % à celui que la mesure croyait présenter. L'escalier
+ * convergeait donc sur un seuil systématiquement optimiste, et rien ne le
+ * disait : les deux candidats différaient bien, l'essai se déroulait
+ * normalement, et le biais ne vivait que dans l'arrondi.
+ *
+ * Mille un points donnent `PAS - 1` = 1000, donc un pas de z de **0,001 pile**.
+ * Au plancher, `Math.round(0,02 × 1000)` = 20 pas, soit 0,020 exactement :
+ * l'erreur de quantification disparaît là où elle était la plus grande, et
+ * reste bornée à 0,0005 partout ailleurs. Décision du pilote du 1er novembre.
+ *
+ * ## Pourquoi cela ne demande aucune migration
+ *
+ * **Parce que la grille n'est pas dans la mesure.** Depuis le 31 octobre, les
+ * seuils, l'escalier et ses inversions sont en z, part sans unité de l'étendue
+ * de la dimension. La grille ne sert qu'à DESSINER, et un dessin ne
+ * s'enregistre pas. Changer sa finesse ne déplace donc aucune valeur
+ * enregistrée — ce qui est exactement ce que le passage en z avait pour but de
+ * rendre possible.
+ *
+ * Deux endroits auraient pourtant suivi cette constante à tort, et c'est le
+ * vrai contenu du changement : voir `PAS_HISTORIQUE`.
  */
-export const PAS = 120;
+export const PAS = 1001;
+
+/**
+ * LA GRILLE QUI AVAIT COURS AVANT LE 1er NOVEMBRE 2026, ET QUI NE BOUGERA PLUS.
+ *
+ * Elle n'est pas un réglage : c'est un **fait daté**. Une ligne enregistrée
+ * avant le passage en z porte ses écarts en pas DE CETTE GRILLE-LÀ, et la
+ * convertir demande de diviser par 119 — aujourd'hui, demain, et quelle que
+ * soit la finesse de la grille courante.
+ *
+ * Écrire `PAS - 1` à cet endroit marchait tant que la grille ne changeait pas.
+ * C'était une coïncidence, et elle a cessé : avec 1001 points, une ligne
+ * d'avant-hier aurait été divisée par 1000 au lieu de 119, rendant un seuil
+ * huit fois trop fin. Aucune exception ne serait levée, la valeur resterait
+ * dans les bornes, et le tableau de bord aurait affiché un progrès que
+ * personne n'avait fait.
+ *
+ * La règle qui en sort, et qui vaut au-delà d'ici : **le diviseur d'une
+ * conversion passée appartient au passé.** Il se nomme, il se gèle, et il ne
+ * suit pas la constante courante.
+ */
+export const PAS_HISTORIQUE = 120;
+
+/**
+ * Un écart écrit en pas de l'ancienne grille, ramené en z.
+ *
+ * Nommée plutôt que recopiée aux trois endroits qui en ont besoin : la base,
+ * le tableau de bord et les essais. Trois recopies auraient fini par donner
+ * trois diviseurs, dont au moins un aurait suivi `PAS`.
+ */
+export const zDuPasHistorique = (pas: number): number => pas / (PAS_HISTORIQUE - 1);
 
 /** Interpolation linéaire entre deux bornes. */
 const lineaire = (bas: number, haut: number) => (pas: number) =>

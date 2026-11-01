@@ -14,7 +14,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
    taille d'ensemble.
 */
 import { signalerEcriture } from './sync/signal-ecriture';
-import { PAS } from '../features/veridical-mapping/dimensions';
+import { PAS_HISTORIQUE } from '../features/veridical-mapping/dimensions';
 import { reprendreUnSeuil } from '../features/veridical-mapping/escalier';
 import { seuilsRelus } from '../features/veridical-mapping/hub';
 /*
@@ -2615,7 +2615,14 @@ export async function tousLesSeuilsVeridical(): Promise<SeuilVeridical[]> {
   return seuilsRelus(
     lignes.map((ligne) => ({
       ...ligne,
-      ...reprendreUnSeuil(ligne, PAS - 1),
+      /*
+         `PAS_HISTORIQUE`, ET NON `PAS` : le diviseur d'une conversion passée
+         appartient au passé. Ces écarts ont été écrits en pas de la grille de
+         cent vingt points ; la grille courante en compte mille un, et diviser
+         par elle rendrait un seuil huit fois trop fin, dans les bornes, sans
+         rien lever.
+      */
+      ...reprendreUnSeuil(ligne, PAS_HISTORIQUE - 1),
     })),
   );
 }
@@ -2642,7 +2649,12 @@ export async function toutesLesSessionsVeridical(): Promise<SessionVeridical[]> 
   return lignes.map((ligne) =>
     ligne.echelle === 'z' || ligne.seuilMedian === null
       ? ligne
-      : { ...ligne, seuilMedian: ligne.seuilMedian / (PAS - 1), echelle: 'z' as const },
+      : {
+          ...ligne,
+          // Même raison qu'au-dessus : la grille de l'écriture, pas la courante.
+          seuilMedian: ligne.seuilMedian / (PAS_HISTORIQUE - 1),
+          echelle: 'z' as const,
+        },
   );
 }
 

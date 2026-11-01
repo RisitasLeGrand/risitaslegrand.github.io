@@ -12,6 +12,7 @@
 import {
   DIMENSIONS,
   PAS,
+  PAS_HISTORIQUE,
   borner,
   dimensionsDeFamille,
   ecartEnPas,
@@ -20,6 +21,7 @@ import {
   dimensionParId,
   pasDuZ,
   zDuPas,
+  zDuPasHistorique,
   type Dimension,
 } from '../src/features/veridical-mapping/dimensions';
 import {
@@ -37,6 +39,7 @@ import {
   superposables,
   superposer,
 } from '../src/features/veridical-mapping/stimulus';
+import { readFileSync } from 'node:fs';
 import {
   REGLAGES,
   escalierNeuf,
@@ -74,10 +77,23 @@ for (const dimension of DIMENSIONS) {
 console.log('\nREBOUCLAGE — seule la teinte est circulaire');
 const teinte = dimensionParId('teinte')!;
 const taille = dimensionParId('taille')!;
-verifier('teinte : 2 et 118 sont voisins', ecartEnPas(teinte, 2, 118), 4);
-verifier('taille : 2 et 118 sont distants', ecartEnPas(taille, 2, 118), 116);
-verifier('teinte : le pas 125 reboucle sur 5', borner(teinte, 125), 5);
-verifier('taille : le pas 125 est borné', borner(taille, 125), PAS - 1);
+/*
+   LES RANGS SONT ÉCRITS EN FONCTION DE `PAS`, et non en chiffres.
+
+   Ils valaient 2, 118 et 125 — justes sur une grille de cent vingt points, et
+   faux sur toute autre. La grille étant passée à mille un points, « 118 »
+   n'était plus près du bord et « 125 » ne rebouclait plus : trois assertions
+   rouges, qui ne disaient rien du rebouclage et tout de la grille.
+
+   Ce que ces lignes mesurent ne dépend pourtant pas de la finesse : deux rangs
+   à deux pas des bords opposés sont voisins sur un cercle, et un rang au-delà
+   du dernier reboucle. Écrits ainsi, ils le mesurent sur n'importe quelle
+   grille.
+*/
+verifier('teinte : les deux bords sont voisins', ecartEnPas(teinte, 2, PAS - 2), 4);
+verifier('taille : les deux bords sont distants', ecartEnPas(taille, 2, PAS - 2), PAS - 4);
+verifier('teinte : un rang au-delà du dernier reboucle', borner(teinte, PAS + 5), 5);
+verifier('taille : un rang au-delà du dernier est borné', borner(taille, PAS + 5), PAS - 1);
 verifier('taille : le pas -3 est borné', borner(taille, -3), 0);
 
 console.log('\nHUB — arêtes orientées et arbre couvrant');
@@ -179,8 +195,17 @@ function generateur(graine: number) {
    trois cas mesurés restent donc exactement les mêmes qu'avant le passage à
    l'échelle z, et la comparaison avec les anciens relevés garde un sens. Trois
    nombres recopiés à la main auraient été trois cas voisins, sans plus.
+
+   PAR `zDuPasHistorique`, ET C'EST LE POINT. Ils passaient par `zDuPas`, qui
+   suit la grille de dessin : celle-ci ayant décuplé de finesse, les trois cas
+   devenaient 0,003, 0,008 et 0,020 — soit deux seuils SOUS le plancher de
+   l'escalier, qu'aucune procédure ne peut mesurer. Les deux assertions
+   correspondantes rougissaient, et pour la mauvaise raison : non parce que
+   l'escalier s'était dégradé, mais parce que l'essai lui demandait désormais
+   autre chose. Ces trois pas sont un choix de fixture daté, comme les quatre
+   bornes de la rampe du tableau de bord.
 */
-for (const seuilVrai of [3, 8, 20].map(zDuPas)) {
+for (const seuilVrai of [3, 8, 20].map(zDuPasHistorique)) {
   const estimations: number[] = [];
   let convergences = 0;
   for (let graine = 1; graine <= 60; graine += 1) {
@@ -278,7 +303,18 @@ for (const seuilVrai of [3, 8, 20].map(zDuPas)) {
 
 console.log('\nREPRISE D’UNE MESURE ÉCRITE AVANT LE 1er NOVEMBRE');
 {
-  const ETENDUE = PAS - 1;
+  /*
+     L'ÉTENDUE DE L'ANCIENNE GRILLE, ET NON DE LA COURANTE.
+
+     Ces écarts ont été écrits en pas de la grille de cent vingt points. La
+     grille courante en compte mille un : diviser par elle rendrait un seuil
+     huit fois trop fin, dans les bornes, sans rien lever. Le diviseur d'une
+     conversion passée appartient au passé — c'est ce que `PAS_HISTORIQUE`
+     nomme, et ce que la section « GRILLE DE DESSIN » ci-dessous vérifie sur le
+     code de production, puisqu'ici l'essai serait cohérent avec lui-même quel
+     que soit le diviseur choisi.
+  */
+  const ETENDUE = PAS_HISTORIQUE - 1;
   /* Une ligne d'avant : écarts en pas, aucun marqueur, règle 2-down implicite. */
   const ancienne = {
     escalier: {
@@ -643,10 +679,29 @@ console.log('\nSUPERPOSITION — la garde sur l’attribut partagé');
   // stimulus portait déjà cette valeur de repos — mais la justesse tenait à
   // une coïncidence de valeurs, non à une règle. Elle tient désormais au
   // registre, et cette ligne le mesure.
-  const pasDeCollision = Array.from({ length: PAS }, (_, i) => i)
-    .filter((pas) => teinte2.valeur(pas) === FIXES.teinte);
-  verifier('la collision de valeurs existe bien', pasDeCollision.length > 0, true);
-  const couple = superposer(stimulus(position, 90), stimulus(teinte2, pasDeCollision[0]));
+  /*
+     LA COLLISION EST FABRIQUÉE, ET NON CHERCHÉE DANS LE CATALOGUE.
+
+     Elle y existait : sur la grille de cent vingt points, la teinte au pas 70
+     valait exactement 210°. Sur celle de mille un, aucun pas ne tombe sur la
+     valeur de repos — l'essai aurait donc rougi pour avoir perdu son
+     accident, ce qui n'aurait rien appris. Une assertion qui dépend d'une
+     coïncidence arithmétique ne mesure pas ce qu'elle annonce.
+
+     On fabrique donc le cas : une dimension dont la valeur au pas donné EST la
+     valeur de repos de son attribut. Le contrôle vaut alors pour toute grille,
+     et pour les dimensions que B ajoutera.
+  */
+  /*
+     L'IDENTIFIANT RESTE CELUI DE LA TEINTE, et ce n'est pas un raccourci :
+     `superposer` lit l'attribut sur le registre, donc une dimension inventée
+     de toutes pièces le ferait REFUSER — ce que l'avant-dernière assertion de
+     cette section mesure exprès. Seule la valeur est remplacée.
+  */
+  const pileAuRepos: Dimension = { ...teinte2, valeur: () => FIXES.teinte };
+  verifier('la dimension fabriquée vaut bien la valeur de repos',
+    pileAuRepos.valeur(0), FIXES.teinte);
+  const couple = superposer(stimulus(position, 90), stimulus(pileAuRepos, 0));
   verifier('la composante de teinte est reportée', couple.teinte, FIXES.teinte);
   verifier('celle de position est gardée', couple.positionPct, position.valeur(90));
   verifier('le couple nomme ses deux dimensions', couple.dimension, 'position+teinte');
@@ -678,6 +733,140 @@ console.log('\nSUPERPOSITION — la garde sur l’attribut partagé');
     aLeve = true;
   }
   verifier('un stimulus hors registre fait refuser la superposition', aLeve, true);
+}
+
+
+
+/* ── LA GRILLE DE DESSIN, ET LE DIVISEUR DU PASSÉ ──────────────────────── */
+
+console.log('\nGRILLE DE DESSIN — l’erreur de quantification');
+{
+  /*
+     L'ÉCART MONTRÉ N'EST PAS L'ÉCART DEMANDÉ : il est arrondi sur la grille.
+     Sur cent vingt points, le plancher de l'escalier — z = 0,02 — devenait
+     deux pas, soit 0,0168 : seize pour cent de moins que ce que la mesure
+     croyait présenter. L'escalier convergeait donc trop bas, et rien ne le
+     disait.
+  */
+  const montre = (z: number, points: number) =>
+    Math.max(1, Math.round(z * (points - 1))) / (points - 1);
+
+  const plancher = REGLAGES.deltaMinimum;
+  verifier('au plancher, la grille courante rend l’écart exact',
+    Number(montre(plancher, PAS).toFixed(9)), plancher);
+  // CE QU'ELLE DOIT VOIR AUSSI : que l'ancienne grille, elle, se trompait.
+  // Sans cette contre-épreuve, l'assertion ci-dessus passerait aussi bien sur
+  // une grille qui n'aurait jamais eu de défaut, et ne mesurerait rien.
+  const erreurAncienne = Math.abs(montre(plancher, PAS_HISTORIQUE) - plancher) / plancher;
+  verifier('l’ancienne grille se trompait de plus de 15 % au plancher',
+    erreurAncienne > 0.15, true);
+  verifier('et la nouvelle de moins d’un pour mille',
+    Math.abs(montre(plancher, PAS) - plancher) / plancher < 0.001, true);
+
+  // Sur toute la plage de l'escalier, et non au seul plancher.
+  let pireRelative = 0;
+  let mesures = 0;
+  for (let z = REGLAGES.deltaMinimum; z <= REGLAGES.deltaMaximum; z += 0.001) {
+    pireRelative = Math.max(pireRelative, Math.abs(montre(z, PAS) - z) / z);
+    mesures += 1;
+  }
+  verifier('la plage de l’escalier a bien été balayée', mesures > 400, true);
+  verifier('l’erreur relative reste sous 3 % sur toute la plage', pireRelative < 0.03, true);
+  verifier('le pas de la grille vaut un millième pile', 1 / (PAS - 1), 0.001);
+  verifier('le plancher d’un pas est sous la borne basse de l’escalier',
+    1 / (PAS - 1) < REGLAGES.deltaMinimum, true);
+}
+
+console.log('\nLE DIVISEUR DU PASSÉ — gelé dans le code de production');
+{
+  /*
+     POURQUOI CET ESSAI LIT LA SOURCE.
+
+     Les assertions de la section « REPRISE » calculent leurs attendus avec le
+     même diviseur que celui qu'elles passent à la fonction : elles seraient
+     donc vertes avec n'importe quel diviseur, y compris celui qui corrompt les
+     données. Elles éprouvent la conversion, pas le CHOIX du diviseur.
+
+     Or ce choix est le défaut : `PAS - 1` était juste tant que la grille ne
+     changeait pas. Ce qui doit être gardé n'est pas une valeur mais un endroit
+     — les trois lignes du dépôt qui convertissent du passé —, et cela se lit
+     dans la source.
+
+     L'essai REFUSE (code 2) s'il n'a rien lu : un balayage qui ne trouve aucun
+     fichier rend zéro anomalie, et zéro est ce que rend un dépôt propre.
+  */
+  const lire = (chemin: string): string => {
+    let texte: string;
+    try {
+      texte = readFileSync(new URL(`../${chemin}`, import.meta.url), 'utf8');
+    } catch {
+      /*
+         UN FICHIER DÉPLACÉ DOIT LE DIRE EN UNE PHRASE. Sans ce `catch`, la
+         lecture levait une trace de pile : le code de sortie était bien non
+         nul, mais rien ne disait que le garde-fou avait perdu sa cible — et
+         un garde-fou qui a perdu sa cible ne garde plus rien.
+      */
+      console.error(
+        `\n✗ REFUS — « ${chemin} » est introuvable.\n` +
+          '  Ce balayage garde le diviseur des conversions passées. Si le fichier a\n' +
+          '  été déplacé ou renommé, corrigez le chemin ici : sans lui, le contrôle\n' +
+          '  ne rendrait aucune anomalie, et aucune anomalie est ce que rend un\n' +
+          '  dépôt sain.',
+      );
+      process.exit(2);
+    }
+    if (texte.length < 500) {
+      console.error(
+        `\n✗ REFUS — « ${chemin} » lu trop court (${texte.length} octets).\n` +
+          '  Un fichier tronqué ne contient aucune des lignes cherchées, donc le\n' +
+          '  contrôle passerait au vert sans avoir rien vu.',
+      );
+      process.exit(2);
+    }
+    return texte;
+  };
+  /** Les lignes d'un fichier qui contiennent un motif. */
+  const lignesAvec = (texte: string, motif: string): string[] =>
+    texte.split('\n').filter((ligne) => ligne.includes(motif));
+
+  const base = lire('src/lib/db.ts');
+  const bord = lire('src/features/veridical-mapping/composants/TableauDeBord.svelte');
+
+  const appels = lignesAvec(base, 'reprendreUnSeuil(ligne,');
+  verifier('la base convertit les seuils en un seul endroit', appels.length, 1);
+  verifier('et par la grille d’alors', (appels[0] ?? '').includes('PAS_HISTORIQUE'), true);
+
+  const medians = lignesAvec(base, 'seuilMedian /');
+  verifier('la base convertit le seuil médian en un seul endroit', medians.length, 1);
+  verifier('et par la grille d’alors', (medians[0] ?? '').includes('PAS_HISTORIQUE'), true);
+
+  const rampe = lignesAvec(bord, 'const BORNES_RAMPE');
+  verifier('le tableau de bord a une rampe', rampe.length, 1);
+  verifier('et ses bornes viennent de la grille d’alors',
+    (rampe[0] ?? '').includes('zDuPasHistorique'), true);
+
+  /*
+     LA CONTRE-ÉPREUVE DU PRÉDICAT LUI-MÊME. Sans elle, « la ligne contient
+     PAS_HISTORIQUE » pourrait être vrai de n'importe quoi — par exemple si le
+     prédicat se trompait de sens — et les six assertions ci-dessus seraient
+     six manières de ne rien vérifier.
+  */
+  const fautif = 'return reprendreUnSeuil(ligne, PAS - 1);';
+  verifier('une ligne qui suit la grille courante est bien repérée comme telle',
+    fautif.includes('PAS_HISTORIQUE'), false);
+  verifier('et le prédicat reconnaît la bonne forme',
+    'reprendreUnSeuil(ligne, PAS_HISTORIQUE - 1)'.includes('PAS_HISTORIQUE'), true);
+
+  // Les deux constantes ne sont pas interchangeables, et c'est tout l'objet.
+  verifier('l’ancienne grille comptait cent vingt points', PAS_HISTORIQUE, 120);
+  verifier('les deux grilles diffèrent', PAS === PAS_HISTORIQUE, false);
+  verifier('le diviseur d’alors ne suit pas la grille courante',
+    zDuPasHistorique(119), 1);
+  verifier('alors que celui de la grille courante en est loin',
+    Number(zDuPas(119).toFixed(3)), 0.119);
+  // Un seuil ancien de deux pas vaut 1,68 % de l'étendue, et non 0,2 %.
+  verifier('deux pas d’alors valent bien 1,7 % de l’étendue',
+    ecartDit(zDuPasHistorique(2)), '1,7 %');
 }
 
 
