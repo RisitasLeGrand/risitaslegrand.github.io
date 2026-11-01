@@ -642,10 +642,48 @@ console.log('\nLA SÉANCE : LES TROIS ÉCRITURES PASSENT PAR LA PORTE');
     const terminer = page.locator('#terminer');
     const bilan = page.locator('#bilan');
     if ((await terminer.count()) > 0) {
+      /*
+         ON VIDE LA LIGNE D'ÉTAT AVANT DE CLIQUER, et c'est ce qui rend les
+         trois contrôles qui suivent capables de rougir.
+
+         Première version : on cliquait directement, et les trois assertions
+         étaient vertes AVEC ET SANS la porte. Le sabotage l'a dit — remettre
+         « cloturer » en écriture nue ne changeait rien du tout.
+
+         La raison tient en deux temps. « le bilan n'est pas montré » et « le
+         bouton n'est pas désactivé » attendent toutes deux une ABSENCE, et
+         l'écriture nue la donne aussi : quand « terminer » lève, elle ne
+         peint simplement rien. Ces deux-là ne distinguent donc pas une porte
+         d'un silence. Et « l'échec est dit » lisait une ligne qui portait
+         déjà le message du bouton « Enregistrer » de l'étape précédente : elle
+         était non vide par héritage, pas par ce qu'on venait de faire.
+
+         Trois verts qui ne tenaient à rien. Vidée, la ligne ne peut porter
+         que ce que la clôture y écrit, et l'absence devient discriminante.
+      */
+      await page.evaluate(`
+        (() => {
+          const l = document.getElementById('etat-sauvegarde');
+          l.textContent = '';
+          l.removeAttribute('role');
+          l.hidden = false;
+          l.classList.remove('hidden');
+          'vidée'
+        })();
+      `);
+
       await terminer.click();
       await page.waitForTimeout(1500);
+
+      const apresCloture = ((await etat.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+      verifier('une clôture qui échoue écrit son échec sur la ligne', apresCloture.length > 10, true);
       verifier(
-        'une clôture qui échoue ne montre PAS le bilan',
+        'et la ligne s’annonce — ce n’est pas un texte posé en silence',
+        await etat.getAttribute('role'),
+        'alert',
+      );
+      verifier(
+        'elle ne montre pas le bilan d’une séance qui n’est pas close',
         await bilan.isVisible(),
         false,
       );
@@ -654,8 +692,6 @@ console.log('\nLA SÉANCE : LES TROIS ÉCRITURES PASSENT PAR LA PORTE');
         await terminer.isDisabled(),
         false,
       );
-      const apresCloture = ((await etat.textContent()) ?? '').replace(/\s+/g, ' ').trim();
-      verifier('l’échec de la clôture est dit', apresCloture.length > 10, true);
     } else {
       verifier('le bouton « Terminer » est là', false, true);
     }
