@@ -1,0 +1,25 @@
+---
+/**
+ * Le logotype « Cyclades » : l'enveloppe qui le pose dans une page.
+ *
+ * Le dessin lui-même est dans `src/lib/logotype.ts`, parce que la planche de
+ * captures en a besoin du même — voir l'en-tête de ce module.
+ */
+import { svgLogotype, type VarianteLogotype } from '../lib/logotype';
+
+interface Props {
+  /**
+   * `mot` — le mot seul, en ligne.
+   * `anneau` — la marque puis le mot, en ligne : pour l'en-tête.
+   * `archipel` — la marque au-dessus du mot : pour le voile, qui a de la place.
+   */
+  variante?: VarianteLogotype;
+  /** La hauteur, en toute unité CSS. L'en-tête veut `1.125rem`, le voile `2rem`. */
+  hauteur?: string;
+  class?: string;
+}
+
+const { variante = 'anneau', hauteur = '1.125rem', class: classe = '' } = Astro.props;
+---
+
+<span class={classe} set:html={svgLogotype(variante, hauteur)} />

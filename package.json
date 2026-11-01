@@ -385,7 +385,8 @@
     "essais:contours:navigateur": "node scripts/essais-contours-de-controle-navigateur.mjs",
     "essais:laterale:navigateur": "node scripts/essais-barre-laterale-navigateur.mjs",
     "essais:modales:navigateur": "node scripts/essais-modales-navigateur.mjs",
-    "essais:reglages-restaures:navigateur": "node scripts/essais-reglages-restaures-navigateur.mjs"
+    "essais:reglages-restaures:navigateur": "node scripts/essais-reglages-restaures-navigateur.mjs",
+    "essais:logotype": "tsx scripts/essais-logotype.mts"
   },
   "repository": {
     "type": "git",
