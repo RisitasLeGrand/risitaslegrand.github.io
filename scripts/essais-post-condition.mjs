@@ -248,7 +248,7 @@ console.log(`\n${gras('apresLeRemplacement — une zone qui refait ses enfants')
      LE CAS QUE L'AIDE EXISTE POUR TENIR : la valeur d'après ressemble à celle
      d'avant. Une attente sur le texte ne verrait rien ; la marque, si.
   */
-  await apresLeRemplacement(page, '#zone', () =>
+  const vue = await apresLeRemplacement(page, '#zone', () =>
     page.evaluate(() => {
       setTimeout(() => {
         document.getElementById('zone').replaceChildren(
@@ -262,12 +262,47 @@ console.log(`\n${gras('apresLeRemplacement — une zone qui refait ses enfants')
     await page.evaluate(() => document.querySelector('#zone > p')?.hasAttribute('data-ancien')),
     false,
   );
+  vrai('et la peinture vue est RENDUE, non devinée', vue === true);
 
-  /* Une zone qui ne remplace rien : la marque survit, et l'attente expire. */
+  /*
+     CE QU'ELLE FAIT QUAND LA PEINTURE NE VIENT PAS, et c'est ce qui a changé
+     le 1er novembre.
+
+     Elle avalait son expiration et ne rendait rien : une peinture qui ne venait
+     jamais devenait trente secondes de silence, puis un rouge PLUS LOIN, à
+     l'assertion suivante, qui ne nomme plus la cause. Le constructeur l'a
+     relevé, et ce bloc-ci encodait l'ancien contrat — « une zone qui ne
+     remplace rien fait expirer » — en vérifiant la DURÉE écoulée. Il mesurait
+     donc le silence au lieu de le refuser.
+
+     Le contrat suit maintenant la forme de l'appel, et les trois cas sont
+     éprouvés.
+  */
   await poser('<div id="fixe"><p>là</p></div>');
+
+  /* AVEC un geste : la peinture est une conséquence, son absence une panne. */
+  let leve = null;
+  try {
+    await apresLeRemplacement(page, '#fixe', async () => {}, { delai: COURT });
+  } catch (e) {
+    leve = e.message;
+  }
+  vrai('avec un geste, une peinture qui ne vient pas LÈVE', leve !== null);
+  vrai('et le message nomme la zone', (leve ?? '').includes('#fixe'));
+  vrai('et il dit où chercher', (leve ?? '').includes('EN PLACE'));
+
+  /* SANS geste : on attendait la prochaine peinture, son absence informe. */
   const debut = Date.now();
-  await apresLeRemplacement(page, '#fixe', async () => {}, { delai: COURT });
-  vrai('une zone qui ne remplace rien fait expirer', Date.now() - debut >= COURT);
+  const sansGeste = await apresLeRemplacement(page, '#fixe', null, { delai: COURT });
+  vrai('sans geste, elle rend faux au lieu de lever', sansGeste === false);
+  vrai('et elle a bien attendu sa borne', Date.now() - debut >= COURT);
+
+  /* Et l'on peut relâcher l'exigence, geste ou non. */
+  const relache = await apresLeRemplacement(page, '#fixe', async () => {}, {
+    delai: COURT,
+    exiger: false,
+  });
+  vrai('« exiger: false » rend faux même avec un geste', relache === false);
 }
 
 /* ── apresLaPeinture ────────────────────────────────────────────────────── */

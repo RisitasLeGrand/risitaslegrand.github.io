@@ -111,7 +111,7 @@ Je ne les avais pas inscrits — faute d'avoir mesuré moi-même. Cette abstenti
 est la seule raison pour laquelle ce tableau ne porte pas deux lignes de plus
 qui auraient dû en sortir.
 
-## Un essai INSTABLE, ce qui est pire qu'un essai rouge
+## Les essais INSTABLES, ce qui est pire qu'un essai rouge
 
 Un rouge se compare à ce tableau. Un essai dont les rouges CHANGENT d'un
 passage à l'autre ne se compare à rien : celui qui le lance juste après avoir
@@ -119,7 +119,7 @@ modifié quelque chose l'attribuera à sa modification, et cherchera des heures
 dans un diff qui n'y est pour rien. C'est arrivé le 1er novembre, et la mesure
 ci-dessous est ce qui l'a arrêté.
 
-### `essais:cog:navigateur` — entre un et six rouges, sur n'importe quel arbre
+### `essais:cog:navigateur` — il donnait entre un et six rouges, sur n'importe quel arbre
 
 Relevé le 1er novembre. L'essai a été joué **trois fois sur chaque arbre**, le
 même, avec deux `dist/` distincts servis en parallèle — ma branche sur le port
@@ -157,6 +157,43 @@ soit fixer la question tirée pendant la mesure — une graine —, soit mesurer
 une page dont le contenu est borné, soit laisser la mise en page se poser avant
 de lire la hauteur. La troisième seule ne suffirait pas : elle corrigerait les
 « -194 px » et laisserait le tirage.
+
+### `essais:cog:navigateur` — RÉSOLU le 1er novembre
+
+L'entrée ci-dessus garde la forme ; celle-ci dit ce qu'il a fallu. Quatre
+causes, et non une : l'attente de l'essai rendait la main en pleine descente,
+l'essai visait un haut de zéro là où la page impose un décalage, l'écran visait
+zéro lui aussi — ce qui lui coûtait 822 ms avant la première épreuve sur un
+téléphone court —, et il n'avait aucun signal disant que la position était
+atteinte. Plus un cinquième défaut, que la graine a découvert : « la zone
+tient » se mesurait sur la fenêtre entière et non sous l'en-tête.
+
+Six passages rendent désormais le même verdict, et le même texte au caractère
+près — la durée mesurée étant dite au dixième de seconde, parce qu'une lecture
+d'horloge ne peut pas être identique et qu'une ligne qui change de dix
+millisecondes apprend à ignorer les écarts.
+
+### `essais:parametres-navigateur` — vert, puis rouge, sur le même code
+
+Trouvé le 1er novembre en mesurant les conséquences d'un autre lot, et mesuré
+aussitôt : deux passages de suite sur le MÊME commit, sans rien changer entre
+les deux — le premier rend le code nul, le second rougit sur
+« `#sport` amène la section dans l'écran ».
+
+L'assertion accepte un haut entre -50 et 400 px, et le décalage que la page
+impose vaut 111 : elle devrait passer. L'attente de cet essai est d'ailleurs
+MEILLEURE que celle qui rendait `essais:cog:navigateur` instable — elle écoute
+« scrollend » ET exige dix trames immobiles. La cause est donc ailleurs, et je
+ne l'ai pas cherchée : ce n'est pas mon lot.
+
+**Ce qui est établi**, et c'est ce qui compte pour quiconque le rencontrera :
+ce rouge n'appartient pas au lot « claude/a-cog-zone-de-jeu ». Un passage vert
+et un passage rouge sur le même code le disent, et les fichiers de ce lot ne
+touchent ni l'écran Paramètres ni son attente de défilement, qui est locale à
+son essai.
+
+Cet essai n'est pas au socle. C'est, comme pour `essais:cog:navigateur`, la
+raison pour laquelle son instabilité a vécu sans être vue.
 
 ## Deux manières de mesurer qui rendent zéro
 
