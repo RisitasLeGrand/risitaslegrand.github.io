@@ -119,9 +119,62 @@ console.log('\n\x1b[1mEFFACER SA PROGRESSION : AVEC DES NOMBRES\x1b[0m\n');
   v('la confirmation s’ouvre', parue, true);
   const dit = (parue ? ((await boite.textContent()) ?? '') : '').replace(/\s+/g, ' ');
 
-  v('elle compte les cartes suivies', /\d+ carte\(s\) suivie\(s\)/.test(dit), true);
+  /*
+     LA CLAUSE DES RUBRIQUES, IMPRIMÉE : c'est elle que les trois contrôles
+     suivants lisent, et la voir épargne de deviner ce qu'un « obtenu false »
+     veut dire. On n'imprime pas la boîte entière — elle fait dix lignes — mais
+     la phrase exacte dont il est question.
+  */
+  console.log(`      clause : ${/Dont [^.]*\./.exec(dit)?.[0] ?? '(absente)'}`);
+
+  /*
+     ── CE QUE CES DEUX MOTIFS EXIGEAIENT, ET POURQUOI ILS SONT TOMBÉS ──
+
+     Ils attendaient « carte(s) suivie(s) » et « journée(s) de temps passé ».
+     Mon propre lot B1 a remplacé ces formes par l'accord juste : la boîte dit
+     maintenant « Dont 0 carte suivie, 0 quiz et 1 journée de temps passé ».
+     Les deux contrôles rougissaient donc sur une phrase DEVENUE correcte —
+     même famille que sauvegarde-confirmee et restauration-atomique, que le
+     constructeur a corrigés sur main en 63a45aee.
+
+     Les motifs acceptent maintenant les deux accords ET EXIGENT LE NOMBRE. Le
+     nombre n'est pas une précaution de style : sans lui, « carte suivie »
+     passerait, et ce que ces contrôles gardent est précisément qu'on ne
+     propose pas un effacement sans dire COMBIEN. Une confirmation sans
+     chiffre est ce qui a fait écraser Odyssée entière en croyant risquer
+     trente et un enregistrements.
+  */
+  const MOTIF_CARTES = /\d+ cartes? suivies?/;
+  const MOTIF_JOURNEES = /\d+ journées? de temps passé/;
+
+  v('elle compte les cartes suivies', MOTIF_CARTES.test(dit), true);
   v('elle compte les quiz', /\d+ quiz/.test(dit), true);
-  v('elle compte les journées de temps passé', /\d+ journée\(s\) de temps passé/.test(dit), true);
+  v('elle compte les journées de temps passé', MOTIF_JOURNEES.test(dit), true);
+
+  /*
+     ET LES MOTIFS SE GARDENT EUX-MÊMES, puisque c'est eux qui ont changé.
+
+     Un sabotage joué une fois à la main prouve l'instant où on le joue ; ces
+     quatre contrôles-ci restent. Ils disent que le motif accepte les deux
+     accords — c'est ce qu'on a voulu — et qu'il ne passe NI sans nombre NI sur
+     du vide, c'est-à-dire qu'il n'a pas été assoupli en le corrigeant.
+  */
+  v('le motif des cartes accepte le singulier', MOTIF_CARTES.test('0 carte suivie'), true);
+  v('et le pluriel', MOTIF_CARTES.test('3 cartes suivies'), true);
+  v('mais il ne passe pas sans le nombre', MOTIF_CARTES.test('carte suivie'), false);
+  v('ni sur une phrase vide', MOTIF_CARTES.test(''), false);
+  v(
+    'et celui des journées ne passe pas non plus sans le nombre',
+    [MOTIF_JOURNEES.test('1 journée de temps passé'), MOTIF_JOURNEES.test('journée de temps passé')],
+    [true, false],
+  );
+  /*
+     ET LA FORME PARENTHÉSÉE NE DOIT PAS REPARAÎTRE. Les deux motifs ci-dessus
+     l'accepteraient — « 0 carte(s) suivie(s) » contient « 0 carte » — donc
+     sans ce contrôle, un retour en arrière passerait inaperçu. Il attache
+     l'essai à la RÈGLE du lot 9 plutôt qu'à un littéral.
+  */
+  v('et aucune forme parenthésée ne reparaît dans la boîte', /\(s\)/.test(dit), false);
   v('elle dit ce qui reste', /Restent : les fiches du site/.test(dit), true);
   /*
      La base d'essai n'a jamais confirmé de sauvegarde : l'avertissement doit
