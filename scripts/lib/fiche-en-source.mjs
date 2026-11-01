@@ -42,6 +42,18 @@ export function blocYaml(items) {
  * étiquettes. `yaml` respecte l'ordre d'insertion d'un objet, il suffit donc
  * de le construire dans le bon.
  */
+/**
+ * Le front-matter d'une fiche recomposée.
+ *
+ * Les types sont déclarés parce que, sans eux, TypeScript tire le type du
+ * paramètre de la DÉSTRUCTURATION : les six clés y deviennent toutes
+ * obligatoires, « idPublie » comprise. Or elle ne l'est pas — l'identifiant
+ * publié n'existe que pour une fiche déjà publiée, et l'essai vérifie
+ * justement que le front-matter « ne le porte pas sinon ».
+ *
+ * @param {{ matiere: string, fascicule: string, titre: string, ordre: number,
+ *   tags: string[], idPublie?: string }} entete
+ */
 export function frontMatter({ matiere, fascicule, titre, ordre, tags, idPublie }) {
   return YAML.stringify(
     {

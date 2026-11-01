@@ -11,6 +11,7 @@
  * caractère du carnet ne doit pas dépendre de la graine.
  */
 import { engendrerFinances, LIGNES } from './lib/finances-synthetiques.mjs';
+import type { LigneBudget } from '../src/lib/odyssee/budget';
 import { construireLaFile } from '../src/lib/odyssee/appariement';
 import { occurrences, TOLERANCE_PAR_DEFAUT } from '../src/lib/odyssee/budget';
 
@@ -82,7 +83,23 @@ console.log('\nLE CARNET GARDE LE MÊME VISAGE D’UNE GRAINE À L’AUTRE');
 console.log('\nCE QUE LE CARNET DONNE À FAIRE AUX MOTEURS');
 
 {
-  const { operations, lignes, compteRendu } = engendrerFinances({ graine: 7 });
+  const { operations, lignes: lignesSansType, compteRendu } = engendrerFinances({ graine: 7 });
+  /*
+     SEUL « sens » SE PERD EN TRAVERSANT LA FRONTIÈRE JAVASCRIPT.
+
+     « finances-synthetiques.mjs » engendre de vraies lignes de budget, mais
+     TypeScript n'en déduit que « sens: string » là où « LigneBudget » dit
+     « 'ressource' | 'charge' » : une valeur littérale dans un fichier JS
+     s'élargit en « string », et rien ne la ramène.
+
+     On nomme donc le type ici, au seul endroit qui en a besoin. Une première
+     rédaction décrivait TOUT le retour de la fonction — opérations et compte
+     rendu comprises — et c'était un excès : ces deux-là s'inféraient très
+     bien, et les réécrire à la main a fait passer les erreurs de cinq à neuf.
+     Décrire plus que nécessaire, c'est inventer plus d'occasions de se
+     tromper.
+  */
+  const lignes: LigneBudget[] = lignesSansType;
   verifier('4.1 cinq ans produisent entre 2 000 et 3 000 opérations',
     compteRendu.operations > 2000 && compteRendu.operations < 3000, `${compteRendu.operations}`);
   verifier('4.2 les prélèvements groupés existent, pour « Diviser »',

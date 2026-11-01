@@ -176,10 +176,16 @@ export async function devientVisible(page, selecteur, visible, { delai = 10000 }
  * déclenche rien ici : la marque survit, et l'attente expire. Dans ce cas,
  * `apresLeChangementDeTexte` ou un compteur sur la zone conviennent.
  *
- * @param page la page de Playwright
- * @param zone le conteneur dont les enfants sont remplacés
- * @param geste ce qui déclenche la peinture — rien, pour attendre la suivante
- * @param options.delai en millisecondes, 30 000 par défaut
+ * Les types sont DÉCLARÉS, et pas seulement nommés : sans eux, TypeScript
+ * déduit le type de « geste » de sa valeur par défaut, soit « null », et tout
+ * appelant qui lui passe une fonction — c'est-à-dire l'usage normal — est
+ * refusé. Le défaut dit la valeur, pas le domaine.
+ *
+ * @param {import('playwright-core').Page} page la page de Playwright
+ * @param {string} zone le conteneur dont les enfants sont remplacés
+ * @param {(() => Promise<void> | void) | null} [geste] ce qui déclenche la
+ *   peinture — rien, pour attendre la suivante
+ * @param {{ delai?: number }} [options] delai en millisecondes, 30 000 par défaut
  */
 export async function apresLeRemplacement(page, zone, geste = null, { delai = 30000 } = {}) {
   await page.evaluate(

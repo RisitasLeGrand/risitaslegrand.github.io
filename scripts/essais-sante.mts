@@ -125,6 +125,8 @@ const traitement = (par: Partial<Traitement> = {}): Traitement => ({
   id: 't1',
   nom: 'Exemple',
   moleculeId: null,
+  /* « sporadique » est obligatoire : faux est sa valeur normale, absente non. */
+  sporadique: false,
   origine: 'moi',
   prescripteur: '',
   posologie: '1 le matin',

@@ -280,7 +280,17 @@ await apresLeRemontage('plafond-cartes', async () => {
 });
 
 const surProgression = await page.evaluate(async () => {
-  const { lireReglagesSession } = await import('/src/lib/db.ts').catch(() => ({}) as never);
+  /*
+     LE CHEMIN EST UNE URL DU NAVIGATEUR, pas un module que Node résout.
+
+     Ce bloc tourne DANS la page, où « /src/lib/db.ts » est servi par Vite.
+     Écrit en littéral, TypeScript tente de le résoudre depuis « scripts/ » et
+     ne trouve rien — il a raison, ce fichier n'existe pas à cette adresse sur
+     le disque. On passe par une variable pour dire que la résolution n'est
+     pas la sienne ; c'est la page qui l'assure.
+  */
+  const moduleDeLaBase = '/src/lib/db.ts';
+  const { lireReglagesSession } = await import(moduleDeLaBase).catch(() => ({}) as never);
   return lireReglagesSession ? (await lireReglagesSession()).plafondCartes : null;
 });
 /*

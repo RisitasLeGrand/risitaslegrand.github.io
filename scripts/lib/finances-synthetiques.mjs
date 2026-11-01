@@ -74,6 +74,19 @@ function decalageDe(graine, ligneId, annee, mois, tolerance) {
  * tolérance déclarée ferait de chaque écart une anomalie, ce qui reviendrait
  * à n'en signaler aucune.
  */
+/**
+ * LE SENS EST DÉCLARÉ, et non laissé à l'inférence.
+ *
+ * Dans un fichier JavaScript, « sens: 'charge' » s'élargit en « string », et
+ * rien ne le ramène ensuite : les lignes engendrées à partir d'ici ne sont donc
+ * pas des « LigneBudget » aux yeux de TypeScript, qui exige
+ * « 'ressource' | 'charge' ». Un « @type » règle la chose à la source, pour
+ * tout consommateur, au lieu de le faire redire à chacun.
+ *
+ * @type {readonly { id: string, libelle: string, categorie: string,
+ *   sens: 'ressource' | 'charge', essentielle: boolean, motifs: string[],
+ *   montants: number[], nature: string, [autre: string]: unknown }[]}
+ */
 export const LIGNES = [
   {
     id: 'loyer',
