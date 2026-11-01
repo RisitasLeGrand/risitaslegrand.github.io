@@ -514,6 +514,24 @@ const SOCLE = [
      demande ni navigateur ni aperçu.
   */
   ['essais:bornes', 'les bornes de « waitForFunction » au bon rang, et le balayage qui le voit'],
+  /*
+     B l'a laissé hors socle en me laissant trancher. Je l'y mets, pour trois
+     raisons mesurées plutôt que pour son sujet.
+
+     Il coûte HUIT SECONDES, mesuré, et ne demande que l'aperçu. Il garde le
+     seul geste du site qui soit sans recours, dans ses DEUX issues — l'ordre
+     (le verdict vient après la peinture) et le mensonge (une peinture qui
+     échoue après un effacement réussi ne dit plus « interrompu »). Et il porte
+     le contrôle qui donne son sens aux quatorze autres : les données sont bien
+     parties, sans quoi un écran qui aurait cessé d'effacer passerait l'essai en
+     disant la bonne phrase.
+
+     La troisième raison est la mienne : c'est le défaut que j'ai mis une
+     journée à nommer, par une sonde, et dont l'intermittence a fait accuser
+     tour à tour un correctif d'identité, une branche de C et neuf fusions. Un
+     défaut qui a coûté cela à trois agents n'a pas sa place hors du socle.
+  */
+  ['essais:effacement-verdict', 'le verdict de l’effacement vient en dernier, et il ne ment pas'],
 ];
 
 /**

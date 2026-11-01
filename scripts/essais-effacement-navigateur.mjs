@@ -116,18 +116,46 @@ const recompter = async (timeout = 30000) => {
    Elle ne remplace aucune attente existante : les post-conditions de la base
    et du verdict restent, parce qu'elles mesurent autre chose.
 */
-const DOMAINES = '#groupes-effacement';
+/*
+   ── POURQUOI CETTE GARDE RESTE, ET POURQUOI ELLE COUVRE LES DEUX LISTES ──
+
+   L'écran a été corrigé depuis : « b-verdict-en-dernier » fait écrire le
+   verdict APRÈS la peinture, donc « travailFini » est maintenant exact sur cet
+   écran et cette attente est satisfaite d'emblée. Elle est devenue redondante.
+
+   Elle reste pour une raison et une seule : si ce correctif était un jour
+   défait, le défaut reviendrait intermittent et sans rien pour le nommer. Une
+   garde redondante ne coûte rien ; sa disparition se paie une fois.
+
+   Et elle couvre les DEUX listes, ce que ma première version ne faisait pas.
+   C me l'a signalé après l'avoir vérifié : sa forme du rouge tombait sur
+   « #groupes-export », l'autre liste, et ma garde ne l'attrapait que par un
+   effet d'ordre — « rafraichirComptes » repeint l'export AVANT l'effacement, et
+   les deux peintures sont synchrones après un seul « await ». Attendre
+   l'effacement garantissait donc l'export. Mais cette correction dépendait de
+   l'ORDRE de deux lignes adjacentes dans un autre fichier : interverties par
+   quelqu'un qui n'y verrait qu'un détail de présentation, la garde cessait
+   silencieusement de couvrir l'export. Deux remèdes étaient possible — un
+   commentaire dans « stockage.astro », ou marquer les deux listes. C penchait
+   pour le second, parce qu'« un commentaire se respecte tant qu'on le lit », et
+   il a raison : une garde qui ne dépend de rien d'extérieur est plus simple à
+   garder juste.
+*/
+const DOMAINES = ['#groupes-effacement', '#groupes-export'];
 const marquerLesDomaines = () =>
-  page.evaluate((zone) => {
-    const premier = document.querySelector(zone)?.firstElementChild;
-    if (premier) premier.setAttribute('data-ancien', 'oui');
+  page.evaluate((zones) => {
+    for (const zone of zones) {
+      const premier = document.querySelector(zone)?.firstElementChild;
+      if (premier) premier.setAttribute('data-ancien', 'oui');
+    }
   }, DOMAINES);
 const apresLaPeintureDesDomaines = (timeout = 30000) =>
   page.waitForFunction(
-    (zone) => {
-      const premier = document.querySelector(zone)?.firstElementChild;
-      return Boolean(premier) && !premier.hasAttribute('data-ancien');
-    },
+    (zones) =>
+      zones.every((zone) => {
+        const premier = document.querySelector(zone)?.firstElementChild;
+        return Boolean(premier) && !premier.hasAttribute('data-ancien');
+      }),
     DOMAINES,
     { timeout },
   );
