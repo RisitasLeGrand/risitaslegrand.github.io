@@ -947,6 +947,103 @@ l'export ? » — transforme quatre croix de conséquence en une croix de cause.
 C'est la forme d'échec la plus coûteuse qu'un essai puisse avoir : une cause à
 cinq lignes de la première croix, et rien qui l'y renvoie.
 
+## 8. L'attente déguisée, et l'invariant qui la rend inoffensive
+
+`node scripts/relever-temporisations.mjs --deguisees`
+
+### La forme
+
+On attend sur le sélecteur A, puis on lit le sélecteur B. Rien ne ressemble
+plus à un essai bien tenu : il y a une attente, elle est bornée, elle porte un
+sélecteur — et elle ne garantit rien de ce qui est ensuite affirmé. Ni le
+relevé des temporisations ni celui des bornes ne la voit : il n'y a pas de
+`waitForTimeout`, et la borne est au bon rang.
+
+**Un sélecteur étranger n'est pas une faute.** Ce qui décide est ce que
+l'assertion devient si la course est perdue :
+
+- une lecture comparée à une **valeur** rend `null` et **rougit**. Elle se
+  signale ; on la corrige le jour où elle tombe ;
+- une lecture qui attend une **absence** — `faux(…isVisible)`, un compte à
+  zéro — est satisfaite par la page pas encore peinte. Elle **verdit à faux**,
+  et rien ne le dira jamais.
+
+### Le résultat : zéro, et sa raison
+
+**1644 lectures lues, 140 sur un sujet étranger, 10 absences — et zéro qui
+puisse faire verdir un essai à tort.** La raison n'est pas la discipline de
+chaque site. Elle est structurelle, et c'est pourquoi elle se note ici :
+
+```js
+let echecs = 0;
+const v = (titre, obtenu, attendu) => { if (!ok) echecs += 1; … };
+process.exit(echecs ? 1 : 0);
+```
+
+**Les aides d'assertion ne lèvent pas : elles comptent.** Il suffit donc qu'UN
+cri figure dans le bloc — avant ou après, peu importe — pour qu'une course
+perdue rende l'essai rouge. Les dix absences du dépôt sont toutes encadrées
+ainsi.
+
+### Pourquoi l'invariant mérite d'être nommé : il est fragile
+
+Il tient à deux choses qu'on pourrait défaire sans y penser.
+
+1. **Rendre `v()` levante** — ce qui a l'air d'une amélioration, et qu'on
+   proposera un jour — ferait passer ces dix absences au rang de faux verts le
+   jour même. La robustesse du dépôt sur cette forme est un effet de bord de
+   `v()`, pas un choix qui a été fait.
+2. **Un bloc réduit à une seule assertion, et muette**, perdrait sa garde sans
+   que rien ne change de forme. Aucune revue ne le verrait.
+
+Le mode rend donc un **code de sortie** — 0 aujourd'hui, 1 le jour où une
+absence se trouve seule dans son bloc, 2 s'il ne lit rien du tout. Il peut
+ainsi garder l'invariant au lieu de le constater.
+
+### Sept gonflages, et ce qu'ils enseignent sur les motifs de mesure
+
+Le chiffre est passé de **173 à 0**. Chaque correction n'a été vue que parce
+que le relevé **imprime les cas qu'il compte**.
+
+| | ce qui gonflait |
+|---|---|
+| 173 | le premier littéral de la ligne est souvent l'intitulé français de `verifier`, pas le sélecteur |
+| 150 | un littéral fermé sur n'importe quel guillemet tronque `[data-etat="plein"]` en `[data-etat=` |
+| 147 | ne regarder que l'attente la plus proche manque la garde posée deux lignes plus haut |
+| 146 → 29 | un voisinage de taille fixe déborde sur l'assertion suivante et lui prête son `false` |
+| 16 | `#coffre-ferme` et `#coffre-ouvert` basculent en deux énoncés synchrones : au moment où l'un paraît, l'autre est déjà caché |
+| 11 | `faux(…isEnabled())` a la forme d'une muette et crie : un bouton présent est actif par défaut |
+| 5 → 2 → 0 | un cri garde le bloc des **deux** côtés, et il peut passer par une aide (`texteDuBloc()`, `compter('cartes')`) plutôt que par un sélecteur |
+
+Le quatrième est le seul des sept qui ait menti dans le mauvais sens : il
+**inventait** des muettes. `vrai('le coffre est fermé au départ', …)` passait
+pour une absence parce qu'une voisine trois lignes plus bas portait un `false`
+— le relevé prêtait à une assertion le contraire de ce qu'elle dit.
+
+**Ces sept corrections n'ajoutent aucune règle : elles instruisent le § 7.2.**
+C'est le plus gros dossier qu'il ait reçu, et il faut le dire ainsi plutôt que
+de compter une règle de plus — l'inflation d'un document se fait exactement
+comme celle d'un chiffre.
+
+Ce que les sept ajoutent au § 7.2 est une précision sur le COÛT. Un relevé qui
+ne montre que son total est indiscutable au mauvais sens du terme : on ne peut
+ni le vérifier ni le corriger. Les sept sont sorties de dix lignes imprimées,
+et la quatrième — qui inventait des muettes là où le code disait le contraire
+— aurait survécu à n'importe quelle relecture du total. Un motif de mesure se
+juge donc sur les cas qu'il nomme, et sur rien d'autre.
+
+Et le sens de l'erreur compte. Six des sept gonflaient ; aucune ne creusait.
+Un motif qui sur-compte se corrige en regardant ses cas ; un motif qui
+sous-compte rend un chiffre rassurant que personne n'ira ouvrir. Quand il faut
+choisir le côté sur lequel se tromper — et il a fallu le choisir trois fois
+ici — c'est celui du sur-comptage.
+
+**Et un zéro ne se croit pas.** Celui-ci a été passé sur un témoin jetable
+portant deux absences, l'une seule dans son bloc, l'autre suivie d'un cri : il
+a rendu la première et épargné la seconde. Ses trois codes de sortie ont été
+éprouvés par `--dans`. Un refus qu'on n'a jamais vu partir n'est pas un refus,
+c'est une intention.
+
 ## Ce qui reste hors d'atteinte ici
 
 ### La visibilité et le focus d'une page ne se pilotent pas (26 octobre, lot 0.8)

@@ -330,6 +330,95 @@ function seTiennent(a, b) {
 }
 
 /**
+ * LE CRI QUI GARDE LES MUETTES QUI LE SUIVENT.
+ *
+ * C'est la correction la plus lourde que ce relevé ait subie, et elle change
+ * le sens du chiffre.
+ *
+ * Une muette ne peut faire passer un essai à tort que si RIEN avant elle ne
+ * serait tombé. Or dans ces essais, les assertions viennent en bloc derrière
+ * une attente :
+ *
+ *     await page.waitForSelector('#proposition-reponse:not(.hidden)');
+ *     v('la réponse dit quand on en reparlera', …'deux semaines'…, true);
+ *     faux('et les boutons ont disparu', …locator('#proposition-oui')…);
+ *
+ * Le `faux` est bien une muette : une page pas encore peinte la satisfait.
+ * Mais le `v` au-dessus compare un texte à une valeur — il ROUGIT sur une page
+ * pas encore peinte. Si la course est perdue, l'essai est rouge par le `v`, et
+ * la muette n'a rien pu cacher. Elle est sans objet, pas sans garde.
+ *
+ * On ne retient donc comme muette que celle qu'AUCUN cri ne précède entre
+ * l'attente et elle. Ce qu'on compte alors n'est plus « une assertion faible »
+ * mais « un essai qui peut verdir à tort », qui est la seule chose qui coûte.
+ *
+ * Un cri, ici : une lecture d'écran comparée à une valeur, c'est-à-dire une
+ * assertion qui n'est PAS muette au sens ci-dessus. Les deux notions sont donc
+ * définies l'une par l'autre, et c'est voulu.
+ *
+ * ET LE CRI COMPTE AUSSI QUAND IL VIENT APRÈS, ce qui a été la dernière
+ * surprise de ce relevé. Les aides d'assertion de ces essais ne LÈVENT pas :
+ *
+ *     let echecs = 0;
+ *     const v = (titre, obtenu, attendu) => { if (!ok) echecs += 1; … };
+ *     process.exit(echecs ? 1 : 0);
+ *
+ * Elles COMPTENT, et le code de sortie ne tombe qu'à la fin. Une muette suivie
+ * d'un cri sur la même peinture ne cache donc rien non plus : l'essai sera
+ * rouge par le cri, même s'il est passé par la muette d'abord. La garde est
+ * donc des DEUX CÔTÉS, et c'est pourquoi on balaie le bloc entier.
+ *
+ * Le bloc va de l'attente qui le gouverne au geste suivant — un clic, une
+ * saisie, une navigation, une autre attente — parce qu'au-delà, ce n'est plus
+ * la même peinture et le cri ne prouve plus rien d'ici.
+ */
+const GESTE = /\b(?:click|fill|goto|reload|setInputFiles|press|uncheck|selectOption|dispatchEvent|setChecked)\s*\(/;
+
+function crieDansLeBloc(lignes, attente, i) {
+  /* En amont : de l'attente la plus haute jusqu'à la muette. */
+  const amont = crieEntre(lignes, attente, i);
+  if (amont) return amont;
+  /* En aval : jusqu'au geste ou à l'attente qui ferme le bloc. */
+  let fin = i + 1;
+  while (fin < lignes.length && fin < i + 14) {
+    if (GESTE.test(lignes[fin]) || ATTENTE.test(lignes[fin])) break;
+    fin += 1;
+  }
+  return crieEntre(lignes, i + 1, fin);
+}
+
+/*
+   ET LE CRI QUI PASSE PAR UNE AIDE, qui a été le dernier angle mort.
+
+   Les deux muettes qui restaient après tout ce qui précède étaient gardées,
+   l'une par « v('le bloc le dit', await texteDuBloc(), '…') », l'autre par
+   « v('la carte est toujours là', await compter('cartes'), 1) ». Aucune des
+   deux ne porte de sélecteur littéral : elles lisent l'écran à travers une
+   fonction du fichier. Le balayage ne les voyait donc pas, et comptait pour
+   dangereuses deux muettes qu'un cri encadrait.
+
+   On reconnaît donc aussi l'assertion qui ATTEND une valeur sans nommer de
+   sélecteur : une aide d'assertion, un « await » dans ses arguments, et une
+   valeur attendue qui n'est ni « false » ni zéro. C'est plus large que le
+   reste du motif, et c'est le bon côté pour l'être : une garde manquée
+   gonfle le chiffre, une garde inventée le creuse.
+*/
+const CRI_PAR_AIDE = /\b(?:v|verifier|verifierPresque)\(/;
+
+function crieEntre(lignes, depuis, jusqua) {
+  for (let k = depuis; k < jusqua; k += 1) {
+    const l = lignes[k];
+    const enonce = assertionDe(lignes, k);
+    const parSelecteur = LECTURE_SELECTEUR.test(l) && !ATTENTE.test(l);
+    const parAide = CRI_PAR_AIDE.test(l) && /await/.test(enonce);
+    if (!parSelecteur && !parAide) continue;
+    if (MUETTE.test(enonce) && !CRIE.test(enonce)) continue;
+    return k + 1;
+  }
+  return 0;
+}
+
+/**
  * LES COUPLES QUE LE SITE BASCULE D'UN SEUL TENANT, lus dans `src/`.
  *
  * Le relevé classait « attend `#coffre-ferme`, lit `#coffre-ouvert` » parmi
@@ -379,7 +468,16 @@ function couplesBascules(racine) {
  * On remonte la fenêtre depuis chaque lecture et l'on retient TOUTES les
  * attentes qu'on y trouve — pas seulement la plus proche : gonflage n° 3.
  */
-function deguisees(fenetre) {
+function deguisees(fenetre, dossier = 'scripts') {
+  /*
+     Le dossier est réglable pour que les TROIS codes de sortie de ce mode
+     puissent être éprouvés — zéro, un, et le refus — sans toucher au dépôt.
+     C'est la leçon du balayage des bornes : un refus qu'on n'a jamais vu
+     partir n'est pas un refus, c'est une intention.
+  */
+  const lus = readdirSync(dossier)
+    .filter((f) => /^essais-.*\.(mjs|mts)$/.test(f))
+    .sort();
   const couples = couplesBascules('src');
   /** Les deux sujets sont-ils les deux faces d'une même bascule ? */
   const accouples = (x, y) => {
@@ -394,8 +492,8 @@ function deguisees(fenetre) {
   let couple = 0;
   const cas = [];
 
-  for (const f of essais) {
-    const lignes = readFileSync(`scripts/${f}`, 'utf8').split('\n');
+  for (const f of lus) {
+    const lignes = readFileSync(`${dossier}/${f}`, 'utf8').split('\n');
     lignes.forEach((l, i) => {
       if (!LECTURE_SELECTEUR.test(l)) return;
       /* Une attente qui lit n'est pas une lecture non gardée : elle EST la garde. */
@@ -434,10 +532,14 @@ function deguisees(fenetre) {
         return;
       }
       const enonce = assertionDe(lignes, i);
-      const muette = MUETTE.test(enonce) && !CRIE.test(enonce);
+      let muette = MUETTE.test(enonce) && !CRIE.test(enonce);
+      /* Un cri entre l'attente la plus haute et ici rend la muette inoffensive. */
+      const cri = muette ? crieDansLeBloc(lignes, attentes[attentes.length - 1].ligne, i) : 0;
+      if (cri) muette = false;
       cas.push({
         fichier: f,
         muette,
+        cri,
         attente: attentes[0],
         ligne: i + 1,
         selecteur,
@@ -445,7 +547,7 @@ function deguisees(fenetre) {
       });
     });
   }
-  return { lectures, sansAttente, meme, parent, couple, cas };
+  return { lectures, sansAttente, meme, parent, couple, cas, combien: lus.length };
 }
 
 
@@ -520,18 +622,20 @@ if (POUR) {
      différentes ne se comparent pas.
   */
   const fenetre = iFenetre === -1 ? 6 : FENETRE;
-  const { lectures, sansAttente, meme, parent, couple, cas } = deguisees(fenetre);
+  const { lectures, sansAttente, meme, parent, couple, cas, combien } = deguisees(fenetre, DANS);
   const muettes = cas.filter((c) => c.muette);
 
-  console.log(`\nFenêtre de ${fenetre} lignes en amont. ${essais.length} essais.\n`);
+  console.log(`\nFenêtre de ${fenetre} lignes en amont. ${combien} essais de « ${DANS} ».\n`);
   console.log(`  ${lectures} lectures d’écran à sélecteur littéral`);
   console.log(`  ${sansAttente} sans aucune attente dans la fenêtre`);
   console.log(`  ${meme} gardées par une attente sur LE MÊME sujet`);
   console.log(`  ${parent} sur un sujet qui tient dans l’autre`);
   console.log(`  ${couple} sur l’AUTRE FACE d’une bascule que le site fait d’un tenant`);
   console.log(`  ${cas.length} sur un sujet ÉTRANGER — candidats, pas fautes`);
-  console.log(`      dont ${muettes.length} MUETTES : l’assertion VERDIT si la course est perdue`);
-  console.log(`      et  ${cas.length - muettes.length} bruyantes : elle rougit, donc elle se signale\n`);
+  const gardees = cas.filter((c) => c.cri);
+  console.log(`      dont ${muettes.length} MUETTES SANS GARDE : l’essai peut VERDIR à tort`);
+  console.log(`      ${gardees.length} muettes qu’un CRI précède : sans objet, mais sans danger`);
+  console.log(`      et  ${cas.length - muettes.length - gardees.length} bruyantes : elles rougissent, donc elles se signalent\n`);
 
   const parF = new Map();
   for (const c of muettes) parF.set(c.fichier, (parF.get(c.fichier) ?? 0) + 1);
@@ -543,7 +647,27 @@ if (POUR) {
       console.log(`         l.${String(c.ligne).padStart(4)} lit    « ${c.selecteur} »  ${c.code}`);
     }
   }
-  console.log(`\n  ${muettes.length} muettes dans ${parF.size} essais.\n`);
+  /*
+     LE REFUS, comme pour les bornes. Zéro muette et zéro lecture se rendraient
+     de la même façon, et ce mode est fait pour entrer devant un « && ». Un
+     dossier renommé, une extension oubliée rendraient sinon le zéro d'un
+     balayage qui n'a rien lu — « non mesuré » n'est ni vert ni rouge.
+  */
+  if (lectures === 0) {
+    console.error(
+      `\n✗ REFUS — aucune lecture d’écran à sélecteur littéral dans ${combien} essai(s) de « ${DANS} ».\n` +
+        '  Ce dépôt en porte plus de seize cents : un balayage qui n’en lit aucune\n' +
+        '  ne mesure rien, et son silence ne vaut pas un verdict.\n',
+    );
+    process.exit(2);
+  }
+  console.log(`  ${muettes.length} muettes dans ${parF.size} essais.\n`);
+  /*
+     ET LE CODE DE SORTIE, pour que ce relevé puisse GARDER l'invariant au
+     lieu de seulement le constater. Il vaut zéro aujourd'hui ; le jour où
+     quelqu'un écrit une absence sans cri dans son bloc, il vaudra un.
+  */
+  process.exit(muettes.length === 0 ? 0 : 1);
 } else if (AMORTISSEMENTS) {
   const { repos, minuteurs, constantes } = amortissements('src');
   const dire = (titre, liste) => {
