@@ -31,10 +31,33 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreEnBase } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 const ECART_MS = 250;
+/*
+   LES DURÉES DE CE FICHIER NE SONT PAS DES PARIS, ET IL FAUT LE DIRE UNE
+   FOIS POUR TOUTES, parce qu'un relevé les comptera comme sept attentes
+   aveugles alors que quatre sont le SUJET MÊME de l'essai.
+
+   `unSeulGeste` impose un repos de 600 ms après un geste abouti
+   (`src/lib/geste.ts:51`). Tout ce que cet essai mesure est le
+   comportement du site à l'intérieur et à l'extérieur de cette fenêtre :
+   un écart imposé par le site est l'une des attentes légitimes du § 4, et
+   l'enlever ne rendrait pas l'essai plus sûr — il le rendrait vide.
+
+   Ce qui n'était PAS légitime : les trois temporisations de 2000 ms qui
+   suivaient chaque ajout. Elles n'attendaient pas une règle du site mais
+   une écriture en base, et c'est la base que les assertions lisent.
+
+   Les deux sorties de repos étaient écrites 800 et 1200, nombres sans
+   justification apparente. Elles valent maintenant le repos plus une
+   marge, et le lecteur voit d'où elles viennent.
+*/
+const REPOS_MS = 600;
+const MARGE_MS = 400;
+const SORTIR_DU_REPOS_MS = REPOS_MS + MARGE_MS;
 
 let echecs = 0;
 const v = (titre, obtenu, attendu) => {
@@ -94,7 +117,8 @@ console.log('\nDEUX TITRES DIFFÉRENTS, À 250 ms : LES DEUX S’ÉCRIVENT');
   await page.waitForTimeout(ECART_MS);
   await page.fill('#titre', 'Empreinte bêta');
   await page.click('#ajout button[type="submit"]');
-  await page.waitForTimeout(2000);
+  /* Les deux écritures sont le fait attendu : on les attend en base. */
+  await attendreEnBase(page, 'odysseeTaches', (tout) => tout.length >= avant + 2, { delai: 30000 });
   v('deux tâches de plus en base', (await compter()) - avant, 2);
   const vues = await page.$$eval('[data-tache]', (els) =>
     els.map((e) => e.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
@@ -111,13 +135,29 @@ console.log('\nLE MÊME TITRE, AU MÊME ÉCART : UNE SEULE S’ÉCRIT');
      Tout est identique au cas précédent, sauf les données.
   */
   const avant = await compter();
-  await page.waitForTimeout(800);
+  /* On sort du repos laissé par le bloc précédent, sinon on mesurerait le sien. */
+  await page.waitForTimeout(SORTIR_DU_REPOS_MS);
   await page.fill('#titre', 'Empreinte gamma');
   await page.click('#ajout button[type="submit"]');
   await page.waitForTimeout(ECART_MS);
   await page.fill('#titre', 'Empreinte gamma');
   await page.click('#ajout button[type="submit"]');
-  await page.waitForTimeout(2000);
+  /*
+     DEUX TEMPS, PARCE QU'IL Y A DEUX FAITS DE NATURES OPPOSÉES.
+
+     Le premier ajout DOIT s'écrire : on l'attend en base, et c'est une
+     post-condition. Le second ne doit PAS s'écrire : aucune
+     post-condition ne peut dire cela, puisque rien n'arrive — c'est une
+     fenêtre d'observation, la deuxième catégorie du § 4, et sa durée est
+     justifiée : au-delà du repos, un second appui PASSERAIT. Si
+     l'écriture refusée devait finir par arriver, elle arriverait dans
+     cette fenêtre.
+
+     Les 2000 ms d'avant confondaient les deux : elles attendaient le
+     premier fait au hasard et le second sans le dire.
+  */
+  await attendreEnBase(page, 'odysseeTaches', (tout) => tout.length >= avant + 1, { delai: 30000 });
+  await page.waitForTimeout(SORTIR_DU_REPOS_MS);
   v('une seule tâche de plus en base', (await compter()) - avant, 1);
 }
 
@@ -128,10 +168,11 @@ console.log('\nET LE MÊME TITRE, UNE SECONDE PLUS TARD : IL S’ÉCRIT');
      deux tâches de même nom. Au-delà du repos, le second appui passe.
   */
   const avant = await compter();
-  await page.waitForTimeout(1200);
+  /* Au-delà du repos : c'est toute la condition de ce cas. */
+  await page.waitForTimeout(SORTIR_DU_REPOS_MS);
   await page.fill('#titre', 'Empreinte gamma');
   await page.click('#ajout button[type="submit"]');
-  await page.waitForTimeout(2000);
+  await attendreEnBase(page, 'odysseeTaches', (tout) => tout.length >= avant + 1, { delai: 30000 });
   v('la tâche voulue est écrite', (await compter()) - avant, 1);
 }
 

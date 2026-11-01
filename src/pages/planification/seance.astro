@@ -396,7 +396,7 @@ import Base from '../../layouts/Base.astro';
       const resume = $('resume-journal');
       const dire = (restant: number) =>
         restant
-          ? `${restant} entrée(s) à reprendre dans cette matière.`
+          ? `${pluriel(restant, 'entrée')} à reprendre dans cette matière.`
           : 'Toutes les entrées de cette matière ont été reprises.';
       resume.textContent = dire(entrees.length);
       const items = await chargerItems(entrees);

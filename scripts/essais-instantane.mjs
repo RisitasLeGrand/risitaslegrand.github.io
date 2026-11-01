@@ -162,6 +162,7 @@ const lire = (page) =>
       magasins: [...base.objectStoreNames].sort(),
       cartes: await tout('cartes'),
       profil: await clef('etat', 'profil'),
+      appareil: await clef('etat', 'appareil'),
       seances: await tout('seances'),
       revisions: base.objectStoreNames.contains('revisions') ? await tout('revisions') : null,
     };
@@ -202,6 +203,30 @@ const apres = await lire(page);
 v(`la base est migrée en version ${VERSION}`, apres.version, VERSION);
 v('un instantané exactement', apres.instantanes.length, 1);
 v('pris depuis la version 11', apres.instantanes[0]?.deVersion, 11);
+
+/*
+   L'IDENTITÉ DE L'APPAREIL, ET POURQUOI ELLE EST GARDÉE ICI.
+
+   Le palier 12 la tire une fois, et son commentaire dit l'exigence : « elle
+   départage deux horloges égales, donc elle doit être stable ; la régénérer à
+   chaque ouverture ferait de chaque session un appareil distinct, et l'ordre
+   de fusion cesserait d'être reproductible ».
+
+   Le retour arrière la rompait. MESURÉ le 1er novembre, par sonde, sur cette
+   séquence même : 7KS3FJFA après la migration, null après le retour — un
+   instantané pris en version 11 ne porte aucune identité à rendre —, puis
+   TV5T90GB après la remigration. Une autre. L'appareil devenait un inconnu
+   pour ses pairs, en passant par le chemin qui existe pour RÉPARER.
+
+   « revenirA » la lit maintenant avant de supprimer la base et la rend après
+   avoir écrit l'instantané. Ces trois constats tiennent cette traversée, et
+   le sabotage dit lequel garde quoi — mesuré en retirant la restitution dans
+   un arbre séparé, sur le même commit : le premier reste VERT, les DEUX
+   autres rougissent. J'avais d'abord écrit qu'un seul rougirait ; c'était une
+   prédiction, et elle était fausse.
+*/
+const APPAREIL = apres.appareil;
+v('la migration a posé une identité d’appareil', typeof APPAREIL === 'string' && APPAREIL.length > 0, true);
 v(`vers la version ${VERSION}`, apres.instantanes[0]?.versVersion, VERSION);
 v(
   'il contient la carte telle qu’elle était',
@@ -260,6 +285,7 @@ v('la carte est exactement celle d’avant', defait.cartes, [CARTE]);
 v('le profil aussi, clé hors-ligne comprise', defait.profil, PROFIL);
 v('et la séance', defait.seances.length, 1);
 v('l’instantané reste disponible', defait.instantanes.length, 1);
+v('et l’identité de l’appareil a traversé le retour', defait.appareil, APPAREIL);
 
 // Et la migration se rejoue : c'est ce qui fait du retour arrière un recours et
 // non une sortie sans issue.
@@ -268,6 +294,13 @@ const remigre = await lire(page);
 v(`l’application remigre en version ${VERSION}`, remigre.version, VERSION);
 v('un socle est de nouveau posé', remigre.revisions?.length, 1);
 v('et il ne reste que les instantanés gardés', remigre.instantanes.length <= 2, true);
+/*
+   LE SECOND DES DEUX CONSTATS QUI VOIENT LE DÉFAUT. Avant la correction, la
+   remigration tirait une identité NEUVE — le palier 12 ne trouvait rien et en
+   forgeait une. Celui du retour, juste au-dessus, rougissait aussi : un
+   instantané pris en version 11 ne porte aucune identité à rendre.
+*/
+v('et l’appareil porte toujours la même identité', remigre.appareil, APPAREIL);
 
 console.log('\nUNE BASE NEUVE NE PRODUIT PAS D’INSTANTANÉ');
 

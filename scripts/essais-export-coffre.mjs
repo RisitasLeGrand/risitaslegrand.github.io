@@ -20,6 +20,7 @@
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -107,8 +108,14 @@ if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
 }
-await page.locator('[data-categorie="finances"]').waitFor({ state: 'attached', timeout: 25000 });
-await page.waitForTimeout(600);
+/*
+   ATTACHÉ NE SUFFIT PAS : la case existe dans le document avant que le script
+   ne lui donne son état — cochée, désactivée —, et c'est cet état que les
+   constats lisent. La VISIBILITÉ est le complément positif : elle implique que
+   la liste a été peinte, donc que l'état est posé. Six cents millisecondes
+   étaient le temps qu'on espérait suffisant entre les deux.
+*/
+await devientVisible(page, '[data-categorie="finances"]', true, { delai: 25000 });
 
 const etat = (id) =>
   page.$eval(`[data-categorie="${id}"]`, (e) => ({

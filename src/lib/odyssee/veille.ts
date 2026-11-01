@@ -38,6 +38,8 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 /** Les six domaines du croisement. `lien` ne compte pas dans les k. */
+import { accorde, pluriel } from '../noyau/accords';
+
 export type DomaineVeille = 'sommeil' | 'activite' | 'rythme' | 'engagement' | 'lien' | 'corps';
 
 export const DOMAINES: Record<DomaineVeille, { libelle: string; compteDansLeCroisement: boolean }> = {
@@ -562,7 +564,10 @@ export function controlerCatalogue(catalogue: readonly Indicateur[] = CATALOGUE)
   );
   if (domainesObservables.size < DOMAINES_MINIMAUX) {
     problemes.push(
-      `Seuls ${domainesObservables.size} domaine(s) comptant(s) portent un indicateur observé, ` +
+      `${accorde(domainesObservables.size, 'Seul', 'Seuls')} ` +
+        `${pluriel(domainesObservables.size, 'domaine')} ` +
+        `${accorde(domainesObservables.size, 'comptant')} ` +
+        `${accorde(domainesObservables.size, 'porte', 'portent')} un indicateur observé, ` +
         `pour ${DOMAINES_MINIMAUX} exigés par le croisement. Quelqu’un qui cesse de saisir ` +
         'ferait alors tomber la veille en « données insuffisantes », c’est-à-dire au silence, ' +
         'au moment où elle aurait servi.',
@@ -719,11 +724,12 @@ export function suffisance(
     }
     if (compte.joursDansLaFenetre < i.joursMinimaux) {
       manques.push(
-        `${i.libelle} : ${compte.joursDansLaFenetre} jour(s) sur les ${i.joursMinimaux} attendus.`,
+        `${i.libelle} : ${pluriel(compte.joursDansLaFenetre, 'jour')} ` +
+          `sur les ${i.joursMinimaux} attendus.`,
       );
     } else {
       manques.push(
-        `${i.libelle} : ${compte.joursDeBase} jour(s) d’historique sur les ` +
+        `${i.libelle} : ${pluriel(compte.joursDeBase, 'jour')} d’historique sur les ` +
           `${JOURS_DE_BASE_MINIMAUX} nécessaires à la ligne de base.`,
       );
     }
@@ -741,8 +747,9 @@ export function suffisance(
   const assez = eligibles.length >= INDICATEURS_MINIMAUX && domaines.length >= DOMAINES_MINIMAUX;
   if (!assez) {
     manques.unshift(
-      `${eligibles.length} indicateur(s) éligible(s) sur ${INDICATEURS_MINIMAUX} et ` +
-        `${domaines.length} domaine(s) sur ${DOMAINES_MINIMAUX}.`,
+      `${pluriel(eligibles.length, 'indicateur')} ${accorde(eligibles.length, 'éligible')} ` +
+        `sur ${INDICATEURS_MINIMAUX} et ${pluriel(domaines.length, 'domaine')} ` +
+        `sur ${DOMAINES_MINIMAUX}.`,
     );
   }
   return {

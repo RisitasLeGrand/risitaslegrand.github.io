@@ -9,6 +9,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { annonceDe, devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -32,7 +33,8 @@ const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(3000);
+    /* Le départ du champ est la post-condition du déverrouillage. */
+    await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
   }
 };
 
@@ -68,7 +70,9 @@ await page.evaluate(
  */
 await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
 await connecter();
-await page.waitForTimeout(2500);
+/* L'écran est debout : c'est tout ce qu'il faut avant d'écrire nous-mêmes en
+   base, ce que les lignes suivantes font sans passer par lui. */
+await page.waitForSelector('#etat-sauvegarde-titre', { timeout: 30000 });
 
 /*
  * Une note rattachée à une séance qui n'existe pas : exactement ce qu'une
@@ -144,7 +148,9 @@ const etatAvant = (await page.locator('#etat-persistance').textContent())?.trim(
 v('l’état de la persistance est affiché', Boolean(etatAvant), true);
 if (await page.locator('#demander-persistance').isVisible()) {
   await page.click('#demander-persistance');
-  await page.waitForTimeout(1500);
+  /* La réponse du navigateur arrive quand elle arrive — accordée ou refusée,
+     l'écran l'écrit. On attend l'annonce, non une seconde et demie. */
+  await annonceDe(page, '#message-persistance');
   const msg = (await page.locator('#message-persistance').textContent()) ?? '';
   v('la réponse est expliquée dans les deux cas', msg.length > 30, true);
   v(

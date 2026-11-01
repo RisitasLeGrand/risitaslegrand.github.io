@@ -58,6 +58,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   CODE_NON_MESURABLE,
@@ -91,19 +92,26 @@ const SOCLE = [
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
   /*
-     LE LIBELLÉ A ÉTÉ CORRIGÉ LE 31 OCTOBRE, et la correction mérite sa raison.
+     LA DESCRIPTION PROMETTAIT TROIS CHOSES, L'ESSAI N'EN TENAIT QU'UNE.
 
-     Il annonçait « accords sans « (s) » ». Cet essai ne fait rien de tel : il
-     éprouve `insecables` sur onze cas, et ne lit aucune source. Mesuré le même
-     jour, `src/` porte **246 « (s) »** dans 47 fichiers — 48 dans
-     `appareils.astro` — et le socle était vert.
+     Elle annonçait « apostrophes, espaces insécables, accords sans "(s)" ».
+     L'essai éprouve la seule fonction « insecables », sur onze cas, et ne
+     regarde aucune page : ni les apostrophes, ni les accords.
 
-     Un libellé qui promet un garde-fou absent est pire qu'un silence : on le
-     lit, on le croit, et l'on cherche ailleurs. C'est le mot de la doctrine sur
-     le chemin du navigateur, et il s'applique aussi aux descriptions de cette
-     liste-ci. Le balayage des accords reste à écrire, et il est remonté au
-     pilote : il rougirait 246 fois, donc son entrée au socle suppose que les
-     246 soient traitées d'abord.
+     Le constat a été fait DEUX FOIS ce jour-là, de deux côtés, et la fusion
+     des deux versions a montré les deux moitiés d'une même chose. L'autre
+     relevé disait pourquoi cela coûtait : « c'est ainsi que quatre phrases de
+     progression.astro ont porté des "(s)" sous un socle vert ». Le mien
+     disait que j'avais failli écrire un second balayage, faute de savoir que
+     le premier n'existait pas — la faute même que ce lot dénonce par
+     ailleurs. Les deux sont gardés.
+
+     Une description qui promet une garantie absente est pire qu'une absence
+     de description : on croit le point couvert, et personne ne va voir.
+
+     Les accords sans « (s) » sont désormais tenus, mais par « essais:accords »
+     — qui les balaye, les compte, et refuse de mesurer quand son analyseur
+     perd le fil. La ligne ci-dessous ne promet donc plus que ce qu'elle tient.
   */
   ['essais:typographie', 'ce que « insecables » pose, et ce qu’elle laisse tranquille'],
   /*
@@ -113,8 +121,34 @@ const SOCLE = [
      il garde l'autre chemin, celui d'`obtenirCle`. Le défaut que celui-ci a
      trouvé laissait le bouton du verrou mort pour toujours, sans message —
      c'est-à-dire un site inutilisable hors ligne et sans recours.
+
+     CETTE ENTRÉE A DISPARU UNE FOIS, ET C'EST LE COMPTE QUI L'A DIT. Elle
+     vivait collée au commentaire de « typographie », donc DANS la région que
+     le conflit suivant a redessinée ; prendre l'autre côté en bloc l'a
+     emportée en silence. Rien ne l'aurait signalé : un essai retiré du socle
+     ne rougit pas, il se taît. Le relevé d'après fusion — un grep par entrée
+     attendue — l'a rendue visible.
   */
   ['essais:hors-ligne-a-froid', 'déverrouiller en mode avion, sans session, puis lire une donnée'],
+  /*
+     IL ENTRE AU SOCLE MAINTENANT, ET PAS PLUS TÔT — condition posée par le
+     pilote le 31 octobre : « il entre au socle quand le compte est à 0, à la
+     fin du lot 9 ».
+
+     La raison de cette condition vaut d'être écrite, parce qu'elle ne va pas
+     de soi. Un essai qui entre au socle en étant ROUGE rend le socle rouge, et
+     un socle rouge en permanence cesse d'être lu : on apprend à passer outre,
+     et le jour où il rougit pour une vraie raison, personne ne s'arrête. Le
+     balayage a donc vécu hors du socle le temps du lot, pendant que le compte
+     descendait de 246 sites dans 47 fichiers à zéro.
+
+     Ce qu'il tient désormais : aucune forme parenthésée — « jour(s) » — dans
+     une chaîne de `src/`, et aucun `toFixed` affiché qui ne déclare pourquoi
+     il ne l'est pas. Et il REFUSE DE MESURER quand son analyseur perd le fil,
+     plutôt que de rendre zéro : un analyseur cassé rend zéro, ce qui ressemble
+     en tout point à un dépôt propre.
+  */
+  ['essais:accords', 'aucun « (s) » et aucun « toFixed » affiché dans « src/ » — et l’analyseur refuse de mesurer s’il perd le fil'],
   /*
      Deux garanties que n'importe quelle retouche du rendu Markdown peut
      défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses
@@ -316,6 +350,16 @@ const SOCLE = [
   */
   ['essais:erreurs-dites', 'aucun texte brut de panne à l’écran, et les messages de domaine intacts'],
   /*
+     La porte des actions. Il entre au socle pour une raison précise : ce qu'il
+     garde n'est pas une phrase, c'est une DÉCISION — une action n'est jamais
+     coupée par un délai, parce que couper un export remplacerait un bouton
+     mort par une sauvegarde à moitié écrite. Un couperet ajouté de bonne foi
+     par quelqu'un qui trouverait l'attente trop longue ne se verrait nulle
+     part ailleurs, et ne se verrait surtout pas en relecture : il ne se montre
+     que sur une promesse qui ne se règle jamais. L'essai en pose une.
+  */
+  ['essais:porte-des-actions', 'la porte dit qu’une action continue, et ne la coupe jamais'],
+  /*
      Celui-ci garde le code de sortie de CETTE batterie-ci. Il entre au socle
      parce que le socle est justement ce qu'on enchaîne avec un `&&` avant de
      pousser : s'il est le seul passage dont le verdict compte, il doit porter
@@ -338,6 +382,78 @@ const SOCLE = [
      du site. Celui-ci coûte une seconde et ne demande pas d'aperçu.
   */
   ['essais:chemin-du-navigateur', 'le navigateur se trouve, et son absence refuse au lieu de se taire'],
+  /*
+     L'ESSAI DES AIDES, ajouté au socle le 31 octobre avec l'accord du pilote.
+
+     Les aides de `scripts/lib/post-condition.mjs` sont devenues l'outil par
+     lequel une cinquantaine d'essais attendent quelque chose. Une aide qui se
+     défait ne rend pas une erreur : elle rend la main trop tôt, et les essais
+     qui s'appuient sur elle deviennent des verts qui ne mesurent plus rien.
+     C'est le défaut le plus silencieux que ce dépôt puisse produire, et c'est
+     pourquoi il entre ici plutôt qu'en batterie complète.
+
+     Dix aides sur cette branche, mesuré et non supposé ; une onzième,
+     `quandCelaSeFixe`, arrive avec `claude/a-temporisations`. Le libellé ne
+     porte donc aucun compte : un nombre inscrit ici vieillirait au premier
+     ajout, et un libellé qui annonce un compte faux est précisément ce que la
+     correction du libellé de `essais:typographie` a appris aujourd'hui.
+
+     Il les éprouve SATISFAITES et EXPIRÉES — une attente qui ne sait pas
+     expirer est un faux garde-fou —, y compris les limites qu'elles s'avouent.
+     `attendreEnBase` referme sa connexion, et c'est mesuré par ce qui en
+     dépend : une montée de version qu'une connexion ouverte bloquerait.
+
+     Il ne demande ni aperçu ni mot de passe — ses pages sont fabriquées et
+     servies depuis une origine interceptée, parce que « about:blank » refuse
+     IndexedDB. Six secondes.
+  */
+  ['essais:post-condition', 'les aides d’attente tiennent, satisfaites comme expirées'],
+  /*
+     LE VERROU AUTOMATIQUE, ajouté au socle le 1er novembre avec l'accord du
+     pilote, en même temps que l'inscription des huit essais orphelins.
+
+     **Il n'était joué par RIEN.** Aucun script `npm` ne le nommait, donc ni le
+     socle ni la batterie complète ne le voyaient : cinq assertions vertes et
+     muettes depuis son écriture. Un essai qu'aucun script ne nomme ne tourne
+     pas, et son silence se lit comme une absence de défaut — c'est la même
+     famille que le vert à vide, en pire, puisqu'il n'y a même pas de vert.
+
+     Il entre au socle et non en batterie complète pour deux raisons. Il tient
+     en **douze secondes**, sous le seuil de trente que le pilote a fixé. Et ce
+     qu'il garde ne se voit nulle part ailleurs : qu'un coffre laissé seul se
+     REFERME vraiment, dans un navigateur, et non seulement que la fonction qui
+     doit le refermer existe. C'est la leçon des créneaux — un garde-fou qui
+     vérifie la présence d'une déclaration ne dit rien de son effet.
+
+     Les sept autres orphelins vont en batterie complète : ils y arrivent du
+     seul fait d'avoir un script `npm`, puisque la batterie complète joue tout
+     ce qui commence par « essais ».
+  */
+  ['essais:verrou-navigateur', 'un coffre laissé seul se referme vraiment, dans un navigateur'],
+  /*
+     ET LE BALAYAGE QUI EMPÊCHE LE NEUVIÈME ORPHELIN, ajouté le 1er novembre
+     avec l'accord du pilote, le jour même où les huit ont été branchés.
+
+     Un essai rouge se voit. Un fichier d'essai qu'aucun script `npm` ne nomme
+     ne tourne PAS : la batterie joue les scripts, non les fichiers, et son
+     silence se lit comme une absence de défaut. Huit l'étaient — 118
+     assertions vertes et muettes, dont cinq qui gardaient la seule chose
+     qu'aucun autre essai ne garde.
+
+     Il entre au socle parce qu'il ne coûte rien — aucun navigateur, aucun
+     aperçu, un balayage de source — et parce que le défaut qu'il garde
+     s'introduit précisément au moment où l'on écrit un essai, c'est-à-dire
+     devant le socle et non devant la batterie complète.
+
+     Il refuse, code 2, s'il ne lit aucun fichier ou aucun script : zéro
+     orphelin et zéro fichier lu se rendraient sinon de la même façon. Et il
+     s'éprouve dans les deux sens, son premier contrôle étant ce qu'il DOIT
+     voir — sans quoi un balayage qui ne trouve plus rien resterait vert.
+
+     À ne pas confondre avec `essais:orphelins`, qui garde l'inverse : un
+     module livré que nul écran n'appelle.
+  */
+  ['essais:essais-branches', 'tout fichier d’essai est branché à un script npm'],
   /*
      M5c entre au socle parce qu'il a trouvé un VRAI défaut du site le 25
      octobre — la position de défilement était lue à `pagehide`, après que
@@ -486,6 +602,110 @@ if (!sert) {
       '  les essais de navigateur expirent sans dire pourquoi.\n' +
       '  Un aperçu d’un AUTRE répertoire de travail répondrait aussi : vérifiez\n' +
       '  qu’il sert bien le « dist/ » que vous venez de construire.',
+  );
+  process.exit(1);
+}
+
+/*
+   ET IL FAUT QUE CE SOIT CE « dist/ »-CI, CE QUE LE REFUS CI-DESSUS NE
+   VÉRIFIAIT PAS.
+
+   Le contrôle sondait `robots.txt`. Il répondait donc à une seule question —
+   « quelque chose écoute-t-il sur ce port » — et jamais à celle qui compte.
+   L'avertissement était écrit juste au-dessus, en prose, à l'intention d'un
+   humain : « un aperçu d'un AUTRE répertoire de travail répondrait aussi ».
+   Une mise en garde qui n'est pas mesurée ne garde rien.
+
+   Elle a coûté un socle entier. Treize minutes de mesure, pendant lesquelles
+   l'arbre de travail est passé sur une autre branche et « dist/ » a été
+   reconstruit : les trente-huit premiers essais ont mesuré un arbre, les cinq
+   derniers un autre, et le récapitulatif a rendu « cinq rouges » sans
+   distinguer les deux. C'est la pire sortie possible, parce qu'un verdict faux
+   a exactement la même forme qu'un verdict vrai — et que celui-là se lit comme
+   la preuve qu'il y avait quelque chose à trouver.
+
+   L'EMPREINTE EST CELLE DU DISQUE CONTRE CELLE DU RÉSEAU, et non une valeur
+   qu'on s'attendrait à trouver : on lit « dist/index.html », on demande « / »
+   à l'aperçu, et on compare les deux. Rien n'est supposé de ce que le fichier
+   contient, donc rien à maintenir le jour où il change. Et les deux états
+   diffèrent — c'est tout ce qu'on demande à une post-condition. Mesuré :
+   l'aperçu rend ce fichier à l'octet près, compressé ou non.
+
+   ON LA REPREND À L'ARRIVÉE, parce que le départ ne dit rien de la suite :
+   c'est précisément en cours de route que l'arbre avait changé. Si elle a
+   bougé, le récapitulatif ne rend plus un verdict — il dit que la mesure est
+   nulle, et pourquoi.
+*/
+
+const TEMOIN_DU_DISQUE = join('dist', 'index.html');
+
+function empreinteDuDisque() {
+  try {
+    return createHash('sha256').update(readFileSync(TEMOIN_DU_DISQUE)).digest('hex');
+  } catch {
+    return null;
+  }
+}
+
+/*
+   « INJOIGNABLE » N'EST PAS « DIFFÉRENT », et les confondre a coûté une course.
+
+   Première écriture, cette fonction rendait `null` à la moindre défaillance.
+   Un `null` ne vaut pas l'empreinte attendue, donc un seul `fetch` manqué
+   suffisait à annuler dix-huit minutes de mesure : 43 essais verts, et
+   « MESURE NULLE » quand même. Mesuré après coup — l'empreinte du disque
+   inchangée depuis le début de la course, le processus de l'aperçu vivant sans
+   interruption depuis 1167 secondes, et les deux côtés identiques à l'arrivée.
+   Rien n'avait bougé. C'était ma garde qui criait.
+
+   Un pari à un coup ne doit pas pouvoir annuler une mesure qui a duré : on
+   réessaie, borné, et la boucle RAPPORTE ce qu'elle a vu au lieu de trancher.
+
+   Et les deux états sont rendus séparément, parce qu'ils ne disent pas la même
+   chose. « L'aperçu répond autre chose » est une preuve que l'arbre a basculé.
+   « L'aperçu ne répond pas » n'en est pas une : c'est l'absence de preuve, et
+   une absence de preuve ne doit pas s'énoncer comme un verdict.
+*/
+const TENTATIVES = 3;
+
+async function empreinteServie() {
+  let derniere = 'aucune raison recueillie';
+  for (let tentative = 1; tentative <= TENTATIVES; tentative += 1) {
+    try {
+      const reponse = await fetch(`${ADRESSE}/`, { signal: AbortSignal.timeout(20_000) });
+      if (reponse.ok) {
+        return {
+          empreinte: createHash('sha256')
+            .update(Buffer.from(await reponse.arrayBuffer()))
+            .digest('hex'),
+        };
+      }
+      derniere = `réponse ${reponse.status}`;
+    } catch (erreur) {
+      derniere = erreur instanceof Error ? erreur.message : String(erreur);
+    }
+    if (tentative < TENTATIVES) await new Promise((suite) => setTimeout(suite, 1000));
+  }
+  return { injoignable: derniere };
+}
+
+const empreinteAttendue = empreinteDuDisque();
+const auDepart = await empreinteServie();
+if (empreinteAttendue === null || auDepart.empreinte !== empreinteAttendue) {
+  console.error(
+    `✗ REFUS — ${ADRESSE} répond, mais ne sert pas le « dist/ » de cet arbre.\n` +
+      (empreinteAttendue === null
+        ? '  « dist/index.html » n’existe pas : rien n’a encore été construit ici.\n'
+        : auDepart.injoignable !== undefined
+          ? `  Et pourtant « / » ne se lit pas, après ${TENTATIVES} tentatives : ${auDepart.injoignable}\n`
+          : '  L’aperçu sert un AUTRE « dist/ » — un autre répertoire de travail, ou\n' +
+            '  une construction antérieure à vos derniers changements.\n') +
+      '  Construisez, puis relancez l’aperçu sur CE répertoire :\n' +
+      '    node scripts/build-content.mjs            (le manifeste chiffré)\n' +
+      '    REVINSP_SANS_PODCAST=1 npx astro build    (avec .env.local, puis effacé)\n' +
+      '    npx astro preview stop && npx astro preview --port 4321\n' +
+      '  Sans cela la batterie mesure un site qui n’est pas le vôtre, et ses\n' +
+      '  rouges comme ses verts ne disent rien de vos changements.',
   );
   process.exit(1);
 }
@@ -868,9 +1088,23 @@ for (const [index, nom] of noms.entries()) {
 
 const minutes = ((Date.now() - debut) / 60_000).toFixed(0);
 console.log(
-  `\n${SOCLE_SEUL ? 'socle' : 'batterie complète'} : ${verts} verts ; ` +
-    `${rouges.length} rouges` +
-    (nonMesurables.length ? ` ; ${nonMesurables.length} non mesurables` : '') +
+  /*
+     LE RÉSUMÉ DU SOCLE S'ACCORDE, ET IL NE LE FAISAIT PAS : « 42 verts ;
+     1 rouges ». C'est la sortie d'un outil, donc le balayage des accords ne la
+     voit pas — il ne lit que `src/`. Raison de plus pour la corriger à la main,
+     puisque rien ne le fera à ma place, et que c'est la ligne la plus relue de
+     tout le dépôt : celle qu'on regarde avant chaque poussée.
+
+     Un accord local plutôt qu'un import : la batterie est un script sans
+     dépendance vers `src/`, et lui en donner une pour trois mots serait un
+     mauvais échange. Le seuil est le même — singulier jusqu'à deux exclu.
+  */
+  `\n${SOCLE_SEUL ? 'socle' : 'batterie complète'} : ` +
+    `${verts} ${verts > 1 ? 'verts' : 'vert'} ; ` +
+    `${rouges.length} ${rouges.length > 1 ? 'rouges' : 'rouge'}` +
+    (nonMesurables.length
+      ? ` ; ${nonMesurables.length} non ${nonMesurables.length > 1 ? 'mesurables' : 'mesurable'}`
+      : '') +
     ` (${minutes} min)`,
 );
 if (nonMesurables.length > 0) {
@@ -889,11 +1123,64 @@ if (nonMesurables.length > 0) {
       'verts ne les porte pas.',
   );
 }
+/*
+   L'EMPREINTE, REPRISE : la mesure valait-elle encore à l'arrivée ?
+
+   On regarde les deux côtés, parce qu'ils se perdent séparément — l'aperçu peut
+   mourir ou être relancé sur un autre arbre, et « dist/ » peut être reconstruit
+   sous un aperçu qui, lui, n'a pas bougé.
+*/
+const aLArrivee = await empreinteServie();
+const disqueALArrivee = empreinteDuDisque();
+
+/*
+   TROIS ÉTATS, ET UN SEUL ANNULE.
+
+   — l'aperçu répond AUTRE CHOSE, ou « dist/ » a changé sur le disque : l'arbre
+     a basculé en cours de course. La mesure est nulle.
+   — l'aperçu NE RÉPOND PAS, après trois tentatives : on ne sait pas. On le dit,
+     et on ne touche pas au verdict — les essais, eux, ont bien tourné, et c'est
+     d'eux que le verdict parle. Annuler ici reviendrait à faire dire à une
+     absence de preuve ce qu'elle ne dit pas.
+   — tout concorde : rien à signaler.
+*/
+const aBascule =
+  (aLArrivee.empreinte !== undefined && aLArrivee.empreinte !== empreinteAttendue) ||
+  (disqueALArrivee !== null && disqueALArrivee !== empreinteAttendue);
+const finNonConfirmee = !aBascule && aLArrivee.injoignable !== undefined;
+const mesureNulle = aBascule;
+
 if (rouges.length > 0) {
   console.log(`rouges : ${rouges.join(' ')}`);
+  if (!mesureNulle) {
+    console.log(
+      'À comparer au tableau des anomalies avant toute poussée : un rouge qui n’y\n' +
+        'figure pas est un rouge NOUVEAU, et il se corrige avant de pousser.',
+    );
+  }
+}
+if (finNonConfirmee) {
   console.log(
-    'À comparer au tableau des anomalies avant toute poussée : un rouge qui n’y\n' +
-      'figure pas est un rouge NOUVEAU, et il se corrige avant de pousser.',
+    `⚠ FIN NON CONFIRMÉE — « / » ne s’est pas lu à l’arrivée, après ${TENTATIVES} tentatives :\n` +
+      `  ${aLArrivee.injoignable}\n` +
+      '  Le verdict ci-dessus TIENT : « dist/ » n’a pas changé sur le disque, et les\n' +
+      '  essais ont bien tourné contre l’aperçu. Ce qui manque, c’est la preuve\n' +
+      '  qu’il servait encore le même arbre à la dernière seconde.\n' +
+      '  Si un rouge vous surprend, relancez-le seul avant de l’inscrire au tableau.',
+  );
+}
+if (mesureNulle) {
+  console.log(
+    '✗ MESURE NULLE — l’aperçu ou « dist/ » a changé PENDANT la course.\n' +
+      '  Les premiers essais ont mesuré un arbre, les derniers un autre, et rien\n' +
+      '  ici ne dit où la bascule s’est faite. Les croix ci-dessus ne sont donc\n' +
+      '  pas des rouges : ce sont des mesures perdues, et le compte des verts ne\n' +
+      '  vaut pas davantage.\n' +
+      '  Ne comparez rien au tableau des anomalies. Recommencez sans toucher à\n' +
+      '  l’arbre de travail, à « dist/ », ni au port, pendant la course.\n' +
+      (disqueALArrivee !== empreinteAttendue
+        ? '  Côté qui a bougé : « dist/ » sur le disque — quelque chose a reconstruit.'
+        : '  Côté qui a bougé : l’aperçu — il sert un autre « dist/ » que celui d’ici.'),
   );
 }
 console.log(`Journaux conservés : ${journal}\n`);
@@ -922,4 +1209,4 @@ fermerLeLaboratoire();
    un code non nul, et une croix avec un code nul, qui est celui qui a
    trompé.
 */
-process.exit(rouges.length > 0 ? 1 : 0);
+process.exit(rouges.length > 0 || mesureNulle ? 1 : 0);

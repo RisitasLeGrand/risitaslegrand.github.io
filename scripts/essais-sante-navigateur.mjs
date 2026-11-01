@@ -58,7 +58,18 @@ const mesure = (quoi, valeur) => console.log(`  \x1b[36m·\x1b[0m ${quoi} : ${va
 const contexte = await nav.newContext();
 const page = await contexte.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR:', e.message.slice(0, 250)));
+/*
+   TOUTES LES LIGNES DE CONSOLE SONT RELEVÉES, et non seulement les erreurs.
+
+   Le recensement du centre ne touche pas l'écran : il ne doit pas le faire
+   tomber, et il n'a pas de zone où parler. Depuis le 31 octobre, il CONSIGNE
+   donc ce qu'il écarte et ce sur quoi il échoue — « recenserEtConsigner » —, et
+   c'est cette ligne que l'essai lit plus bas. Sans ce relevé, la garantie
+   « un écart est dit » n'aurait aucun témoin.
+*/
+const consoleDeLaPage = [];
 page.on('console', (m) => {
+  consoleDeLaPage.push(m.text());
   if (m.type() === 'error') console.log('CONSOLE:', m.text().slice(0, 250));
 });
 
@@ -611,12 +622,41 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
   } else {
     /* Un second traitement, pour ne pas défaire ce que les essais d'au-dessus
        ont établi sur le premier. */
-    await page.fill('#t-nom', 'Traitement du matin');
+    /*
+       LA MOLÉCULE EST CHOISIE DANS LE MENU, quand le registre en offre une.
+
+       C'est le seul geste qui renseigne `Traitement.moleculeId`, et c'est par
+       cet identifiant que la classe de la molécule se lit. Sans lui, la classe
+       est inconnue, et `filtre-cycle.ts` écarte le rappel du centre — l'issue
+       qui protège, et la seule que ce bloc pouvait mesurer avant ce lot.
+
+       La fixture `preparer-registre-dessai.mjs` offre « Essai — classe hors
+       cycle ». Si elle est absente — un registre réel est là, ou aucun
+       registre —, le choix ne se fait pas, et le bloc ci-dessous mesure
+       l'autre issue. L'essai reste donc valide dans les deux cas, et dit
+       lequel il a mesuré.
+    */
+    let classeChoisie = null;
+    await page.fill('#t-chercher', 'Essai');
+    const propositions = page.locator('#suggestions li button', { hasText: 'classe hors cycle' });
+    if (await propositions.count().catch(() => 0)) {
+      await propositions.first().click();
+      classeChoisie = 'hors-cycle';
+      /* Le menu écrit le nom lui-même : on ne le réécrit pas, car une saisie
+         à la main efface le choix — c'est la garde posée dans l'écran. */
+    } else {
+      await page.fill('#t-chercher', '');
+      await page.fill('#t-nom', 'Traitement du matin');
+    }
+    const nomDuTraitement = classeChoisie
+      ? 'Essai — classe hors cycle'
+      : 'Traitement du matin';
+    mesure('la molécule du traitement', classeChoisie ?? 'aucune (saisie libre)');
     await page.click('#form-traitement button[type="submit"]');
     /* Deux traitements désormais : celui des essais d'au-dessus, et celui-ci. */
     await attendreLeCompte(page, '#traitements li', 2, { delai: DELAI });
 
-    const bloc = page.locator('#traitements li', { hasText: 'Traitement du matin' });
+    const bloc = page.locator('#traitements li', { hasText: nomDuTraitement });
     await bloc.locator('details').first().locator('summary').click();
     await bloc.locator('input[type="time"]').fill(heure);
     await bloc.locator('button:has-text("Ajouter cette heure")').click();
@@ -649,7 +689,7 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
        la zone est repeinte une fois de plus. */
     await apresLesCreneaux(() => reglage.locator('button[type="submit"]').click());
 
-    const ligne = page.locator('#creneaux-du-jour li', { hasText: 'Traitement du matin' });
+    const ligne = page.locator('#creneaux-du-jour li', { hasText: nomDuTraitement });
     const texte = await ligne.textContent();
     mesure('la ligne du créneau oublié', JSON.stringify(texte));
     /*
@@ -719,24 +759,121 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
        cycle, aucun dépôt pour une classe du cycle. C'est écrit ici pour que
        la reprise ne s'invente pas.
     */
-    const centre = await page.evaluate(
-      () =>
-        new Promise((resoudre, rejeter) => {
-          const d = indexedDB.open('revinsp');
-          d.onerror = () => rejeter(d.error);
-          d.onsuccess = () => {
-            const tx = d.result.transaction('centreElements', 'readonly');
-            const tout = tx.objectStore('centreElements').getAll();
-            tout.onsuccess = () => resoudre(tout.result);
-            tout.onerror = () => rejeter(tout.error);
-          };
-        }),
-    );
-    v(
-      'aucun rappel de prise n’entre au centre, la classe de la molécule étant inconnue',
-      centre.map((e) => e.id),
-      [],
-    );
+    /*
+       LE DÉPÔT SE LIT DANS LE MAGASIN, et il arrive APRÈS la peinture des
+       créneaux : deux secondes couvraient les deux d'un coup, et ma première
+       conversion n'attendait que la peinture — le magasin était vide, et la
+       lecture suivante a cassé l'essai sur un « undefined ». Le recensement
+       du centre n'a aucune marque sur CET écran-ci.
+    */
+    await attendreEnBase(page, 'centreElements', (tout) => tout.length >= 1);
+    const centre = await lireLeMagasin('centreElements');
+    /*
+       LES DEUX SENS, ET C'EST LA REPRISE QUE CE BLOC ANNONÇAIT.
+
+       Le commentaire ci-dessus disait : « le jour où une molécule aura une
+       classe sourcée, ce bloc doit être repris dans l'autre sens ». Ce jour
+       est venu le 31 octobre — la classe a son champ, sa garde et son chemin,
+       et la fixture d'essai en offre une hors cycle.
+
+       L'attendu dépend donc de ce que l'essai a RÉELLEMENT pu monter, et non
+       d'un souhait : classe hors cycle choisie au menu, le rappel paraît ;
+       pas de classe, il est écarté. Écrire un seul attendu rendrait l'essai
+       rouge sur la moitié des machines, et le faire dépendre du résultat
+       observé le rendrait vert sur tout. Il dépend de l'ENTRÉE.
+    */
+    if (classeChoisie === 'hors-cycle') {
+      v('la classe étant hors cycle, le rappel paraît au centre', centre.length, 1);
+      /*
+         ET IL NE NOMME NI LA MOLÉCULE NI SA CLASSE. La règle du pilote, sur
+         le vrai chemin cette fois : `essais:rappel-de-prise-muet` garde la
+         composition de la référence, celui-ci garde ce qui a RÉELLEMENT été
+         écrit en base.
+
+         Les champs en clair sont lus tels quels : le corps est scellé, donc
+         une classe rangée dedans serait invisible ici — c'est le vert à vide
+         que B avait repéré, et la garde qui tient vraiment est que
+         `ElementDuCentre` est une interface fermée.
+      */
+      const enClair = JSON.stringify(centre);
+      faux('le dépôt ne nomme pas la molécule', /essai|hors cycle/i.test(enClair));
+      faux('et ne nomme pas sa classe', /androgen/i.test(enClair));
+    } else {
+      v('faute de classe connue, aucun rappel n’entre au centre', centre.length, 0);
+    }
+    /*
+       ET SI RIEN N'EST DÉPOSÉ, LA RAISON EST DITE. C'est la garantie du
+       31 octobre, et elle vaut quelle que soit l'issue : un dépôt réussi n'a
+       rien à expliquer, un écart doit s'expliquer.
+
+       Le constat d'au-dessus est rouge aujourd'hui, et pour une raison qui est
+       une DÉCISION et non une panne : « filtre-cycle.ts » déclare
+       « rappel-de-prise » avec « exigeUneClasse », et aucune molécule n'a de
+       classe — « option (a), 19 octobre ». Tant que cette décision tient,
+       aucun rappel de prise n'entre au centre. Ce que l'essai exige désormais,
+       c'est qu'on puisse le SAVOIR sans lire trois modules.
+    */
+    if (centre.length === 0) {
+      const dit = consoleDeLaPage.filter((l) => /^Centre : /.test(l));
+      vrai(
+        'et faute de dépôt, le centre dit pourquoi il a écarté',
+        dit.some((l) => /écarté|coffre est fermé|n’a pas pu être recensé/.test(l)),
+      );
+      for (const l of dit.slice(0, 3)) mesure('consigné', l.slice(0, 160));
+    }
+    /*
+       UN ROUGE NE DOIT PAS EN CACHER QUINZE. Les cinq constats qui suivent
+       lisent `centre[0]`, et le magasin vide faisait une panne sur
+       « undefined.id » : l'essai s'arrêtait là, et les quinze assertions des
+       deux dernières sections — la tâche liée, le pointage, le dépointage —
+       n'étaient pas mesurées du tout. Elles passaient pour absentes, ce qui
+       est pire qu'un rouge.
+
+       Rien n'est assoupli : chacune reste rouge si l'élément manque, et le
+       premier constat l'a déjà dit. On se contente de ne pas mourir.
+    */
+    /*
+       LES CINQ CONSTATS QUI SUIVENT PORTENT SUR L'ÉLÉMENT DÉPOSÉ, et ils ne
+       veulent rien dire sans lui. Le magasin vide faisait une panne sur
+       « undefined.id » : l'essai s'arrêtait là, et les vingt-trois assertions
+       des sections suivantes — la tâche liée, le pointage, le dépointage —
+       n'étaient pas mesurées du tout. Elles passaient pour absentes, ce qui
+       est pire qu'un rouge.
+
+       Rien n'est assoupli, et la différence compte. Deux de ces constats
+       seraient des VERTS À VIDE sans élément — « rien d'autre n'est lisible »
+       est vrai d'un objet vide — et deux autres ne font que redire le rouge du
+       premier. On dit donc « non mesuré », et le dépôt manquant reste le seul
+       verdict de la section ; l'essai échoue toujours.
+    */
+    if (centre.length === 1) {
+      const depose = centre[0];
+      vrai('sa clé est une empreinte, pas une référence lisible', /^[0-9a-f]{32}$/.test(depose.id));
+      /*
+         Genre « à savoir » et non « à trancher » : une question à trancher ne
+         quitte jamais le compteur tant qu'elle n'est pas résolue, et une
+         prise sans réponse n'est pas une question — ne rien répondre est une
+         réponse. En faire une question aurait fabriqué le compteur d'oublis
+         que l'interdit § 1 n° 3 refuse.
+      */
+      v('son genre ne compte pas dans la pastille', depose.genre, 'a-savoir');
+      v(
+        'et rien d’autre n’est lisible sans la clé',
+        Object.keys(depose).filter((k) => !['id', 'genre', 'scelle', 'iv', 'majLe'].includes(k)),
+        [],
+      );
+      const brut = JSON.stringify(depose);
+      v(
+        'ni le traitement, ni l’heure, ni le nom de la source',
+        ['Traitement du matin', heure, 'rappel-de-prise'].filter((m) => brut.includes(m)),
+        [],
+      );
+    } else {
+      console.log(
+        '  \x1b[36m·\x1b[0m non mesuré : sans élément déposé, ce que le centre laisse en ' +
+          'clair ne se mesure pas — et « rien n’est lisible » serait vrai d’un objet vide.',
+      );
+    }
 
     /*
        ET L'ÉCRAN LE DIT, CE QUI EST LE VRAI DÉFAUT QUE CE LOT CORRIGE.
@@ -765,21 +902,32 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
        retirer ; sur l'écran, la ligne doit cesser d'être une relance.
     */
     await ligne.locator('button:has-text("Pas aujourd’hui")').click();
-    await page.waitForTimeout(9000);
-    const apresReponse = await page.evaluate(
-      () =>
-        new Promise((resoudre, rejeter) => {
-          const d = indexedDB.open('revinsp');
-          d.onerror = () => rejeter(d.error);
-          d.onsuccess = () => {
-            const tx = d.result.transaction('centreElements', 'readonly');
-            const tout = tx.objectStore('centreElements').count();
-            tout.onsuccess = () => resoudre(tout.result);
-            tout.onerror = () => rejeter(tout.error);
-          };
-        }),
-    );
-    v('et le centre reste vide après la réponse', apresReponse, 0);
+    /*
+       NEUF SECONDES COUVRAIENT DEUX CHOSES : l'expiration du bandeau, puis
+       l'écriture et le retrait du rappel. Le centre n'en dit rien à l'écran
+       d'ici — on interroge donc son magasin jusqu'à ce qu'il soit vide.
+    */
+    await attendreEnBase(page, 'centreElements', (tout) => tout.length === 0);
+    const apresReponse = (await lireLeMagasin('centreElements')).length;
+    /*
+       ET LA PRÉMISSE EST DITE, parce que sans elle ce constat est un VERT À
+       VIDE : si rien n'a été déposé — ce qui est le cas aujourd'hui, le
+       premier constat de cette section le dit —, « le centre est vide » est
+       vrai sans que le retrait ait eu lieu. Un vert obtenu ainsi ne prouve
+       rien et ferait croire la seconde moitié du recensement tenue.
+
+       L'essai le dit donc « non mesuré », et le rouge du dépôt reste le seul
+       verdict de la section. L'idiome est celui de la mesure du créneau
+       passé, plus haut dans ce fichier.
+    */
+    if (centre.length === 1) {
+      v('une réponse retire le rappel du centre', apresReponse, 0);
+    } else {
+      console.log(
+        '  \x1b[36m·\x1b[0m non mesuré : rien n’a été déposé au centre, donc « le retrait ' +
+          'a eu lieu » serait vrai sans que rien ne soit retiré.',
+      );
+    }
   }
 }
 

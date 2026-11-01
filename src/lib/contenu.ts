@@ -601,6 +601,10 @@ export const chargerRegistreMolecules = () =>
       nomenclature: string | null;
       fiche: boolean;
       identiteVerifiee: boolean;
+      /* Facultatifs : voir « EntreeRegistre » dans odyssee/molecules.ts. Un
+         registre construit avant ce lot ne les porte pas, et se lit tel quel. */
+      classe?: string | null;
+      classeSource?: string | null;
     }[]
   >('molecules.json');
 

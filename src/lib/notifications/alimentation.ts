@@ -69,6 +69,86 @@ export interface Recensement {
   retires: number;
   /** Pourquoi rien n'a été fait, le cas échéant. */
   silence: 'coffre-ferme' | null;
+  /**
+   * CE QUI A ÉTÉ ÉCARTÉ, ET POURQUOI — et c'est la correction du 26 octobre.
+   *
+   * `deposer` rend `{ quoi: 'ecarte', pourquoi }` quand un élément est refusé :
+   * un identifiant mal formé, ou le filtre du cycle. Ce verdict n'était LU PAR
+   * PERSONNE — `synchroniser` ne comptait que les dépôts, et les appelants
+   * jettent le recensement.
+   *
+   * Conséquence mesurée : le rappel de prise de la santé n'entrait jamais au
+   * centre, et rien ne le disait. Il a fallu lire trois modules pour trouver
+   * que le filtre l'écarte faute de classe de molécule — ce qui est une
+   * décision, pas une panne, mais une décision qu'aucun journal n'annonçait.
+   *
+   * Un écart est donc rendu, nommé, et l'appelant peut le dire. Vide quand
+   * tout est passé.
+   */
+  ecartes: readonly { refSource: string; pourquoi: string }[];
+}
+
+/**
+ * LANCE UN RECENSEMENT SANS FAIRE TOMBER L'ÉCRAN, MAIS SANS RIEN AVALER.
+ *
+ * ## Le défaut que cette fonction corrige
+ *
+ * Les cinq appelants du recensement écrivaient tous la même chose :
+ *
+ *     void (async () => { await recenserLesOublis(refs); })().catch(() => {
+ *       // Le centre est hors d'atteinte : l'écran a déjà tout montré.
+ *     });
+ *
+ * La première moitié est juste — un signal qui ne part pas coûte un signal, un
+ * écran qui plante pour cela coûte la page entière. La seconde est le défaut :
+ * **toutes les pannes et tous les refus disparaissaient sans trace.**
+ *
+ * Conséquence mesurée le 26 octobre : le rappel de prise de la santé n'entrait
+ * jamais au centre, et il a fallu lire trois modules pour trouver que le
+ * filtre du cycle l'écarte faute de classe de molécule — ce qui est une
+ * DÉCISION, pas une panne, mais une décision qu'aucun journal n'annonçait. Un
+ * essai de navigateur restait rouge sans que rien n'explique pourquoi.
+ *
+ * ## Ce qu'elle dit, et à qui
+ *
+ * Trois cas, trois traitements, et la distinction est le cœur de l'affaire :
+ *
+ * - **une panne** — la base refuse, le coffre se referme en route — est
+ *   consignée avec son message. C'est le modèle d'`agir.ts`, à ceci près que
+ *   personne n'a demandé ce recensement : il n'y a donc pas de zone d'écran où
+ *   le dire, et l'écrire à la console est la seule façon de ne pas le perdre ;
+ * - **un écart** — le filtre du cycle, un identifiant mal formé — est consigné
+ *   avec sa raison, qui vient de `deposer`. Ce n'est pas une panne : c'est une
+ *   règle qui s'applique, et la dire à la personne serait du bruit sur un
+ *   signal qu'elle n'a pas demandé ;
+ * - **le silence du coffre fermé** est consigné aussi, en une ligne : il
+ *   explique à lui seul la moitié des « pourquoi rien n'est arrivé ».
+ *
+ * L'écran, lui, ne bouge dans aucun des trois cas. C'est tout l'intérêt.
+ *
+ * @param quoi ce qu'on recensait, en français, pour que la ligne se lise
+ * @param recenser l'appel à faire
+ * @returns le recensement, ou `null` si l'appel a levé
+ */
+export async function recenserEtConsigner(
+  quoi: string,
+  recenser: () => Promise<Recensement>,
+): Promise<Recensement | null> {
+  let bilan: Recensement;
+  try {
+    bilan = await recenser();
+  } catch (erreur) {
+    console.warn(`Centre : ${quoi} n’a pas pu être recensé.`, erreur);
+    return null;
+  }
+  if (bilan.silence === 'coffre-ferme') {
+    console.warn(`Centre : ${quoi} n’a pas été recensé — le coffre est fermé.`);
+    return bilan;
+  }
+  for (const ecart of bilan.ecartes) {
+    console.warn(`Centre : « ${ecart.refSource} » écarté de ${quoi} — ${ecart.pourquoi}`);
+  }
+  return bilan;
 }
 
 /**
@@ -136,7 +216,9 @@ export async function synchroniser(
   source: string,
   attendues: readonly Intention[],
 ): Promise<Recensement> {
-  if (!centreLisible()) return { deposes: 0, retires: 0, silence: 'coffre-ferme' };
+  if (!centreLisible()) {
+    return { deposes: 0, retires: 0, silence: 'coffre-ferme', ecartes: [] };
+  }
 
   const jour = jourLogique();
   /*
@@ -185,9 +267,18 @@ export async function synchroniser(
   }
 
   let deposes = 0;
+  const ecartes: { refSource: string; pourquoi: string }[] = [];
   for (const element of attendus.values()) {
     const resultat: Depot = await deposer(element, contextes.get(element.id) ?? {});
     if (resultat.quoi === 'depose') deposes += 1;
+    /*
+       L'ÉCART EST RELEVÉ, et non jeté. C'est ici que le verdict de `deposer`
+       se perdait : la boucle ne regardait que les dépôts, et un élément refusé
+       sortait du recensement sans laisser de trace.
+    */
+    if (resultat.quoi === 'ecarte') {
+      ecartes.push({ refSource: element.refSource, pourquoi: resultat.pourquoi });
+    }
   }
 
   let retires = 0;
@@ -198,7 +289,7 @@ export async function synchroniser(
     retires += 1;
   }
 
-  return { deposes, retires, silence: null };
+  return { deposes, retires, silence: null, ecartes };
 }
 
 /**
@@ -658,11 +749,24 @@ export const recenserLesOublis = (
  * laisserait simplement de côté ferait croire à un oubli — ou, pire,
  * laisserait quelqu'un la brancher sans retrouver ce qui l'en empêche.
  *
- * `rappel-de-prise` y figurait et n'y est plus : sa condition de levée est
- * remplie (voir `recenserLesOublis` ci-dessus). Elle était « différée » et
- * non « impossible », et la distinction, qui avait l'air d'une nuance le
- * 16 octobre, est exactement ce qui permet de la brancher aujourd'hui sans
- * contredire personne.
+ * `rappel-de-prise` EST BRANCHÉE, mais rien n'en sort encore, et il faut le
+ * dire ici plutôt que de laisser deux modules se contredire.
+ *
+ * Ce commentaire affirmait que « sa condition de levée est remplie ». C'est
+ * faux, et mesuré le 31 octobre : `filtre-cycle.ts` déclare cette source avec
+ * `exigeUneClasse`, donc le filtre l'écarte tant qu'aucune molécule n'a de
+ * classe connue — « option (a), 19 octobre ». `recenserLesOublis` recense bien
+ * les créneaux oubliés, `deposer` rend « écarté », et le centre reste vide.
+ *
+ * Ce n'est pas une panne : c'est la décision du 19 octobre qui s'applique, et
+ * elle protège — une molécule sans classe déclarée pourrait toucher au cycle,
+ * et l'interdit 1 n° 3 le refuse. La branche est en place pour le jour où les
+ * classes existeront ; d'ici là, la ligne du filtre est l'autorité, et
+ * `recenserEtConsigner` écrit la raison de chaque écart plutôt que de la taire.
+ *
+ * `essais:sante:navigateur` attend aujourd'hui un dépôt, et il est donc rouge
+ * sur ce point. Le lever ou corriger l'essai est un arbitrage, pas une
+ * correction : il appartient au Pilote, à qui le constat a été remonté.
  *
  * - **`pointage-a-reporter`** existe exactement quand le coffre est
  *   **fermé** — c'est sa définition. Or le centre n'écrit rien coffre

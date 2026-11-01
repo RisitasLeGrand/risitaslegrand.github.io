@@ -20,6 +20,7 @@ import {
 import { VERSION as VERSION_DE_LA_BASE } from '../db';
 import { BRANCHES, ID_BRANCHE_PAR_DEFAUT } from '../branches';
 import { PARCOURS } from '../parcours/registre';
+import { pluriel } from '../noyau/accords';
 import {
   ecrire,
   nomDeFichier,
@@ -276,7 +277,9 @@ export async function etatSauvegarde(cadence: Cadence = 'hebdomadaire'): Promise
       derniere,
       jours,
       etat: 'ancienne',
-      message: `Dernière sauvegarde il y a ${jours} jours. C’est long : rien de ce qui a été fait depuis n’existe ailleurs qu’ici.`,
+      message:
+        `Dernière sauvegarde il y a ${pluriel(jours, 'jour')}. C’est long : rien ` +
+        'de ce qui a été fait depuis n’existe ailleurs qu’ici.',
     };
   }
   if (jours >= DELAIS[cadence]) {
@@ -284,13 +287,19 @@ export async function etatSauvegarde(cadence: Cadence = 'hebdomadaire'): Promise
       derniere,
       jours,
       etat: 'a-faire',
-      message: `Dernière sauvegarde il y a ${jours === 0 ? 'moins d’un jour' : `${jours} jour(s)`}.`,
+      /*
+         « jour(s) » DISAIT LES DEUX ET N'EN CHOISISSAIT AUCUN. La règle G le
+         proscrit, et pas par goût : une parenthèse se lit à voix haute par un
+         lecteur d'écran, qui dit « jour parenthèse s parenthèse ».
+      */
+      message: `Dernière sauvegarde il y a ${jours === 0 ? 'moins d’un jour' : pluriel(jours, 'jour')}.`,
     };
   }
   return {
     derniere,
     jours,
     etat: 'recente',
-    message: jours === 0 ? 'Sauvegardé aujourd’hui.' : `Sauvegardé il y a ${jours} jour(s).`,
+    message:
+      jours === 0 ? 'Sauvegardé aujourd’hui.' : `Sauvegardé il y a ${pluriel(jours, 'jour')}.`,
   };
 }

@@ -151,7 +151,18 @@ console.log('\n3. CE QUI N’EST JAMAIS POINTÉ SEUL');
 {
   const d = decider(op({ centimes: -20000 }), vu(), ctx({ historique: hist([19000, 20000, 21000]) }));
   egal('3.6 au-dessus du plafond, pas de pointage', d.statut, 'a-pointer');
-  verifier('3.7 et le plafond est cité', d.pourquoi.includes('150,00 €'), d.pourquoi);
+  /*
+     LES BLANCS SONT NORMALISÉS, et c'est la leçon d'« essais:accords » : la
+     phrase passe maintenant par « euros() », qui rend une espace INSÉCABLE
+     avant le signe — « 150,00 € » et « 150,00 € » sont identiques à l'œil et
+     différents pour « includes ». On normalise tous les blancs plutôt que
+     d'en nommer un, et le littéral reste lisible.
+  */
+  verifier(
+    '3.7 et le plafond est cité',
+    d.pourquoi.replace(/\s/g, ' ').includes('150,00 €'),
+    d.pourquoi,
+  );
 }
 
 {

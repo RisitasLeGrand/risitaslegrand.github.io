@@ -169,6 +169,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { accorde, pluriel } from '../../lib/noyau/accords';
   import { unSeulGeste } from '../../lib/geste';
   import { coffreOuvert, ouvrirLeCoffre } from '../../lib/coffre';
   import { ECHELLES, echelle, noter, type IdEchelle } from '../../lib/odyssee/echelles';
@@ -200,8 +201,11 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     const e = echelle(id);
     const r = noter(e, reponses);
     if (r.score === null) {
-      return `Questionnaire incomplet : ${r.sansReponse} réponse(s) manquante(s). Un score ` +
-        'partiel serait plus bas, donc plus rassurant, sans rien dire de plus.';
+      return (
+        `Questionnaire incomplet : ${pluriel(r.sansReponse, 'réponse')} ` +
+        `${accorde(r.sansReponse, 'manquante')}. Un score ` +
+        'partiel serait plus bas, donc plus rassurant, sans rien dire de plus.'
+      );
     }
     const base = `Score : ${r.score} sur ${r.maximum}.`;
     if (!r.palier) {
@@ -234,7 +238,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       li.dataset.passation = p.passation.id;
       li.textContent = `${p.passation.jour} — ` +
         (p.resultat.score === null
-          ? `incomplet, ${p.resultat.sansReponse} réponse(s) manquante(s)`
+          ? `incomplet, ${pluriel(p.resultat.sansReponse, 'réponse')} ` +
+            `${accorde(p.resultat.sansReponse, 'manquante')}`
           : `${p.resultat.score} / ${p.resultat.maximum}` +
             (p.resultat.palier
               ? p.resultat.palier.deduit
@@ -321,7 +326,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           */
           if (manquants) {
             $(`[data-manque="${id}"]`).textContent =
-              `${manquants} réponse(s) manquante(s) : la passation est enregistrée, mais sans score.`;
+              `${pluriel(manquants, 'réponse')} ${accorde(manquants, 'manquante')} : ` +
+              'la passation est enregistrée, mais sans score.';
           }
           const gene = id === 'phq9'
             ? (document.querySelector<HTMLInputElement>('input[name="phq9-gene"]:checked')?.value ?? null)

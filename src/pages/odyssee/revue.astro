@@ -129,6 +129,7 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { agirPuisPeindre } from '../../lib/agir';
+  import { accorde, pluriel } from '../../lib/noyau/accords';
   import { auDeverrouillage } from '../../lib/chargement';
   import { etatDuJour } from '../../lib/odyssee-jour';
   import { ecrireRevue, relever, revueDu } from '../../lib/odyssee/donnees';
@@ -266,7 +267,7 @@ import Base from '../../layouts/Base.astro';
       p.prevus === 0
         ? 'Rien n’était prévu ces sept derniers jours.'
         : p.taux === null
-          ? `${p.prevus} moment(s) prévu(s), aucun relevé.`
+          ? `${pluriel(p.prevus, 'moment')} ${accorde(p.prevus, 'prévu')}, aucun relevé.`
           : `${Math.round(p.taux * 100)} % tenu sur sept jours — ${p.nonReleves} sans réponse.`;
 
     /*

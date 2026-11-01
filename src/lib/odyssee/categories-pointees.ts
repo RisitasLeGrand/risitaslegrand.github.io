@@ -27,6 +27,7 @@
  * une catégorie réalisée sans prévu, est une dépense hors budget qui
  * n'apparaît nulle part dans la comparaison. Les deux sont nommées.
  */
+import { pluriel } from '../noyau/accords';
 import { euros, type Centimes, type OperationBancaire } from './finances';
 import { CATEGORIES_BUDGET, categorieDuType, type ModificationDeType } from './taxonomie';
 import type { Pointage } from './pointage';
@@ -199,7 +200,9 @@ export function phraseDuNonPointe(
     return 'Tout est pointé : la comparaison porte sur l’ensemble de la période.';
   }
   const morceaux: string[] = [];
-  if (aPointerN) morceaux.push(`${aPointerN} opération(s) à pointer · ${euros(aPointerM)}`);
+  if (aPointerN) {
+    morceaux.push(`${pluriel(aPointerN, 'opération')} à pointer · ${euros(aPointerM)}`);
+  }
   if (aRevoirN) morceaux.push(`${aRevoirN} à revoir · ${euros(aRevoirM)}`);
   return (
     `${morceaux.join(' — ')}. La comparaison ci-dessus n’en tient pas compte : `

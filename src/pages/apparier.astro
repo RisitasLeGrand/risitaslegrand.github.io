@@ -279,6 +279,7 @@ import Base from '../layouts/Base.astro';
   import { poserLesYeux } from '../lib/mot-de-passe-visible';
   import { confirmer } from '../lib/boite';
   import { messageDUneErreur } from '../lib/agir';
+  import { accorde, pluriel } from '../lib/noyau/accords';
   import { auDeverrouillage } from '../lib/chargement';
   import {
     appairageMemorise,
@@ -435,12 +436,21 @@ import Base from '../layouts/Base.astro';
         });
         appairage = await appairageMemorise();
         const r = rapport.recu;
+        /*
+           « reçues » S'ACCORDE AVEC DEUX SUJETS, et c'est le seul endroit de
+           ce lot où la question se pose. « 1 opération et 3 révisions reçues »
+           : le participe suit le pluriel dès que l'un des deux l'est, et deux
+           sujets au singulier font quand même un pluriel — « 1 opération et
+           1 révision reçues ». On accorde donc sur la SOMME, ce qui vaut deux
+           dans ce dernier cas, et le participe passe au pluriel comme il doit.
+        */
         const parties = [
-          `${r.recues} opération(s) et ${r.revisionsRecues} révision(s) reçues`,
-          `${r.cartesRecalculees} carte(s) recalculée(s)`,
+          `${pluriel(r.recues, 'opération')} et ${pluriel(r.revisionsRecues, 'révision')} ` +
+            accorde(r.recues + r.revisionsRecues, 'reçue'),
+          `${pluriel(r.cartesRecalculees, 'carte')} ${accorde(r.cartesRecalculees, 'recalculée')}`,
         ];
-        if (r.reglagesChanges.length) parties.push(`${r.reglagesChanges.length} réglage(s)`);
-        if (r.conflits) parties.push(`${r.conflits} conflit(s) à traiter`);
+        if (r.reglagesChanges.length) parties.push(pluriel(r.reglagesChanges.length, 'réglage'));
+        if (r.conflits) parties.push(`${pluriel(r.conflits, 'conflit')} à traiter`);
         parties.push(
           rapport.identiques === true
             ? 'les deux appareils sont désormais identiques ✓'
@@ -612,7 +622,9 @@ import Base from '../layouts/Base.astro';
         });
         dire(
           'message-a2',
-          `${rapport.recu.recues} opération(s) et ${rapport.recu.revisionsRecues} révision(s) reçues ; ` +
+          `${pluriel(rapport.recu.recues, 'opération')} et ` +
+            `${pluriel(rapport.recu.revisionsRecues, 'révision')} ` +
+            `${accorde(rapport.recu.recues + rapport.recu.revisionsRecues, 'reçue')} ; ` +
             (rapport.identiques === true
               ? 'les deux appareils sont identiques ✓'
               : rapport.identiques === false

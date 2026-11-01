@@ -83,7 +83,23 @@ const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
 
 console.log('\nUN NUMÉRO PAR MIGRATION, ET PAS DEUX');
 
-const declaree = Number(/^const VERSION = (\d+);$/m.exec(SOURCE)?.[1]);
+/*
+   « export » TOLÉRÉ, ET C'EST MOI QUI AI CASSÉ CE MOTIF.
+
+   La déclaration était `const VERSION = 43;` et elle est devenue
+   `export const VERSION = 43;` le jour où la garde G-7 a exigé que
+   `SCHEMA_REVISIONS` DÉRIVE de cette constante au lieu de la recopier. Le
+   motif ancré sur `^const` a cessé de mordre, `declaree` est devenu NaN, et
+   deux contrôles ont rougi : « la version courante est déclarée » et « et la
+   version courante en a un ».
+
+   C'est le défaut que ce dépôt rencontre le plus souvent, cette fois dans un
+   essai : une règle écrite sur la FORME d'une ligne se périme dès que la ligne
+   bouge pour une raison étrangère. Le motif accepte donc l'export, et rien de
+   plus : il exige toujours le mot-clé, le nom exact, un nombre, et le
+   point-virgule en fin de ligne.
+*/
+const declaree = Number(/^(?:export )?const VERSION = (\d+);$/m.exec(SOURCE)?.[1]);
 v('la version courante est déclarée', Number.isInteger(declaree) && declaree > 0, true);
 
 const numeros = [...SOURCE.matchAll(/^\s*if \(vers\((\d+)\)\) \{$/gm)].map((m) => Number(m[1]));

@@ -26,6 +26,8 @@
 import { chromium } from 'playwright-core';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { ouvrirLeCoffre as ouvrirLeCoffreSur } from './lib/coffre-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -50,19 +52,19 @@ const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(3000);
+    /* Le départ du champ est la post-condition du déverrouillage. */
+    await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
   }
 };
 
-const ouvrirLeCoffre = async () => {
-  const champ = page.locator('#mdp-coffre');
-  await champ.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
-  if (!(await champ.isVisible().catch(() => false))) return false;
-  await page.fill('#mdp-coffre', MDP);
-  await page.click('#ouvrir-coffre');
-  await page.locator('#coffre-ferme').waitFor({ state: 'hidden', timeout: 20000 });
-  return true;
-};
+/*
+   LA SEPTIÈME COPIE N'AURA PAS LIEU. Ce fichier portait la sienne du geste
+   « remplir, cliquer, attendre » ; C en a fait une aide partagée après en avoir
+   compté six. Celle-ci disparaît donc au profit de la sienne, et sa
+   post-condition est `#coffre-ouvert` plutôt que `#coffre-ferme` caché — plus
+   directe, et vraie dans le même instant.
+*/
+const ouvrirLeCoffre = () => ouvrirLeCoffreSur(page, MDP);
 
 /** Les clés d'« etat » qui touchent au coffre. */
 const clefsDuCoffre = () =>
@@ -96,8 +98,9 @@ await page.evaluate(
 
 await page.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await connecter();
+/* Aucune temporisation : l'aide partagée attend `#coffre-ouvert`, qui EST la
+   post-condition de l'ouverture. */
 v('le coffre demande son mot de passe', await ouvrirLeCoffre(), true);
-await page.waitForTimeout(1500);
 
 /*
    Un enregistrement scellé posé à la main, dans un magasin scellé. On ne
@@ -229,6 +232,13 @@ v(
 
 console.log('\nET RIEN N’EST ÉCRIT PAR-DESSUS');
 
+/*
+   CELLE-CI RESTE, ET C'EST UNE FENÊTRE D'OBSERVATION, non une temporisation à
+   l'aveugle. Ce qui suit affirme que le formulaire NE REPARAÎT PAS : on attend
+   donc de voir qu'une chose ne se produit pas, et aucune post-condition ne dit
+   cela — une condition qui n'arrive jamais ne peut pas être attendue. Deux
+   secondes sont le temps qu'on accorde au défaut pour se montrer.
+*/
 await page.waitForTimeout(2000);
 
 /*
@@ -278,7 +288,9 @@ v('elle conseille la sauvegarde d’abord', /restaurez-la plutôt/i.test(texte),
 
 // On refuse : rien ne doit partir.
 await page.locator('dialog.boite[open] .boite-bouton', { hasText: 'Annuler' }).first().click();
-await page.waitForTimeout(1500);
+/* La boîte qui se referme est la post-condition du refus ; la lecture de base
+   qui suit n'a de sens qu'après elle. */
+await devientVisible(page, 'dialog.boite[open]', false, { delai: 20000 });
 v(
   'un refus ne retire rien',
   await page.evaluate(

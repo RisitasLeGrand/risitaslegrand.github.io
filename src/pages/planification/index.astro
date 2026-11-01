@@ -212,7 +212,7 @@ import Section from '../../components/Section.astro';
         'Vous pouvez tout de même ouvrir une séance si l\'envie vous en prend.'
       : seance.statut === 'terminee'
         ? `Séance tenue${seance.secondes ? ` en ${formaterDuree(seance.secondes)}` : ''}. ` +
-          `${passees.length} séance(s) de cette matière au total.`
+          `${pluriel(passees.length, 'séance')} de cette matière au total.`
         : passees.length === 0
           ? "Première séance sur cette matière : pas de rappel à restituer, on entre directement dans le contenu du jour."
           : `Au programme : restitution à blanc ${
