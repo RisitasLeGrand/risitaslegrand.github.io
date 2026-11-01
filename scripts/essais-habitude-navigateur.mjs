@@ -473,6 +473,38 @@ try {
     (await boutonLu.innerText().catch(() => '')).trim(),
     '✓ Fiche lue',
   );
+  /*
+     ET LA BASE DIT LA MÊME CHOSE QUE LE BOUTON.
+
+     C'est la conjonction qui compte, pas l'un des deux. Le défaut que
+     « agirPuisPeindre » corrige sur cet écran est précisément un DÉSACCORD :
+     l'XP était gagnée avant la mise à jour du bouton, donc un échec de
+     « gagnerXp » laissait une fiche lue en base et un bouton qui disait encore
+     « Marquer comme lue ». Et le second appui retombait sur « if (etat?.lu)
+     return » sans rien faire : la personne restait devant un bouton mort.
+
+     Lire le bouton seul ne verrait pas cela ; lire la base seule non plus.
+  */
+  v(
+    'et la base est d’accord avec le bouton — pas l’un sans l’autre',
+    await page.evaluate(async () => {
+      const base = await new Promise((ok) => {
+        const r = indexedDB.open('revinsp');
+        r.onsuccess = () => ok(r.result);
+      });
+      if (![...base.objectStoreNames].includes('fiches')) {
+        base.close();
+        return 'magasin absent';
+      }
+      const tout = await new Promise((ok) => {
+        const q = base.transaction('fiches').objectStore('fiches').getAll();
+        q.onsuccess = () => ok(q.result);
+      });
+      base.close();
+      return tout.some((e) => e?.lu === true) ? 'au moins une fiche lue' : 'aucune fiche lue';
+    }),
+    'au moins une fiche lue',
+  );
 
   await aller('/revisions/');
   v(

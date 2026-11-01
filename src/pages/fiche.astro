@@ -184,6 +184,7 @@ import LienReglages from '../components/LienReglages.astro';
 </Base>
 
 <script>
+  import { agirPuisPeindre } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import { iconeDuGabarit } from '../lib/icone-gabarit';
   import { aplatirFiches, chargerFiche, chargerManifeste, type Fiche } from '../lib/contenu';
@@ -450,32 +451,69 @@ import LienReglages from '../components/LienReglages.astro';
   async function marquerLue() {
     const bouton = document.getElementById('bouton-lu') as HTMLButtonElement;
     const etat = await lireEtatFiche(fiche.id);
-    if (etat?.lu) return;
-    // L'étalement d'abord : sans lui, chaque écriture effacerait les champs que
-    // cette fonction ne connaît pas — l'état du prétest, par exemple.
-    await ecrireEtatFiche({
-      ...etat,
-      id: fiche.id,
-      matiere: fiche.matiere,
-      lu: true,
-      derniereOuverture: new Date().toISOString(),
-      secondes: etat?.secondes ?? 0,
-    });
-    const gain = await gagnerXp(xpFiche());
-    /*
-       LA CONFIRMATION RESTE, LE CHIFFRE PART (F2).
+    if (etat?.lu) {
+      /*
+         DÉJÀ LUE : ON NE RÉÉCRIT PAS, MAIS ON REPEINT — et c'est un correctif.
 
-       Éteindre les scores ne doit pas éteindre le retour : savoir que la
-       fiche est enregistrée est un fait, pas une récompense. Seul le nombre
-       de points — et le niveau, qui n'est que l'XP sous un autre nom —
-       dépend du réglage.
+         Cette branche rendait la main sans rien faire. Or si une tentative
+         précédente avait écrit l'état puis échoué à repeindre, le bouton
+         portait encore « Marquer comme lue » alors que la base disait le
+         contraire : le second appui retombait ici, ne faisait RIEN, et la
+         personne restait devant un bouton mort sans explication.
+
+         Repeindre coûte un remplacement de texte et ferme ce piège.
+      */
+      majBoutonLu(true);
+      bouton.blur();
+      return;
+    }
+    /*
+       L'ÉCRITURE SEULE EST L'ACTION ; L'XP ET LES ANNONCES SONT LE REPEINT.
+
+       L'ordre compte, et il était à l'envers. L'XP était gagnée AVANT que le
+       bouton ne soit mis à jour : un échec de « gagnerXp » laissait donc une
+       fiche marquée lue en base et un bouton qui disait encore « Marquer comme
+       lue ». C'est le même défaut que le verdict d'effacement écrit avant la
+       peinture — l'état change, l'écran ne le dit pas, et le geste suivant
+       n'arrange rien.
+
+       On peint donc d'abord ce qui est VRAI — la fiche est lue, l'écriture a
+       abouti —, et l'on tente ensuite ce qui est en plus. Si l'XP échoue, le
+       bouton est déjà juste et l'échec est dit ; la personne n'a pas perdu
+       l'enregistrement de sa lecture pour une question de points.
     */
-    const scores = serieEtXpAffichees();
-    notifier(scores ? `+${gain.xpGagne} XP — fiche terminée` : 'Fiche terminée', 'succes');
-    for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
-    if (gain.monteeDeNiveau && scores) notifier(`Niveau ${gain.niveau.niveau} atteint`, 'succes');
-    majBoutonLu(true);
-    bouton.blur();
+    await agirPuisPeindre(
+      () =>
+        // L'étalement d'abord : sans lui, chaque écriture effacerait les champs
+        // que cette fonction ne connaît pas — l'état du prétest, par exemple.
+        ecrireEtatFiche({
+          ...etat,
+          id: fiche.id,
+          matiere: fiche.matiere,
+          lu: true,
+          derniereOuverture: new Date().toISOString(),
+          secondes: etat?.secondes ?? 0,
+        }),
+      {
+        peindre: async () => {
+          majBoutonLu(true);
+          bouton.blur();
+          const gain = await gagnerXp(xpFiche());
+          /*
+             LA CONFIRMATION RESTE, LE CHIFFRE PART (F2).
+
+             Éteindre les scores ne doit pas éteindre le retour : savoir que la
+             fiche est enregistrée est un fait, pas une récompense. Seul le
+             nombre de points — et le niveau, qui n'est que l'XP sous un autre
+             nom — dépend du réglage.
+          */
+          const scores = serieEtXpAffichees();
+          notifier(scores ? `+${gain.xpGagne} XP — fiche terminée` : 'Fiche terminée', 'succes');
+          for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
+          if (gain.monteeDeNiveau && scores) notifier(`Niveau ${gain.niveau.niveau} atteint`, 'succes');
+        },
+      },
+    );
   }
 
   function majBoutonLu(lu: boolean) {
