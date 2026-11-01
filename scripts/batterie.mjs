@@ -239,6 +239,14 @@ const SOCLE = [
   ['essais:theme-menus', 'aucun menu hors palette, et refus de juger à vide'],
   ['essais:coffre-ferme', 'coffre fermé, rien de sensible n’apparaît'],
   ['essais:echecs-dits', 'un échec est dit, jamais avalé'],
+  /*
+     B-7. Au socle parce qu'il est PUR et tient en une seconde, et parce que ce
+     qu'il garde est de la famille de l'irréparable : une restauration qui
+     reprend l'identité d'un autre appareil met deux appareils sous le même nom,
+     et ce nom est celui qui arbitre les horloges logiques égales. Le défaut ne
+     se voit pas au moment où il se produit.
+  */
+  ['essais:identite-restauree', 'une restauration ne reprend l’identité que si on le demande'],
   ['essais:refus-dit', 'un mot de passe de coffre refusé est dit, sur chaque page'],
   ['essais:carte-ecrans', 'aucun écran orphelin, aucun au-delà de trois appuis'],
   /*
