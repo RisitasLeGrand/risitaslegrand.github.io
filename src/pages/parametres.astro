@@ -205,8 +205,8 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
+  import { versionDeLApplication } from '../lib/version';
   import { messageDUneErreur } from '../lib/agir';
-  import { chargerParametresCle } from '../lib/contenu';
   import { coffreOuvert, surCoffre } from '../lib/coffre';
   import { ACCES } from '../lib/parametres/acces';
   import { REGLAGES } from '../lib/parametres/catalogue';
@@ -443,13 +443,19 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
 
   /* ── La version de publication (43, B4) ───────────────────────────────── */
 
-  void chargerParametresCle()
-    .then((p) => {
-      document.getElementById('version-publication')!.textContent = p.version ?? 'inconnue';
-    })
-    .catch(() => {
-      document.getElementById('version-publication')!.textContent = 'inconnue';
-    });
+  /*
+     ELLE AFFICHAIT « inconnue », TOUJOURS — B4. `ParametresCle` ne porte pas
+     de champ `version` : `p.version` valait donc `undefined`, et le repli
+     s'appliquait à chaque chargement. L'écran disait « Cyclades, publication
+     inconnue » depuis le premier jour, ce qui est plus mauvais que de ne rien
+     dire — un lecteur en conclut que la publication n'est pas identifiée,
+     alors que personne ne lui avait demandé de l'être.
+
+     Et elle n'a plus rien à charger : la version est injectée à l'assemblage,
+     donc elle est là avant la première peinture. Un appel réseau pour une
+     constante était la seconde faute de ces huit lignes.
+  */
+  document.getElementById('version-publication')!.textContent = versionDeLApplication();
 
   /* Les valeurs ne se lisent qu'une fois la session ouverte ; et le coffre
      peut s'ouvrir ou se refermer pendant qu'on est sur la page. */
