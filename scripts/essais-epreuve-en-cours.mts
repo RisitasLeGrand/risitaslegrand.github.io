@@ -104,6 +104,15 @@ const banque = new Map(
       id,
       rubrique: 'R',
       rubriqueId: 'r',
+      /*
+         « categorie_origine » est obligatoire, et son commentaire dit
+         pourquoi « maison » existe : 153 questions sur 540 ne viennent
+         d'aucune annale, et leur écrire « B » « aurait faussé le tirage de
+         DGFiP B au profit de questions que la DGFiP n'a jamais posées ». Une
+         question d'essai n'est d'aucune annale : « maison » est sa catégorie
+         juste, et non un remplissage.
+      */
+      categorie_origine: 'maison' as const,
       question: `énoncé ${id}`,
       options: ['a', 'b', 'c'],
       bonnes: [0],

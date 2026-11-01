@@ -52,6 +52,19 @@ const bon: Indicateur = {
   confusions: ['une confusion'],
   saisie: 'observee',
   joursMinimaux: 10,
+  /*
+     LE PLANCHER MANQUAIT, et le type explique pourquoi il est obligatoire :
+     « quelqu'un qui dort exactement huit heures toutes les nuits a un écart
+     absolu médian de zéro, et la moindre nuit à sept heures cinquante le
+     ferait dévier d'une infinité d'écarts ». C'est « une décision par
+     indicateur qu'aucune formule ne peut prendre à notre place » — donc un
+     champ qu'on ne peut pas omettre sans rendre le moteur absurde.
+
+     On prend 0,25, la valeur des deux indicateurs réels du fichier, plutôt
+     qu'un chiffre inventé : un indicateur d'essai au plancher fantaisiste
+     éprouverait un régime que le programme n'a jamais.
+  */
+  plancherDeDispersion: 0.25,
 };
 
 /* ── 1. Le catalogue ───────────────────────────────────────────────────── */

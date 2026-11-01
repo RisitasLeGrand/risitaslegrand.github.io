@@ -38,6 +38,28 @@ const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
 const vrai = (intitule: string, condition: boolean) => v(intitule, condition, true);
 const faux = (intitule: string, condition: boolean) => v(intitule, condition, false);
 
+/*
+   ON RETIRE LES CLÉS À « undefined » AVANT DE LES ÉTALER.
+
+   Cette fabrique annonce rendre un « Evenement », et l'étalement d'un
+   « Partial<Evenement> » ne le garantissait pas : TypeScript laisse écrire
+   « evenement({ motif: undefined }) », et la clé présente à « undefined »
+   ÉCRASE alors la valeur par défaut. Le résultat portait « motif: undefined »
+   là où le type exige « MotifNonFait | null » — c'est-à-dire un événement que
+   le programme ne peut pas produire, rendu par une fonction qui promettait le
+   contraire.
+
+   Le filtre rend la promesse vraie au lieu de l'affirmer : une clé absente et
+   une clé à « undefined » ont désormais le même effet, celui qu'on attend
+   d'elles — laisser le défaut en place.
+*/
+type DefiniesSeulement<T> = { [K in keyof T]?: Exclude<T[K], undefined> };
+
+const sansIndefinis = <T extends object>(o: T): DefiniesSeulement<T> =>
+  Object.fromEntries(
+    Object.entries(o).filter(([, valeur]) => valeur !== undefined),
+  ) as DefiniesSeulement<T>;
+
 const evenement = (p: Partial<Evenement> = {}): Evenement => ({
   id: 'E1',
   titre: 'Rendez-vous',
@@ -49,9 +71,21 @@ const evenement = (p: Partial<Evenement> = {}): Evenement => ({
   note: '',
   uidIcs: null,
   realise: 'inconnu',
+  /*
+     « motif » MANQUAIT AUX DÉFAUTS, et c'est pour cela que l'étalement ne
+     suffisait pas : la fabrique s'en remettait à l'appelant pour un champ
+     obligatoire. « null » est sa valeur juste ici, puisque « realise » vaut
+     « inconnu » — le type dit qu'un motif est « exigé quand realise vaut
+     non-fait » et qu'ailleurs « un motif de non-réalisation sur un événement
+     fait serait une contradiction ».
+  */
+  motif: null,
+  /* « Les deux mots qui précisent le motif. Jamais obligatoires. » — mais le
+     champ, lui, l'est : vide est sa valeur normale, absente ne l'est pas. */
+  motifLibre: '',
   releveLe: null,
   majLe: '2026-10-01T09:00:00.000Z',
-  ...p,
+  ...sansIndefinis(p),
 });
 
 /* ════════════════════════════════════════════════════════════════════════

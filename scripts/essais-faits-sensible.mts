@@ -62,6 +62,8 @@ const prise = (id: string, le: string): Prise => ({
   le,
   jour: le.slice(0, 10),
   majLe: le,
+  /* « note » est obligatoire, et vide est sa valeur normale. */
+  note: '',
 });
 
 const statut = (id: string, nature: StatutHormonal['nature'], debut: string): StatutHormonal => ({

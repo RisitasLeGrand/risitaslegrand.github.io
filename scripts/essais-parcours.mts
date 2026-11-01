@@ -189,6 +189,13 @@ const fabriquer = (
   intitule: id,
   concours: { phrase: id, sigle: id, voie: 'a-preciser' },
   racineContenu: id,
+  /*
+     « Un tableau vide est un état normal, et non une absence à combler »,
+     dit le type : l'INSP ne partage aucune racine, ses 262 fiches sont à la
+     racine. Le champ était simplement omis, ce qui n'est pas le même énoncé —
+     omettre, c'est ne rien dire ; déclarer vide, c'est dire qu'il n'y a rien.
+  */
+  racinesPartagees: [],
   referentiel:
     origine === 'a-etablir'
       ? { origine }
