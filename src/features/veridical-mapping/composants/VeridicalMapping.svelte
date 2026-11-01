@@ -250,6 +250,15 @@
         seuil: null,
         statut: 'jamais' as const,
         majLe: new Date().toISOString(),
+        /*
+           LES DEUX MARQUEURS SONT POSÉS DÈS LA CRÉATION, et ce n'est pas une
+           précaution décorative : `reprendreUnSeuil` remet à zéro toute ligne
+           qui ne les porte pas. Sans eux, chaque chargement de l'écran
+           effacerait l'escalier en cours — la ligne serait prise pour une
+           mesure d'avant le 1er novembre, à chaque lecture.
+        */
+        echelle: 'z' as const,
+        regle: '3-down' as const,
       }
     );
   }
@@ -452,6 +461,8 @@
         reussis,
         paires: travaillees,
         seuilMedian: median,
+        /* Son unité, pour que la relecture ne la convertisse pas une seconde fois. */
+        echelle: 'z' as const,
         secondes,
       });
       const gain = await gagnerXp(xpVeridical(reussis, convergences.length), {

@@ -184,3 +184,92 @@ export const INTITULES_STATUT: Record<Statut, string> = {
   'en-cours': 'en cours',
   converge: 'stabilisée',
 };
+
+/* ── LA REPRISE D'UNE MESURE ÉCRITE AVANT LE 1er NOVEMBRE 2026 ──────────── */
+
+/**
+ * La forme minimale qu'une ligne enregistrée doit avoir pour être reprise.
+ *
+ * Volontairement structurelle et non importée de `db.ts` : l'escalier ne doit
+ * rien savoir du magasin, et la reprise se contrôle alors sans base.
+ */
+export interface SeuilRepris {
+  escalier: EtatEscalier;
+  seuil: number | null;
+  statut: Statut;
+  echelle?: 'pas' | 'z';
+  regle?: '2-down' | '3-down';
+  ancienneMesure?: number | null;
+}
+
+/**
+ * REPREND UNE MESURE ENREGISTRÉE, ET REFUSE DE MÉLANGER DEUX RÈGLES.
+ *
+ * ## Le défaut que cette fonction existe pour empêcher
+ *
+ * Le 1er novembre 2026, deux choses ont changé d'un coup : l'unité des écarts
+ * — des pas vers `z` — et la règle de l'escalier — 2-down vers 3-down. Les
+ * deux touchent des valeurs **enregistrées**.
+ *
+ * Sans cette reprise, le code neuf relirait les anciennes lignes comme si elles
+ * étaient neuves, et de deux façons fausses à la fois : un seuil de 7,3 pas se
+ * lirait 730 % de l'étendue, seize fois la borne haute de l'escalier ; et un
+ * escalier 2-down se poursuivrait sous les règles du 3-down, rendant un seuil
+ * qui ne mesure ni les 70,7 % de l'un ni les 79,4 % de l'autre.
+ *
+ * Aucune des deux n'aurait levé. La première aurait donné des cellules à
+ * « 730 % », qu'on aurait prises pour un défaut d'affichage ; la seconde
+ * n'aurait rien donné du tout, qu'un nombre un peu faux.
+ *
+ * ## Ce qu'elle fait, et ce qu'elle ne fait pas
+ *
+ * Elle CONVERTIT ce qui est en pas, et elle REPART de zéro quand la règle a
+ * changé — décision du pilote : les anciennes mesures sont gardées, affichées
+ * « ancienne mesure », et chaque paire repart d'un escalier neuf.
+ *
+ * Elle ne réécrit **rien** dans le magasin : c'est une lecture. La réécriture
+ * est la migration, et elle attend le prompt 58 p2. La lecture, elle, ne peut
+ * pas attendre, puisque le code qui lit est déjà le nouveau.
+ *
+ * **Elle est idempotente**, et c'est éprouvé : une ligne déjà reprise porte
+ * `echelle: 'z'` et `regle: '3-down'`, et ressort inchangée. Sans cette
+ * propriété, deux lectures successives diviseraient deux fois par 119.
+ */
+export function reprendreUnSeuil(ligne: SeuilRepris, pasParEtendue: number): SeuilRepris {
+  const enPas = ligne.echelle !== 'z';
+  const ancienneRegle = ligne.regle !== '3-down';
+  if (!enPas && !ancienneRegle) return ligne;
+
+  /* La conversion : un écart en pas devient une part de l'étendue. */
+  const enZ = (valeur: number): number => (enPas ? valeur / pasParEtendue : valeur);
+
+  /*
+     L'ANCIENNE MESURE EST GARDÉE, convertie, et elle n'alimente plus aucun
+     calcul. La mêler au nouveau seuil serait moyenner deux points différents
+     de la courbe psychométrique — c'est exactement ce que la décision du
+     pilote interdit.
+  */
+  if (ancienneRegle) {
+    return {
+      escalier: escalierNeuf(),
+      seuil: null,
+      statut: 'jamais',
+      echelle: 'z',
+      regle: '3-down',
+      ancienneMesure: ligne.seuil === null ? null : enZ(ligne.seuil),
+    };
+  }
+
+  /* Même règle, autre unité : on convertit sans rien perdre. */
+  return {
+    ...ligne,
+    escalier: {
+      ...ligne.escalier,
+      delta: enZ(ligne.escalier.delta),
+      inversions: ligne.escalier.inversions.map(enZ),
+    },
+    seuil: ligne.seuil === null ? null : enZ(ligne.seuil),
+    echelle: 'z',
+    regle: '3-down',
+  };
+}

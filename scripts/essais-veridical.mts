@@ -26,6 +26,7 @@ import {
   REGLAGES,
   escalierNeuf,
   repondre,
+  reprendreUnSeuil,
   seuil,
   statut,
   type EtatEscalier,
@@ -258,6 +259,114 @@ for (const seuilVrai of [3, 8, 20].map(zDuPas)) {
     );
   }
   verifier(`seuil ${ecartDit(seuilVrai)} : au moins 55 estimations sur 60`, estimations.length >= 55, true);
+}
+
+console.log('\nREPRISE D’UNE MESURE ÉCRITE AVANT LE 1er NOVEMBRE');
+{
+  const ETENDUE = PAS - 1;
+  /* Une ligne d'avant : écarts en pas, aucun marqueur, règle 2-down implicite. */
+  const ancienne = {
+    escalier: {
+      delta: 12,
+      bonnesDeSuite: 1,
+      inversions: [20, 16, 12, 10, 8, 7, 8, 7],
+      derniereDirection: 'resserre' as const,
+      essais: 140,
+      reussis: 99,
+    },
+    seuil: 7.3,
+    statut: 'converge' as const,
+  };
+
+  const reprise = reprendreUnSeuil(ancienne, ETENDUE);
+  /*
+     LA RÈGLE A CHANGÉ, DONC L'ESCALIER REPART. C'est la décision du pilote, et
+     c'est le contrôle qui compte : poursuivre un escalier 2-down sous les
+     règles du 3-down rendrait un seuil qui ne mesure ni les 70,7 % de l'un ni
+     les 79,4 % de l'autre, et rien ne lèverait.
+  */
+  verifier('l’escalier repart de zéro', reprise.escalier, escalierNeuf());
+  verifier('le seuil courant est effacé', reprise.seuil, null);
+  verifier('et le statut revient à « jamais »', reprise.statut, 'jamais');
+  /* L'ancienne mesure est GARDÉE, convertie, et n'alimente plus aucun calcul. */
+  verifier(
+    'l’ancienne mesure est gardée, en z',
+    Number(reprise.ancienneMesure?.toFixed(6)),
+    Number((7.3 / ETENDUE).toFixed(6)),
+  );
+  verifier('les deux marqueurs sont posés', [reprise.echelle, reprise.regle], ['z', '3-down']);
+
+  /*
+     L'IDEMPOTENCE, et sans elle deux lectures diviseraient deux fois par
+     l'étendue. Une ligne déjà reprise ressort IDENTIQUE — comparée par
+     identité d'objet, ce qui est plus fort qu'une comparaison de valeurs :
+     la fonction ne doit pas même reconstruire la ligne.
+  */
+  verifier('une ligne déjà reprise ressort inchangée', reprendreUnSeuil(reprise, ETENDUE) === reprise, true);
+
+  /*
+     L'INVARIANT QUI PROTÈGE L'ESCALIER EN COURS, et c'est le plus important de
+     cette section.
+
+     `reprendreUnSeuil` remet à zéro toute ligne qui ne porte pas ses deux
+     marqueurs. Une ligne CRÉÉE par l'écran doit donc les porter dès sa
+     naissance — sinon chaque chargement la prendrait pour une mesure d'avant
+     le 1er novembre, et effacerait l'escalier en cours. À chaque lecture.
+
+     Le contrôle porte sur la forme exacte que l'écran crée, marqueurs
+     compris, et il est accompagné de son contre-exemple : la même ligne sans
+     marqueurs DOIT être remise à zéro. Les deux ensemble disent que le
+     comportement dépend bien des marqueurs, et non du hasard.
+  */
+  const ligneNeuve = {
+    escalier: { ...escalierNeuf(), delta: 0.14, essais: 7, reussis: 5 },
+    seuil: null,
+    statut: 'en-cours' as const,
+    echelle: 'z' as const,
+    regle: '3-down' as const,
+  };
+  verifier(
+    'une ligne neuve, marqueurs compris, traverse la lecture sans être touchée',
+    reprendreUnSeuil(ligneNeuve, ETENDUE) === ligneNeuve,
+    true,
+  );
+  verifier(
+    'contre-exemple : la même sans marqueurs est remise à zéro',
+    reprendreUnSeuil({ ...ligneNeuve, echelle: undefined, regle: undefined }, ETENDUE).escalier.essais,
+    0,
+  );
+
+  /*
+     LE CAS « MÊME RÈGLE, AUTRE UNITÉ » n'arrive pas dans ce dépôt — les deux
+     changements sont du même jour — mais la fonction le traite, et un chemin
+     non éprouvé est un chemin qui se défait. On convertit alors sans rien
+     perdre : l'escalier continue.
+  */
+  const memeRegleEnPas = { ...ancienne, regle: '3-down' as const };
+  const convertie = reprendreUnSeuil(memeRegleEnPas, ETENDUE);
+  verifier('l’escalier n’est PAS remis à zéro', convertie.escalier.essais, 140);
+  verifier(
+    'le delta est converti',
+    Number(convertie.escalier.delta.toFixed(6)),
+    Number((12 / ETENDUE).toFixed(6)),
+  );
+  verifier(
+    'et chaque inversion aussi',
+    convertie.escalier.inversions.map((v) => Number(v.toFixed(6))),
+    ancienne.escalier.inversions.map((v) => Number((v / ETENDUE).toFixed(6))),
+  );
+  /*
+     LE SABOTAGE DU L0, ÉCRIT ICI. Oublier la conversion des inversions laisse
+     un seuil PLAUSIBLE : la moyenne géométrique de six nombres en pas rend un
+     nombre en pas, du même ordre que les autres seuils en pas. Ce contrôle est
+     le seul qui l'attrape, et c'est pourquoi il porte sur les inversions
+     elles-mêmes et non sur le seuil qu'on en tire.
+  */
+  verifier(
+    'sabotage : des inversions non converties resteraient du même ordre que l’original',
+    Math.abs(ancienne.escalier.inversions[0] - convertie.escalier.inversions[0]) > 1,
+    true,
+  );
 }
 
 console.log('\nTÂCHES « PLAN » ET « MODULAIRE » — ce qui les rend mesurables');
