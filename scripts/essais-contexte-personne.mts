@@ -422,10 +422,30 @@ const declares = CHAMPS.filter((c) =>
   ['naissanceAnnee', 'naissanceMois', 'majeurDeclare'].includes(c.champ),
 );
 v('les trois champs sont déclarés', declares.length, 3);
+/*
+   UN FAUX VERT, ET LE PLUS INSTRUCTIF DE CE CHANTIER.
+
+   Cette assertion lisait « c.obligatoire === true ». Or « ChampDeclare » N'A
+   PAS de champ « obligatoire » : il a été retiré du type exprès, et le
+   commentaire de « profil.ts » dit pourquoi — « le champ est retiré du type
+   plutôt que mis à false partout : ainsi "obligatoire: true" ne compile plus.
+   Un contrôle au lancement se serait contenté de crier après coup ; le
+   compilateur, lui, refuse d'avance. »
+
+   La garantie reposait donc entièrement sur le compilateur. Et cet essai
+   vivait dans le seul répertoire que le compilateur ne regardait pas : sous
+   tsx, « c.obligatoire » lisait une propriété absente, rendait « undefined »,
+   et l'assertion passait — non parce qu'aucun champ n'est obligatoire, mais
+   parce que la question n'avait plus de sens. Verte par vacuité.
+
+   On vérifie maintenant ce qui a du contenu : qu'aucun champ ne porte la
+   propriété, ce qui se mesure vraiment à l'exécution. Le refus d'avance, lui,
+   est rendu par le typage de « scripts/ », qui est l'objet de ce chantier.
+*/
 v(
-  'aucun n’est obligatoire',
-  declares.some((c) => c.obligatoire === true),
-  false,
+  'aucun champ ne porte même la propriété « obligatoire », retirée du type',
+  declares.filter((c) => 'obligatoire' in c).map((c) => c.champ),
+  [],
 );
 v(
   'aucune branche ne les lit par la portée : le registre seul ouvre',

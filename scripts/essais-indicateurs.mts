@@ -360,7 +360,15 @@ const desaccord = (types: string[]): Desaccord => ({
   regle: 'essai',
   cible: `essai:${types.join('+')}`,
   jour: '2026-10-07',
-  gravite: 'bloquant',
+  /*
+     « Gravite » vaut « impossible | contradiction ». « bloquant » n'en fait
+     pas partie : le mot décrit bien l'effet attendu — ce désaccord est le
+     pivot qui fait tomber l'intégrité — mais ce n'est pas le vocabulaire du
+     type, qui nomme la NATURE du désaccord et non sa conséquence.
+     « impossible » est la nature de deux faits qui ne peuvent pas être vrais
+     ensemble, et c'est le cas que ce bloc construit.
+  */
+  gravite: 'impossible',
   faits: ['a', 'b'],
   types,
   branches: ['revisions'],
