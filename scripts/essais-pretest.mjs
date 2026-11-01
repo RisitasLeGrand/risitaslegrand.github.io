@@ -20,6 +20,7 @@ import { idStable } from './lib/crypto.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
+import { attendreEnBase } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 
@@ -145,11 +146,31 @@ await page
   .click();
 await page.getByRole('button', { name: /Valider mes réponses/ }).click();
 /*
-   LA CORRECTION EST LA DERNIÈRE CHOSE ÉCRITE par la validation, après les
-   écritures en base que les constats suivants relisent — la fiche prétestée,
-   la récompense, les trois notes d'entrée. L'attendre couvre donc aussi
-   celles-là.
+   LA CORRECTION N'EST PAS LA DERNIÈRE CHOSE ÉCRITE, et c'est la mesure qui
+   l'a dit contre le commentaire qui occupait cette place.
+
+   Il affirmait : « la correction est la dernière chose écrite par la
+   validation, après les écritures en base — l'attendre couvre donc
+   celles-là ». C'est l'inverse. `src/lib/pretest.ts` pose le texte de la
+   correction SYNCHRONIQUEMENT, puis lance les écritures dans une fonction
+   asynchrone qu'il n'attend pas : la fiche prétestée, les notes d'entrée, la
+   récompense. Attendre la correction, c'est donc relire la base AVANT qu'elle
+   soit écrite.
+
+   L'essai était par conséquent vert quand les écritures gagnaient la course et
+   rouge sinon — plus souvent rouge sous la charge d'une batterie. Les trois
+   croix relevées le 1er novembre (« une récompense forfaitaire a été versée »,
+   « une note d'entrée a été écrite », « aux trois portées ») ne venaient pas
+   d'un défaut de l'écran : le clic ENREGISTRAIT bien le choix, vérifié à la
+   bordure indigo de l'option après le clic.
+
+   On attend donc l'ÉCRITURE elle-même. La mesure est intacte : l'essai exige
+   toujours une récompense et trois notes d'entrée ; il les attend désormais là
+   où elles arrivent.
 */
+await attendreEnBase(page, 'competences', (tout) => tout.some((c) => c.clef?.startsWith('entree:')), {
+  delai: DELAI,
+}).catch(() => {});
 await page
   .waitForFunction(
     () =>
@@ -208,3 +229,15 @@ v('le cours est visible', await page.locator('#contenu').isVisible(), true);
 
 await nav.close();
 console.log(`\n${echecs ? `✖ ${echecs} échec(s)` : '✓ tout passe'}\n`);
+/*
+   LE CODE DE SORTIE DIT CE QUE LES CROIX DISENT, et il ne le disait pas : ce
+   script imprimait « ✖ 3 échec(s) » puis rendait la main sans appeler
+   `process.exit`, donc avec le code 0 que Node rend par défaut.
+
+   La batterie compte les croix et voyait rouge ; qui lançait l'essai seul
+   lisait le code et le croyait vert. D'où un rapport — « vert seul, rouge en
+   batterie » — qui envoyait chercher une interaction entre essais là où il
+   n'y en avait aucune. Un essai dont les deux juges se contredisent coûte
+   plus cher qu'un essai absent.
+*/
+process.exit(echecs ? 1 : 0);
