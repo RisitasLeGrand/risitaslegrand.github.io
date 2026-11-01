@@ -234,6 +234,36 @@ const SOCLE = [
   ['essais:curseurs-pas:navigateur', 'les neuf curseurs avancent d’un cran, et n monte jusqu’au moteur'],
   ['essais:defilement', 'aucun écran ne contourne le module de défilement'],
   ['essais:graphiques', 'les deux histogrammes : ligne tracée, tableau, 3:1'],
+  /*
+     LES ANCRES, au socle dès son premier jour (E3).
+
+     La marge d'ancre est une seule déclaration, dans `global.css`, pour tout
+     le site. C'est sa force — elle vaut pour les cibles qui n'existent pas
+     encore — et c'est la raison de l'inscrire ici : une déclaration unique se
+     retire par distraction, et il ne resterait RIEN. Avant elle, trois ancres
+     sur cinq atterrissaient entièrement derrière l'en-tête, et le lien
+     « Aller au contenu » avec elles.
+
+     Il mesure aux deux largeurs, parce que l'en-tête fait 103 px à 390 et
+     119 px à 1280 — un nombre écrit à la main est faux à l'une des deux.
+
+     Avant la correction : 9 rouges, dont trois ancres entièrement couvertes.
+     Après : 0, aux deux largeurs, le glossaire restant à zéro pixel de jeu.
+
+     Éprouvé par six sabotages avant d'y entrer, et chacun nomme ses rouges :
+
+       A  la bande d'ancre retirée                              7 rouges
+       B  la hauteur rendue à six rem écrits à la main          5 rouges
+       C  la bande posée aussi là où l'en-tête n'est pas collant 2 rouges
+       D  les barres d'écran retirées de la bande                2 rouges
+       E  le panneau « Sommaire » recalé sur un nombre           1 rouge
+       F  le saut du glossaire visant le HAUT de son index       2 rouges
+
+     B mérite d'être lu : la cible arrive alors à 104 px, soit UN pixel de trop
+     à 390 et quinze à 1280. Le nombre écrit à la main n'était juste que par
+     accident, et c'est ce genre de marge qui rend un faux vert durable.
+  */
+  ['essais:ancres:navigateur', 'une ancre atterrit sous l’en-tête, ni derrière ni plus bas'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
   ['essais:themes-a-jour', 'le catalogue et les feuilles engendrées concordent'],
   ['essais:contrastes-themes', 'WCAG AA dans chaque thème'],

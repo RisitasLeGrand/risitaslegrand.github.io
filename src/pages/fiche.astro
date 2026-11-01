@@ -100,8 +100,21 @@ import LienReglages from '../components/LienReglages.astro';
       <div id="podcast-parties" class="hidden"></div>
     </section>
 
-    <!-- Bascule cours complet / fiche simplifiée -->
-    <div class="sticky top-[57px] z-30 -mx-4 mb-5 border-b border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+    <!--
+      Bascule cours complet / fiche simplifiée.
+
+      ELLE ÉTAIT COLLÉE À 57 PIXELS, écrits à la main, et l'en-tête en fait 103
+      sur téléphone et 119 sur ordinateur. Ses quarante-six premiers pixels
+      passaient donc DERRIÈRE l'en-tête — qui est au-dessus d'elle en z — et
+      sur téléphone, où cette barre tient sur plusieurs rangées, c'est une
+      partie des onglets et des boutons qui disparaissait.
+
+      `sous-entete` la pose au bas de l'en-tête MESURÉ, bande réservée de
+      l'appareil comprise. C'est aussi ce qui rend son bas visible à la règle
+      d'ancre : le premier relevé de `essais:ancres:navigateur` a trouvé un
+      titre de sommaire à 111 px derrière une barre qui descendait à 228.
+    -->
+    <div class="sous-entete sticky z-30 -mx-4 mb-5 border-b border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
       <div class="flex flex-wrap items-center gap-2">
         <div class="inline-flex rounded-lg border border-slate-300 p-0.5 dark:border-slate-700" role="tablist">
           <button id="onglet-cours" role="tab" class="rounded-md px-3 py-1.5 text-sm font-medium">Cours complet</button>
@@ -126,7 +139,17 @@ import LienReglages from '../components/LienReglages.astro';
     <div class="lg:flex lg:gap-8">
       <!-- Sommaire -->
       <aside class="mb-6 hidden shrink-0 lg:block lg:w-56">
-        <div class="sticky top-32">
+        {/*
+           IL ÉTAIT COLLÉ À « top-32 », soit 128 px écrits à la main. À 1280,
+           l'en-tête fait 119 px et la bascule 58 : la bande s'arrête à 177, et
+           ce panneau commençait donc 49 px trop haut — « Sommaire » et sa
+           première entrée passaient derrière la bascule.
+
+           `sous-la-bande` le pose au bas de la bande MESURÉE, bascule comprise.
+           Pas au bas de l'en-tête : `sous-entete` est pour la bascule
+           elle-même, et ce panneau vient après elle.
+        */}
+        <div class="sous-la-bande sticky">
           <p class="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">Sommaire</p>
           <nav id="sommaire" class="defilement-fin max-h-[60dvh] space-y-1 overflow-y-auto text-sm"></nav>
           <!-- Le suivi des parties vues (prompt 46, P5) -->
