@@ -87,11 +87,32 @@
   const auMinimum = $derived(nombre(value) <= nombre(min));
   const auMaximum = $derived(nombre(value) >= nombre(max));
 
+  /*
+     LA BORDURE EST AU CRAN FORT, ET C'EST LA SEULE CHOSE QUI DÉLIMITE CE BOUTON.
+
+     Ces deux boutons n'ont pas de fond : leur bordure EST leur contour, donc
+     une marque porteuse de sens au sens de WCAG 1.4.11, qui demande 3:1. Le
+     cran faible — `slate-300` clair, `slate-700` sombre — ne les tient pas, et
+     la mesure est sans appel :
+
+       clair   slate-300 #b4b1a7 sur #FFFFFF  = 2,15:1
+       sombre  slate-700 #24384f sur #122233  = 1,35:1
+       clair   slate-400 #918e84 sur #FFFFFF  = 3,28:1
+       sombre  slate-600 #576d86 sur #122233  = 3,02:1
+
+     E2 avait fait passer 672 bordures du dépôt au cran fort. Ce composant est
+     né APRÈS ce balayage et lui a échappé — c'est `essais:contours:navigateur`
+     qui l'a rattrapé, en nommant les deux boutons « − » et « + » à 1,35:1.
+
+     Le 3,02:1 du mode sombre est juste au-dessus du seuil : un assombrissement
+     futur du fond élevé le ferait passer dessous, et c'est la garde qui le
+     dira. Elle est au socle.
+  */
   const CLASSE_BOUTON =
-    'cible-tactile-pleine shrink-0 rounded-lg border border-slate-300 text-base ' +
+    'cible-tactile-pleine shrink-0 rounded-lg border border-slate-400 text-base ' +
     'font-medium text-slate-600 transition hover:bg-slate-100 ' +
     'disabled:cursor-not-allowed disabled:opacity-40 ' +
-    'dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
+    'dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800';
 </script>
 
 <div class="flex items-center gap-2">
