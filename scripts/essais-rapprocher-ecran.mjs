@@ -197,9 +197,6 @@ async function aller(chemin, selecteur) {
   }
 }
 
-/** Les catégories relevées avant l'enregistrement des parts — voir son usage. */
-let categoriesAvantLesParts = '[]';
-
 /* ── 1. Quatre relevés entrent ────────────────────────────────────────── */
 
 console.log('\nQUATRE RELEVÉS MENSUELS ENTRENT');
@@ -446,40 +443,41 @@ console.log('\nLES ÉCARTS, ET L’ÉCHÉANCE NON ÉCHUE');
     JSON.stringify(lignes));
 
   /*
-     ON ATTEND QUE LES LIGNES CHANGENT, ET NON QUE LE BOUTON SE MARQUE.
+     ON ATTEND LA PEINTURE DE LA LISTE, ET NON LA MARQUE DU BOUTON.
 
-     Relevé dans la page, toutes les cent cinquante millisecondes après le
-     clic :
+     Cette attente portait sur « data-actif » du BOUTON d'axe, puis l'assertion
+     lisait la liste « [data-ecart] » — deux éléments différents. Et le
+     gestionnaire pose l'attribut AVANT de lancer la peinture, sans l'attendre
+     (« void peindreLesEcarts() ») : l'attente rendait donc la main alors que
+     la peinture venait à peine de commencer, et l'assertion lisait parfois les
+     valeurs de l'axe PRÉCÉDENT.
+
+     DEUX MESURES LE DISENT, prises séparément par deux agents, et elles se
+     recoupent. B a joué quatre courses sur main : deux vertes, deux rouges, sur
+     DEUX assertions différentes — un rouge qui change d'assertion d'une course
+     à l'autre ne désigne pas un défaut du code, il désigne une attente. Et C a
+     relevé la page toutes les cent cinquante millisecondes après le clic :
 
          0 ms  ["Dupont Loyer"]
        150 ms  ["2026-09","2026-10","2026-11","2026-12","2027-01"]
 
-     L'écran pose `data-actif="true"` sur l'axe AVANT de redessiner les
-     lignes. Attendre cet attribut, c'est donc lire les lignes de l'axe
-     PRÉCÉDENT — celles des locataires — et l'essai rougissait sur un écran qui
-     faisait son travail, cent cinquante millisecondes plus tard.
+     À l'instant où « data-actif » est posé, les lignes sont encore celles des
+     locataires. L'écran faisait son travail ; l'essai le lisait trop tôt.
 
-     L'attente ne peut pas porter sur « les lignes sont des mois » : ce serait
-     attendre ce qu'on s'apprête à mesurer, et la mesure ne dirait plus rien.
-     Elle porte donc sur le CHANGEMENT — les lignes ne sont plus celles
-     d'avant le clic —, après quoi le constat garde tout son mordant : un
-     écran qui redessinerait des locataires, ou n'importe quoi d'autre,
-     rougirait encore.
+     DEUX REMÈDES ONT ÉTÉ ÉCRITS, et c'est celui de B qui reste. Le mien
+     attendait que les lignes CHANGENT par rapport à un relevé d'avant le clic :
+     honnête, mais il ne distingue pas « la peinture est finie » de « la
+     première ligne est posée », et il avalait son expiration. Celui de B
+     attend la marque que l'écran pose lui-même en finissant — « peinture.ts »,
+     un compteur de module que toute peinture fait avancer, donc qui ne retombe
+     jamais sur une valeur déjà vue. Un écran qui déclare la fin de son travail
+     vaut mieux qu'un essai qui la devine.
+
+     « data-actif » n'est pas perdu pour autant : il reste ASSERTÉ deux lignes
+     plus bas, ce qui est sa place. L'attendre puis l'affirmer aurait été la
+     tautologie que la doctrine interdit.
   */
-  const avantLeClic = JSON.stringify(
-    await page.$$eval('[data-ecart]', (e) => e.map((x) => x.dataset.ecart)),
-  );
-  await page.click('[data-axe="mois"]');
-  await attendreLAttribut('[data-axe="mois"]', 'data-actif', 'true');
-  await page
-    .waitForFunction(
-      (avant) =>
-        JSON.stringify([...document.querySelectorAll('[data-ecart]')].map((x) => x.dataset.ecart)) !==
-        avant,
-      avantLeClic,
-      { timeout: 10000 },
-    )
-    .catch(() => {});
+  await apresLaPeinture(page, '#ecarts', () => page.click('[data-axe="mois"]'));
   const mois = await page.$$eval('[data-ecart]', (e) => e.map((x) => x.dataset.ecart));
   v('l’axe des mois rend des mois', { tous: mois.every((m) => /^\d{4}-\d{2}$/.test(m)), mois },
     { tous: true, mois });
@@ -836,15 +834,18 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
   faux('un type distinct rouvre l’enregistrement',
     await page.isDisabled('[data-geste="valider-parts"]'));
   /*
-     LES CATÉGORIES SONT RECALCULÉES APRÈS LA FERMETURE DE L'ÉDITEUR, et le
-     constat qui suit les lit. On relève donc leur état AVANT d'enregistrer,
-     pour pouvoir attendre qu'il change — la fermeture de l'éditeur, elle,
-     arrive trop tôt pour servir de signal.
+     MÊME FAUTE, MÊME REMÈDE. L'essai attendait que l'ÉDITEUR se referme, puis
+     la section suivante lisait « [data-categorie-pointee] » — que la
+     validation repeint, mais dont rien n'attendait la peinture. C'est la
+     seconde des deux assertions qui tombaient au hasard des courses, et la
+     fermeture de l'éditeur arrive trop tôt pour servir de signal.
+
+     Les deux attentes coexistent, et chacune porte sur ce qu'elle garde : la
+     peinture des catégories, puis la fermeture de l'éditeur.
   */
-  categoriesAvantLesParts = JSON.stringify(
-    await page.$$eval('[data-categorie-pointee]', (e) => e.map((x) => x.dataset.categoriePointee)),
+  await apresLaPeinture(page, '#categories-pointees', () =>
+    page.click('[data-geste="valider-parts"]'),
   );
-  await page.click('[data-geste="valider-parts"]');
   /* L'éditeur se referme quand les parts sont enregistrées. */
   await attendreLeNombre('[data-part="1"]', '=', 0);
 }
@@ -858,31 +859,23 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
      côtés sont les mêmes.
   */
   /*
-     ON ATTEND QUE LES CATÉGORIES CHANGENT, et non que l'éditeur se referme.
+     ET ICI, PLUS RIEN À ATTENDRE — la peinture est déjà attendue plus haut.
 
-     L'éditeur se ferme dès que les parts sont enregistrées ; la vue des
-     catégories, elle, est recalculée après. Lire aussitôt donnait la liste
-     d'AVANT le fractionnement, et l'essai rougissait par intermittence — vert
-     quand le recalcul gagnait la course. C'est le même défaut d'instrument que
-     l'axe des mois, trente lignes plus haut, et il valait d'être nommé deux
-     fois plutôt que corrigé une.
+     Il y avait à cet endroit une seconde attente, de ma main : relever les
+     catégories AVANT d'enregistrer, puis attendre qu'elles changent. Elle
+     visait le bon défaut — la vue est recalculée après la fermeture de
+     l'éditeur, donc lire aussitôt donnait la liste d'avant le fractionnement —
+     mais « apresLaPeinture » la couvre désormais, et la garder telle quelle
+     l'aurait rendue NUISIBLE plutôt que redondante : son relevé d'avant était
+     fait dans le même bloc que le clic, que la marque de peinture remplace, et
+     il ne se faisait donc plus. La comparaison tombait contre « [] », vraie dès
+     qu'une seule catégorie existe. Une attente satisfaite par n'importe quoi
+     n'attend rien, et elle en a l'air.
 
-     L'attente porte sur le CHANGEMENT et non sur « Logement est là » : attendre
-     ce qu'on mesure viderait le constat. Ici, un recalcul qui n'amènerait pas
-     Logement rougit encore.
+     Ce que son commentaire disait reste vrai de l'ASSERTION qui suit, et c'est
+     là que ça compte : elle porte sur « Logement est présent », pas sur un
+     changement, donc un recalcul qui n'amènerait pas Logement rougit encore.
   */
-  await page
-    .waitForFunction(
-      (avant) =>
-        JSON.stringify(
-          [...document.querySelectorAll('[data-categorie-pointee]')].map(
-            (x) => x.dataset.categoriePointee,
-          ),
-        ) !== avant,
-      categoriesAvantLesParts,
-      { timeout: 15000 },
-    )
-    .catch(() => {});
   const lignes = await page.$$eval('[data-categorie-pointee]',
     (e) => e.map((x) => x.dataset.categoriePointee));
   v('le logement apparaît, depuis la part de bricolage',
