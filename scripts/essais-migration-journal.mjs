@@ -16,6 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreEnBase } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -169,9 +170,20 @@ await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
-  await page.waitForTimeout(3500);
 }
-await page.waitForTimeout(1500);
+/*
+   CINQ SECONDES D'ESPOIR, remplacées par la post-condition de la migration
+   elle-même : ses magasins existent. Une migration n'a AUCUNE marque à
+   l'écran — rien à attendre dans le DOM —, mais la base est elle-même la
+   post-condition, et `attendreEnBase` sonde jusqu'à ce qu'elle réponde. Le
+   magasin absent fait simplement continuer le sondage, ce qui est exactement
+   l'état d'avant la migration.
+*/
+v(
+  'la migration a créé ses magasins',
+  (await attendreEnBase(page, 'revisions', () => true)) !== null,
+  true,
+);
 
 const apres = await page.evaluate(async () => {
   const base = await new Promise((ok, ko) => {

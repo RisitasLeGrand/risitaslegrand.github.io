@@ -12,6 +12,7 @@
 import { chromium } from 'playwright-core';
 import { writeFileSync, readFileSync } from 'node:fs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { annonceDe, devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const S = process.env.DOSSIER_ESSAIS ?? '/tmp';
@@ -22,7 +23,12 @@ const page = await ctx.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR:', e.message.slice(0, 160)));
 
 await page.goto('http://localhost:4321/progression', { waitUntil: 'networkidle' });
-if (await page.locator('#champ-mdp').isVisible().catch(()=>false)) { await page.fill('#champ-mdp',MDP); await page.click('#bouton-verrou'); await page.waitForTimeout(2500); }
+if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
+  await page.fill('#champ-mdp', MDP);
+  await page.click('#bouton-verrou');
+  /* Le départ du champ est la post-condition du déverrouillage. */
+  await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
+}
 
 const compter = () => page.evaluate(async () => {
   const base = await new Promise((ok) => { const r = indexedDB.open('revinsp'); r.onsuccess = () => ok(r.result); });
@@ -94,9 +100,28 @@ console.log(`export           : ${contenu.length} octets`);
 // Deux restaurations en mode « remplacement ».
 for (const passe of [1, 2]) {
   await page.locator('input[name=mode][value=remplacement]').check();
+  /*
+     UN GESTE RÉPÉTÉ DEMANDE LA PARADE. `#message-import` reste à l'écran
+     après la première passe : l'attendre tel quel le trouverait déjà là et
+     la seconde passe mesurerait le compte d'avant l'import. On efface donc
+     la zone soi-même AVANT le geste, puis on attend celle que le
+     gestionnaire écrit.
+
+     Et la post-condition est bien ce message, pas un délai : la page ne
+     l'écrit qu'après que `importerTout` a rendu la main
+     (`progression.astro:889`), donc l'annonce est postérieure à l'écriture
+     en base, et c'est la base que `compter()` lit juste après.
+  */
+  await page.evaluate(() => {
+    const e = document.getElementById('message-import');
+    if (e) {
+      e.textContent = '';
+      e.classList.add('hidden');
+    }
+  });
   await page.setInputFiles('#fichier', chemin);
-  await page.waitForTimeout(2500);
-  console.log(`après import ${passe}   :`, JSON.stringify(await compter()));
+  const dit = await annonceDe(page, '#message-import', { delai: 30000 });
+  console.log(`après import ${passe}   :`, JSON.stringify(await compter()), '—', dit);
 }
 
 const final = await compter();

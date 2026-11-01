@@ -22,6 +22,7 @@
 import { chromium } from 'playwright-core';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 import { repondreALaBoite } from './lib/boite-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -47,7 +48,8 @@ const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(3000);
+    /* Le départ du champ est la post-condition du déverrouillage. */
+    await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
   }
 };
 
@@ -104,7 +106,9 @@ console.log('\nLES TÉMOINS, POSÉS DANS LES QUATRE ENDROITS');
 
 await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
 await connecter();
-await page.waitForTimeout(2500);
+/* L'écran est debout : c'est tout ce qu'il faut avant de poser nos témoins,
+   que nous écrivons nous-mêmes dans les stockages. */
+await page.waitForSelector('#etat-sauvegarde-titre', { timeout: 30000 });
 v('les témoins sont posés', await poser(), 'posés');
 
 const avant = await relever();

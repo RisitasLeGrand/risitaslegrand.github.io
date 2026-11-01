@@ -25,6 +25,7 @@
 import { chromium, type Page } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { annonceDe, attendreLeCompte, devientVisible } from './lib/post-condition.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -55,7 +56,8 @@ const deverrouiller = async (page: Page) => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(1200);
+    /* Le départ du champ est la post-condition du déverrouillage. */
+    await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
   }
 };
 
@@ -112,9 +114,8 @@ console.log('\n\x1b[1mEFFACER SA PROGRESSION : AVEC DES NOMBRES\x1b[0m\n');
   );
 
   await page.click('#reinitialiser');
-  await page.waitForTimeout(900);
+  const parue = await devientVisible(page, 'dialog.boite', true);
   const boite = page.locator('dialog.boite');
-  const parue = (await boite.count()) > 0 && (await boite.isVisible());
   v('la confirmation s’ouvre', parue, true);
   const dit = (parue ? ((await boite.textContent()) ?? '') : '').replace(/\s+/g, ' ');
 
@@ -162,8 +163,12 @@ console.log('\n\x1b[1mEFFACER SA PROGRESSION : AVEC DES NOMBRES\x1b[0m\n');
 
   const annuler = boite.locator('button', { hasText: /Annuler|Non|Fermer/ }).first();
   if (await annuler.count()) await annuler.click();
-  await page.waitForTimeout(400);
-  v('on en sort sans rien effacer', await boite.isVisible().catch(() => false), false);
+  /*
+     UNE ASSERTION DE NON-VISIBILITÉ est la plus traîtresse : lue trop tôt, elle
+     est vraie par hasard. On attend donc la disparition, bornée, et son
+     expiration devient le rouge.
+  */
+  v('on en sort sans rien effacer', await devientVisible(page, 'dialog.boite', false), true);
   await ctx.close();
 }
 
@@ -188,23 +193,61 @@ console.log('\n\x1b[1mEFFACER SON PROFIL : AVEC LES NOMS DES CHAMPS\x1b[0m\n');
   */
   await page.goto(`${RACINE}/initialisation/`, { waitUntil: 'networkidle' });
   await deverrouiller(page);
-  await page.waitForTimeout(800);
+  /*
+     LE TÉMOIN EST POSITIF, ET C'EST UNE DISJONCTION. Cet écran a deux
+     entrées : `#allegee` et son bouton « Commencer » quand l'installation
+     porte déjà de l'usage, sinon `#parcours` et sa première question
+     directement. Les deux branches qui suivaient lisaient chacune leur
+     visibilité avec `.catch(() => false)`, derrière une attente aveugle de
+     800 ms. Cette tolérance ne rend pas l'essai rouge quand l'attente est
+     trop courte : elle le fait mesurer AUTRE CHOSE. Le prénom n'est pas
+     renseigné, la boîte répond — à juste titre — « Aucun champ n'est
+     renseigné », et c'est exactement le faux rouge que le commentaire
+     ci-dessus raconte. Une attente aveugle devant une lecture tolérante au
+     négatif ne risque pas un rouge : elle risque un vert sur le mauvais cas.
+
+     On attend donc que l'une des deux entrées soit peinte. L'attente décrit
+     un changement — l'écran affichait « Préparation… » — et les branches qui
+     suivent ne choisissent plus dans le vide. Après quoi `#saisie-prenom`
+     est acquis dans les deux chemins : le remplissage n'a plus à se
+     protéger, et s'il échoue un jour il le dira au lieu de se taire.
+
+     Les options de `waitForFunction` sont le TROISIÈME argument ; le second
+     est la valeur passée à la fonction. Écrites au second, elles sont
+     ignorées sans bruit et le délai n'existe pas.
+
+     ET AUCUNE FONCTION NOMMÉE NE TRAVERSE CETTE FRONTIÈRE. J'avais d'abord
+     écrit un `const peint = (id: string) => …` à l'intérieur du corps : le
+     transpileur de ce dépôt conserve les noms et enveloppe donc la fonction
+     dans un `__name(…)` qui n'existe que côté Node. Le navigateur a répondu
+     « __name is not defined » et l'essai est tombé en panne — pas en rouge,
+     en panne, ce qui est au moins franc. Une lambda anonyme passée en
+     argument n'est pas nommée, donc rien ne l'enveloppe. Les deux constantes
+     voisines de `essais-initialisation-sans-defaut.mts` échappent au piège
+     autrement : ce sont des chaînes gabarit, que le transpileur ne lit pas.
+  */
+  await page.waitForFunction(
+    () =>
+      ['commencer', 'saisie-prenom'].some((id) => {
+        const e = document.getElementById(id);
+        return !!e && e.getClientRects().length > 0;
+      }),
+    undefined,
+    { timeout: 30000 },
+  );
   if (await page.locator('#commencer').isVisible().catch(() => false)) {
     await page.click('#commencer');
-    await page.waitForTimeout(400);
+    await devientVisible(page, '#saisie-prenom', true, { delai: 30000 });
   }
-  if (await page.locator('#saisie-prenom').isVisible().catch(() => false)) {
-    await page.fill('#saisie-prenom', 'Essai');
-    await page.click('#valider');
-    await page.waitForTimeout(600);
-  }
+  await page.fill('#saisie-prenom', 'Essai');
+  await page.click('#valider');
 
   await page.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
   await deverrouiller(page);
   await page.waitForSelector('#effacer-profil', { timeout: 30000 });
 
   await page.click('#effacer-profil');
-  await page.waitForTimeout(900);
+  await attendreLeCompte(page, 'dialog', 1);
   const dialogues = page.locator('dialog');
   const combien = await dialogues.count();
   v('une boîte s’ouvre', combien > 0, true);
@@ -225,10 +268,35 @@ console.log('\n\x1b[1mEFFACER SON PROFIL : AVEC LES NOMS DES CHAMPS\x1b[0m\n');
   );
   v('elle redemande le mot de passe', /mot de passe/i.test(dit), true);
 
+  /*
+     L'AIDE EST ARRIVÉE. J'avais laissé cette attente marquée, en disant que
+     `annonceDe` existait deux fois dans le dépôt et qu'en recopier une
+     troisième serait la faute que ce chantier corrige. A l'a promue dans
+     `lib/post-condition.mjs` ; elle est ici.
+
+     Mais elle attend une zone NON VIDE, et cet écran a déjà parlé plus haut.
+     On efface donc la zone soi-même, sinon l'annonce d'avant rendrait
+     l'attente vraie d'avance — la parade du § 3, pour la troisième fois de
+     ce lot.
+
+     ET L'EFFACEMENT PASSE AVANT LE CLIC. Ma première version le plaçait
+     après, en se justifiant ainsi : « le message qu'on attend est celui que
+     ce clic provoque ». La phrase est vraie et la conclusion fausse. Le
+     gestionnaire écrit sa réponse sans me demander mon tour : s'il a déjà
+     écrit quand mon `evaluate` arrive, j'effleure la réponse même que
+     j'attends ensuite, et l'attente ne voit plus rien venir. C'est le rouge
+     que j'ai constaté. L'ordre de la parade — effacer, agir, attendre — n'est
+     pas une présentation : c'est la seule séquence où la fenêtre entre
+     l'effacement et l'écriture ne m'appartient pas.
+  */
+  await page.evaluate(() => {
+    const e = document.getElementById('message-effacement');
+    if (e) e.textContent = '';
+  });
   /* La boîte de redemande dit « Renoncer », pas « Annuler ». */
   const annuler2 = visible.locator('button', { hasText: /Renoncer|Annuler|Fermer/ }).first();
   if (await annuler2.count()) await annuler2.click();
-  await page.waitForTimeout(600);
+  await annonceDe(page, '#message-effacement');
   const message = (await page.locator('#message-effacement').textContent()) ?? '';
   v('et un abandon le dit', /Rien n’a été supprimé/.test(message), true);
   await ctx.close();

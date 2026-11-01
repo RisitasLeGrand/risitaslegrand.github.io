@@ -15,6 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreEnBase } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -158,9 +159,23 @@ await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
-  await page.waitForTimeout(3500);
 }
-await page.waitForTimeout(2000);
+/*
+   CETTE MIGRATION NE CRÉE AUCUN MAGASIN : elle RÉÉCRIT les clés. Sa
+   post-condition n'est donc pas l'existence d'un magasin mais la FORME des
+   identifiants — des nombres avant, des ULID après. `estSatisfait` est évalué
+   ici, dans Node, donc le motif « ULID » déjà déclaré plus haut y sert tel
+   quel.
+*/
+v(
+  'la migration a réécrit les clés en ULID',
+  (await attendreEnBase(
+    page,
+    'seances',
+    (tout) => tout.length === 4 && tout.every((s) => ULID.test(String(s.id))),
+  )) !== null,
+  true,
+);
 
 const apres = await page.evaluate(async () => {
   const base = await new Promise((ok, ko) => {
