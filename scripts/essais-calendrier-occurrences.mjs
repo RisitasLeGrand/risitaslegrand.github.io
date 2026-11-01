@@ -29,10 +29,26 @@ import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { attendreEnBase } from './lib/post-condition.mjs';
+import { jourLogiqueDEssai } from './lib/jour-logique-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
-const AUJOURDHUI = new Date().toISOString().slice(0, 10);
+/*
+   LE JOUR LOGIQUE, ET NON LA DATE CALENDAIRE.
+
+   Les écrans d'Odyssée emploient le jour logique, qui bascule à 4 h, heure de
+   Paris : une soirée qui se prolonge appartient à la journée commencée la
+   veille. `toISOString().slice(0, 10)` rend la date calendaire en UTC. Les
+   deux coïncident la plus grande partie du temps et divergent chaque nuit —
+   de sorte que cet essai était VERT le jour et ROUGE la nuit, sans qu'une
+   ligne de code ait bougé. C'est ainsi qu'il a rougi dans la batterie du
+   1er novembre 2026, lancée à 2 h 31 UTC.
+
+   La mesure est INCHANGÉE : l'essai demande toujours que l'occurrence du jour
+   soit écrite et pointée. Seule la date qu'il vise est désormais celle que
+   l'écran emploie.
+*/
+const AUJOURDHUI = jourLogiqueDEssai();
 const TITRE = 'Occurrence vue du calendrier';
 
 const nav = await chromium.launch({
@@ -146,6 +162,42 @@ console.log('\n\x1b[1mLe calendrier montre les tâches prévues — A-8\x1b[0m')
 
 await aller('/odyssee/calendrier/');
 await page.locator('[data-vue="jour"]').click();
+
+/*
+   LA VUE EST ANCRÉE SUR LE JOUR QUE CET ESSAI VISE, et ce contrôle existe
+   parce qu'un sabotage a montré qu'il manquait.
+
+   Sans `?jour=`, le calendrier s'ancre sur SON idée d'aujourd'hui — le jour
+   logique. Les constats qui suivent cherchent tous `AUJOURDHUI`. Si les deux
+   divergeaient, ils chercheraient dans une journée que l'écran ne montre pas,
+   et c'est précisément ce qui a rendu quatre essais rouges la nuit du
+   1er novembre 2026.
+
+   Le sabotage qui faisait viser la veille à l'essai laissait tout au vert : la
+   tâche était créée pour ce jour-là ET attendue ce jour-là, donc l'essai
+   restait cohérent avec lui-même tout en mesurant une journée que personne ne
+   regardait. Ce constat-ci ferme la boucle : il confronte le jour de l'essai à
+   celui de l'ÉCRAN, et c'est la seule confrontation qui vaille.
+*/
+/*
+   ON ATTEND QUE LE DESSIN DU JOUR AIT ATTERRI, et pas seulement qu'une section
+   existe. Le clic ne repeint pas tout de suite : le dessin de la SEMAINE est
+   encore à l'écran, avec ses sept sections, et une attente sur « une section
+   quelconque » est satisfaite immédiatement par la première des sept. Ma
+   première écriture lisait donc le 26 octobre et rougissait — mesure prise au
+   mauvais instant, non écran fautif. Une seule section : c'est la signature du
+   dessin du jour.
+*/
+await page
+  .waitForFunction(() => document.querySelectorAll('section[data-jour]').length === 1, null, {
+    timeout: DELAI,
+  })
+  .catch(() => {});
+v(
+  'la vue jour est ancrée sur le jour que l’essai vise',
+  await page.locator('section[data-jour]').first().getAttribute('data-jour'),
+  AUJOURDHUI,
+);
 /* La liste des tâches du jour est ce que les trois constats lisent. */
 await page
   .locator(`[data-titre-taches="${AUJOURDHUI}"]`)

@@ -27,10 +27,26 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { jourLogiqueDEssai } from './lib/jour-logique-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
-const AUJOURDHUI = new Date().toISOString().slice(0, 10);
+/*
+   LE JOUR LOGIQUE, ET NON LA DATE CALENDAIRE.
+
+   Les écrans d'Odyssée emploient le jour logique, qui bascule à 4 h, heure de
+   Paris : une soirée qui se prolonge appartient à la journée commencée la
+   veille. `toISOString().slice(0, 10)` rend la date calendaire en UTC. Les
+   deux coïncident la plus grande partie du temps et divergent chaque nuit —
+   de sorte que cet essai était VERT le jour et ROUGE la nuit, sans qu'une
+   ligne de code ait bougé. C'est ainsi qu'il a rougi dans la batterie du
+   1er novembre 2026, lancée à 2 h 31 UTC.
+
+   La mesure est INCHANGÉE : l'essai demande toujours que l'occurrence du jour
+   soit écrite et pointée. Seule la date qu'il vise est désormais celle que
+   l'écran emploie.
+*/
+const AUJOURDHUI = jourLogiqueDEssai();
 
 const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',

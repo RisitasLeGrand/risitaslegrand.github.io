@@ -18,6 +18,7 @@ import {
   heureLocale,
   jourLogique,
 } from '../src/lib/noyau/jour-logique';
+import { jourLogiqueDEssai } from './lib/jour-logique-essais.mjs';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -282,6 +283,52 @@ v(
   'alors qu’à Paris il est encore le 15',
   jourLogique(paris('2026-01-15T20:00:00Z')),
   '2026-01-15',
+);
+
+console.log('\nLA COPIE DES ESSAIS DE NAVIGATEUR NE DÉRIVE PAS');
+
+/*
+   POURQUOI UNE COPIE EXISTE, ET POURQUOI ELLE EST GARDÉE ICI.
+
+   Les essais de navigateur sont en JavaScript simple et ne peuvent pas
+   importer ce module. `scripts/lib/jour-logique-essais.mjs` réécrit donc la
+   règle — ce qui serait dangereux si rien ne la confrontait à l'originale :
+   une règle dupliquée qui dérive rend des essais verts sur une mesure fausse,
+   et c'est exactement le genre de défaut qui ne se découvre qu'une nuit.
+
+   La confrontation porte sur les instants qui ENCADRENT la bascule, et non
+   sur des heures quelconques : une copie fausse de quelques minutes reste
+   d'accord avec l'originale le reste de la journée. Les deux changements
+   d'heure sont là pour la même raison — un décalage UTC écrit à la main
+   serait faux la moitié de l'année, et seule une date d'été le dirait.
+*/
+const INSTANTS = [
+  '2026-11-01T02:31:00Z', //  3 h 31 à Paris, avant la bascule : la veille
+  '2026-11-01T02:59:59Z', //  3 h 59 : encore la veille
+  '2026-11-01T03:00:00Z', //  4 h 00 pile : le jour bascule
+  '2026-11-01T12:00:00Z', // midi : les deux calculs coïncident
+  '2026-11-01T23:30:00Z', //  0 h 30 le 2 à Paris, mais le 1er en UTC
+  '2026-06-15T01:30:00Z', //  3 h 30 en heure d'ÉTÉ : décalage de deux heures
+  '2026-06-15T02:00:00Z', //  4 h 00 en heure d'été : bascule
+  '2026-01-01T02:00:00Z', // passage d'année : 3 h le 1er janvier → la veille
+  '2026-03-01T02:00:00Z', // passage de mois sur un février de 28 jours
+];
+const ecarts = INSTANTS.filter(
+  (i) => jourLogique(new Date(i)) !== jourLogiqueDEssai(new Date(i)),
+).map((i) => `${i} : moteur ${jourLogique(new Date(i))}, essais ${jourLogiqueDEssai(new Date(i))}`);
+v('prémisse — les instants couvrent les deux côtés de la bascule', INSTANTS.length, 9);
+v(
+  'la copie des essais rend le même jour que le moteur',
+  ecarts,
+  [],
+);
+/* Et la mesure n'est pas tautologique : la date calendaire, elle, DIFFÈRE sur
+   au moins un de ces instants. Sans ce contrôle, une copie qui rendrait la
+   date calendaire passerait pour fidèle les jours où les deux coïncident. */
+v(
+  'et elle se distingue bien de la date calendaire',
+  INSTANTS.some((i) => jourLogiqueDEssai(new Date(i)) !== i.slice(0, 10)),
+  true,
 );
 
 console.log(
