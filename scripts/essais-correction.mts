@@ -49,7 +49,7 @@ import {
   marqueursEmployes,
   reponseJuste,
 } from '../src/features/correction/annotations';
-import { DIMENSIONS } from '../src/features/veridical-mapping/dimensions';
+import { DIMENSIONS, PAS } from '../src/features/veridical-mapping/dimensions';
 import {
   corrigerEssai,
   ecartEnMots,
@@ -512,13 +512,20 @@ console.log('\n\x1b[1mLA CORRECTION PERCEPTIVE (VERIDICAL MAPPING)\x1b[0m\n');
     true,
   );
   /**
-   * Sur la teinte, qui reboucle, les pas 2 et 118 sont **voisins**. Un écart
-   * calculé sans le rebouclage dirait 116 et ferait croire à une erreur
-   * énorme là où il y en a une minuscule.
+   * Sur la teinte, qui reboucle, deux rangs à deux pas des bords OPPOSÉS sont
+   * **voisins**. Un écart calculé sans le rebouclage dirait presque toute
+   * l'étendue, et ferait croire à une erreur énorme là où il y en a une
+   * minuscule.
+   *
+   * LES RANGS SONT ÉCRITS EN FONCTION DE `PAS`, et non en chiffres. Ils
+   * valaient 2 et 118 — justes sur la grille de cent vingt points, et faux sur
+   * toute autre. La grille étant passée à mille un points le 1er novembre,
+   * « 118 » n'était plus près du bord : l'assertion rougissait sans rien dire
+   * du rebouclage, et tout de la grille.
    */
   verifier(
     'et il tient compte du rebouclage',
-    ecartEnMots(teinte, 2, 118).startsWith('4 pas'),
+    ecartEnMots(teinte, 2, PAS - 2).startsWith('4 pas'),
     true,
   );
 
@@ -583,7 +590,7 @@ console.log('\n\x1b[1mLA CORRECTION PERCEPTIVE (VERIDICAL MAPPING)\x1b[0m\n');
   const plan = {
     arete,
     delta: 4,
-    tache: 'plan' as const,
+    tache: 'couple' as const,
     partiel: false,
     secondaire: { de: seconde.de.id, vers: seconde.vers.id },
     secondaireDimensions: seconde,

@@ -16,7 +16,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { signalerEcriture } from './sync/signal-ecriture';
 import { PAS_HISTORIQUE } from '../features/veridical-mapping/dimensions';
 import { reprendreUnSeuil } from '../features/veridical-mapping/escalier';
-import { seuilsRelus } from '../features/veridical-mapping/hub';
+import { clefNormalisee, seuilsRelus } from '../features/veridical-mapping/hub';
 /*
    Imports de **types seulement** : « noyau/revisions.ts » importe « fsrsNeuf »
    d'ici, et un import de valeur dans l'autre sens formerait un cycle au
@@ -2638,24 +2638,39 @@ export async function ajouterSessionVeridical(session: SessionVeridical) {
 }
 
 /**
- * Le journal des séances, son seuil médian ramené en z à la lecture.
+ * Le journal des séances, repris à la lecture : son seuil médian, et ses clefs.
  *
- * Une séance est un fait daté : on ne la récrit pas. La conversion a donc lieu
- * ici, et elle est bornée à un seul champ — `seuilMedian`. Le reste du journal
- * ne porte aucun écart.
+ * Une séance est un fait daté : on ne la récrit pas. Les deux reprises ont donc
+ * lieu ici.
+ *
+ * `seuilMedian` était en pas avant le 1er novembre, et `echelle` le dit.
+ *
+ * `paires` PORTE DES CLEFS DE SEUIL, et c'est moins visible : le champ se lit
+ * « les arêtes travaillées », mais ce que la séance y écrit est la clef, donc
+ * « <arête>|<tâche> ». Une séance d'avant le renommage de la tâche y a laissé
+ * des « |plan », et une séance d'avant les alias de dimensions peut y avoir
+ * laissé un nom canonique. Sans cette reprise, une clef du journal ne
+ * retrouverait plus sa ligne dans les seuils, et le rapprochement rendrait
+ * « aucune mesure » là où la mesure existe — un vide, pas une erreur, donc rien
+ * à voir à la relecture.
+ *
+ * Rien ne lit ce champ aujourd'hui. On le reprend quand même, parce que le
+ * moment où quelqu'un le lira est précisément celui où personne ne pensera à
+ * cette conversion.
  */
 export async function toutesLesSessionsVeridical(): Promise<SessionVeridical[]> {
   const lignes = await (await db()).getAll('vmSessions');
-  return lignes.map((ligne) =>
-    ligne.echelle === 'z' || ligne.seuilMedian === null
-      ? ligne
-      : {
-          ...ligne,
-          // Même raison qu'au-dessus : la grille de l'écriture, pas la courante.
-          seuilMedian: ligne.seuilMedian / (PAS_HISTORIQUE - 1),
-          echelle: 'z' as const,
-        },
-  );
+  return lignes.map((ligne) => {
+    const paires = ligne.paires.map(clefNormalisee);
+    if (ligne.echelle === 'z' || ligne.seuilMedian === null) return { ...ligne, paires };
+    return {
+      ...ligne,
+      paires,
+      // Même raison qu'au-dessus : la grille de l'écriture, pas la courante.
+      seuilMedian: ligne.seuilMedian / (PAS_HISTORIQUE - 1),
+      echelle: 'z' as const,
+    };
+  });
 }
 
 /* --- Séances de révision -------------------------------------------------- */

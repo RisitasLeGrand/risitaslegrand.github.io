@@ -53,22 +53,44 @@ export function idDeRangement(id: string): string {
 }
 
 /**
+ * LES TÂCHES RENOMMÉES, ET LEUR NOM D'ALORS.
+ *
+ * « plan » s'appelle « couple » depuis le 1er novembre : l'écran disait déjà
+ * « Un couple », et l'identifiant a rejoint l'écran. Mais la tâche voyage dans
+ * la clef des seuils, donc tout seuil mesuré avant le renommage est rangé sous
+ * « |plan ».
+ *
+ * Sans cette table, ces mesures seraient orphelines : l'escalier repartirait
+ * de zéro sur une paire déjà travaillée, et rien ne le dirait — ni exception,
+ * ni valeur aberrante, juste un seuil qui recommence. C'est le même mode de
+ * panne que le renommage d'une dimension, et c'est le même remède : l'ancien
+ * nom devient un ALIAS, lu et jamais écrit.
+ *
+ * Elle ne va que dans un sens, de l'ancien vers le courant. Une table
+ * réversible permettrait d'écrire sous l'ancien nom, ce qui est exactement ce
+ * qu'il faut empêcher.
+ */
+const TACHES_RENOMMEES: Record<string, string> = { plan: 'couple' };
+
+/**
  * UNE CLEF DE SEUIL RAMENÉE À SA FORME DE RANGEMENT.
  *
  * La clef est « de>vers », éventuellement suivie de « |tâche » — un seuil
  * mesuré sur la tâche « un couple » n'est pas la même grandeur que celui de la
  * tâche de base, et les deux se rangent séparément. Le suffixe est donc
- * reporté tel quel : le normaliser reviendrait à confondre deux mesures que la
- * clef sépare exprès.
+ * CONSERVÉ comme distinction, et seulement traduit quand la tâche a été
+ * renommée : le supprimer confondrait deux mesures que la clef sépare exprès.
  *
- * Une clef qui n'a pas la forme attendue est rendue intacte. C'est le même
- * choix que pour un nom inconnu, et pour la même raison.
+ * Une clef qui n'a pas la forme attendue est rendue intacte, comme un nom de
+ * dimension inconnu, et pour la même raison : une version plus récente peut
+ * avoir ajouté une tâche que celle-ci ne sait pas nommer.
  */
 export function clefNormalisee(clef: string): string {
   const [arete, ...suffixe] = clef.split('|');
   const cotes = arete.split('>');
   if (cotes.length !== 2) return clef;
-  return [idArete(idDeRangement(cotes[0]), idDeRangement(cotes[1])), ...suffixe].join('|');
+  const taches = suffixe.map((tache) => TACHES_RENOMMEES[tache] ?? tache);
+  return [idArete(idDeRangement(cotes[0]), idDeRangement(cotes[1])), ...taches].join('|');
 }
 
 /**

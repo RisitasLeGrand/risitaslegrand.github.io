@@ -559,7 +559,7 @@
           'd’arrivée. C’est la tâche de base, et celle dont les seuils servent de référence.',
       },
       {
-        id: 'plan' as const,
+        id: 'couple' as const,
         nom: 'Un couple',
         disponible: superposable,
         explication: superposable
@@ -866,7 +866,7 @@
     {/if}
 
     <p class="mt-4 text-sm text-slate-600 dark:text-slate-300">
-      {#if essai.tache === 'plan'}
+      {#if essai.tache === 'couple'}
         La référence porte <strong class="font-medium">deux</strong> valeurs à la fois. Lequel
         des deux candidats les reproduit toutes les deux ? L'autre n'en manque qu'une — et vous
         ne savez pas laquelle.

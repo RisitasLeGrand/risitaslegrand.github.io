@@ -18,7 +18,7 @@
  *
  * ## Deux tâches demandent plus qu'une échelle
  *
- * **`plan`** transporte un couple de valeurs, et le leurre ne se trompe que sur
+ * **`couple`** transporte deux valeurs à la fois, et le leurre ne se trompe que sur
  * **un** des deux axes. La correction doit donc dire *lequel* : c'est tout ce
  * que l'exercice enseigne, et le taire reviendrait à répéter la question.
  *
@@ -67,7 +67,7 @@ export interface SousEssaiCorrige {
   ecartEntreCandidats: number;
   motsEntreCandidats: string;
   /**
-   * Le nom de l'axe sur lequel le leurre se trompait, en tâche « plan ».
+   * Le nom de l'axe sur lequel le leurre se trompait, en tâche « un couple ».
    * Absent lorsque les deux axes concordent — c'est-à-dire quand l'essai a été
    * tiré sans second axe.
    */
@@ -139,14 +139,14 @@ export function corrigerEssai(essai: Essai, choix: readonly (number | null)[]): 
     const axes = [principal];
 
     /*
-     * Le second axe de la tâche « plan ».
+     * Le second axe de la tâche « un couple ».
      *
      * Il n'est corrigé que si les deux candidats portent leur rang secondaire :
      * sans lui, on ne saurait pas dire lequel des deux axes était fautif, et
      * l'affirmer au hasard serait pire que se taire.
      */
     let axeFautif: string | undefined;
-    if (essai.tache === 'plan' && essai.secondaireDimensions && attendu?.pasSecondaire !== undefined) {
+    if (essai.tache === 'couple' && essai.secondaireDimensions && attendu?.pasSecondaire !== undefined) {
       const { de, vers } = essai.secondaireDimensions;
       const attenduSecond = attendu.pasSecondaire;
       const donneSecond = donne?.pasSecondaire ?? null;
@@ -171,12 +171,12 @@ export function corrigerEssai(essai: Essai, choix: readonly (number | null)[]): 
     }
 
     // L'écart entre les deux candidats se lit sur les candidats eux-mêmes, et
-    // non sur `essai.delta` : en tâche « plan » le leurre ne diffère que sur un
+    // non sur `essai.delta` : en tâche « un couple » le leurre ne diffère que sur un
     // axe, et le delta nominal ne dirait pas lequel.
     const autre = sousEssai.candidats.find((candidat) => !candidat.juste) ?? null;
     const second = essai.secondaireDimensions?.vers;
     const dimensionMesuree =
-      essai.tache === 'plan' && second && axeFautif === second.nom ? second : essai.arete.vers;
+      essai.tache === 'couple' && second && axeFautif === second.nom ? second : essai.arete.vers;
     const rangJuste =
       dimensionMesuree === essai.arete.vers ? (attendu?.pas ?? 0) : (attendu?.pasSecondaire ?? 0);
     const rangAutre =

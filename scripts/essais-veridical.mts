@@ -420,13 +420,13 @@ console.log('\nREPRISE D’UNE MESURE ÉCRITE AVANT LE 1er NOVEMBRE');
   );
 }
 
-console.log('\nTÂCHES « PLAN » ET « MODULAIRE » — ce qui les rend mesurables');
+console.log('\nTÂCHES « UN COUPLE » ET « MODULAIRE » — ce qui les rend mesurables');
 
 {
   const hasard = { reel: () => Math.random(), entier: (b: number) => Math.floor(Math.random() * b) };
   const aretes = vivierDAretes({ ...REGLAGES_PAR_DEFAUT, mode: 'exhaustif' }, () => 0);
 
-  // 1. Tâche « plan » : le niveau du hasard doit rester à 50 %, donc **deux**
+  // 1. Tâche « un couple » : le niveau du hasard doit rester à 50 %, donc **deux**
   //    candidats et un seul juste. C'est la condition de comparabilité des
   //    seuils : ajouter un candidat déplacerait le point de convergence de
   //    l'escalier et rendrait les seuils incomparables d'une tâche à l'autre.
@@ -437,8 +437,8 @@ console.log('\nTÂCHES « PLAN » ET « MODULAIRE » — ce qui les rend mesurab
   let coupleReel = true;
   for (let i = 0; i < 400; i += 1) {
     const arete = aretes[i % aretes.length];
-    const essai = tirerEssai(arete, 8, { ...REGLAGES_PAR_DEFAUT, mode: 'exhaustif', tache: 'plan' }, hasard);
-    if (essai.tache !== 'plan') continue;
+    const essai = tirerEssai(arete, 8, { ...REGLAGES_PAR_DEFAUT, mode: 'exhaustif', tache: 'couple' }, hasard);
+    if (essai.tache !== 'couple') continue;
     plans += 1;
     for (const sous of essai.sousEssais) {
       if (sous.candidats.length !== 2) deuxCandidats = false;
@@ -455,11 +455,11 @@ console.log('\nTÂCHES « PLAN » ET « MODULAIRE » — ce qui les rend mesurab
       if (!sous.reference.dimension.includes('+')) coupleReel = false;
     }
   }
-  verifier('plan : des essais sont produits', plans > 0, true);
-  verifier('plan : toujours deux candidats (hasard à 50 %)', deuxCandidats, true);
-  verifier('plan : un seul candidat juste', unSeulJuste, true);
-  verifier('plan : le leurre ne se trompe que sur un axe', unSeulAxeFautif, true);
-  verifier('plan : la référence porte bien un couple', coupleReel, true);
+  verifier('couple : des essais sont produits', plans > 0, true);
+  verifier('couple : toujours deux candidats (hasard à 50 %)', deuxCandidats, true);
+  verifier('couple : un seul candidat juste', unSeulJuste, true);
+  verifier('couple : le leurre ne se trompe que sur un axe', unSeulAxeFautif, true);
+  verifier('couple : la référence porte bien un couple', coupleReel, true);
 
   // 2. Tâche modulaire : le candidat juste reproduit l'intervalle, et le décalage
   //    est arbitraire. Les deux propriétés ensemble sont ce qui en fait une mise
@@ -737,6 +737,47 @@ console.log('\nSUPERPOSITION — la garde sur l’attribut partagé');
 
 
 
+
+/* ── LA LECTURE DE SOURCE, PARTAGÉE PAR DEUX SECTIONS ──────────────────── */
+
+/**
+ * Le texte d'un fichier du dépôt, ou un REFUS.
+ *
+ * Deux sections s'en servent — le diviseur gelé et la complétude du renommage.
+ * Une seule définition, parce que deux recopies auraient fini par donner deux
+ * seuils de refus, dont l'un aurait laissé passer un fichier tronqué.
+ */
+const lireSource = (chemin: string): string => {
+  let texte: string;
+  try {
+    texte = readFileSync(new URL(`../${chemin}`, import.meta.url), 'utf8');
+  } catch {
+    /*
+       UN FICHIER DÉPLACÉ DOIT LE DIRE EN UNE PHRASE. Sans ce `catch`, la
+       lecture levait une trace de pile : le code de sortie était bien non
+       nul, mais rien ne disait que le garde-fou avait perdu sa cible — et
+       un garde-fou qui a perdu sa cible ne garde plus rien.
+    */
+    console.error(
+      `\n✗ REFUS — « ${chemin} » est introuvable.\n` +
+        '  Ce balayage garde le diviseur des conversions passées. Si le fichier a\n' +
+        '  été déplacé ou renommé, corrigez le chemin ici : sans lui, le contrôle\n' +
+        '  ne rendrait aucune anomalie, et aucune anomalie est ce que rend un\n' +
+        '  dépôt sain.',
+    );
+    process.exit(2);
+  }
+  if (texte.length < 500) {
+    console.error(
+      `\n✗ REFUS — « ${chemin} » lu trop court (${texte.length} octets).\n` +
+        '  Un fichier tronqué ne contient aucune des lignes cherchées, donc le\n' +
+        '  contrôle passerait au vert sans avoir rien vu.',
+    );
+    process.exit(2);
+  }
+  return texte;
+};
+
 /* ── LA GRILLE DE DESSIN, ET LE DIVISEUR DU PASSÉ ──────────────────────── */
 
 console.log('\nGRILLE DE DESSIN — l’erreur de quantification');
@@ -795,42 +836,12 @@ console.log('\nLE DIVISEUR DU PASSÉ — gelé dans le code de production');
      L'essai REFUSE (code 2) s'il n'a rien lu : un balayage qui ne trouve aucun
      fichier rend zéro anomalie, et zéro est ce que rend un dépôt propre.
   */
-  const lire = (chemin: string): string => {
-    let texte: string;
-    try {
-      texte = readFileSync(new URL(`../${chemin}`, import.meta.url), 'utf8');
-    } catch {
-      /*
-         UN FICHIER DÉPLACÉ DOIT LE DIRE EN UNE PHRASE. Sans ce `catch`, la
-         lecture levait une trace de pile : le code de sortie était bien non
-         nul, mais rien ne disait que le garde-fou avait perdu sa cible — et
-         un garde-fou qui a perdu sa cible ne garde plus rien.
-      */
-      console.error(
-        `\n✗ REFUS — « ${chemin} » est introuvable.\n` +
-          '  Ce balayage garde le diviseur des conversions passées. Si le fichier a\n' +
-          '  été déplacé ou renommé, corrigez le chemin ici : sans lui, le contrôle\n' +
-          '  ne rendrait aucune anomalie, et aucune anomalie est ce que rend un\n' +
-          '  dépôt sain.',
-      );
-      process.exit(2);
-    }
-    if (texte.length < 500) {
-      console.error(
-        `\n✗ REFUS — « ${chemin} » lu trop court (${texte.length} octets).\n` +
-          '  Un fichier tronqué ne contient aucune des lignes cherchées, donc le\n' +
-          '  contrôle passerait au vert sans avoir rien vu.',
-      );
-      process.exit(2);
-    }
-    return texte;
-  };
   /** Les lignes d'un fichier qui contiennent un motif. */
   const lignesAvec = (texte: string, motif: string): string[] =>
     texte.split('\n').filter((ligne) => ligne.includes(motif));
 
-  const base = lire('src/lib/db.ts');
-  const bord = lire('src/features/veridical-mapping/composants/TableauDeBord.svelte');
+  const base = lireSource('src/lib/db.ts');
+  const bord = lireSource('src/features/veridical-mapping/composants/TableauDeBord.svelte');
 
   const appels = lignesAvec(base, 'reprendreUnSeuil(ligne,');
   verifier('la base convertit les seuils en un seul endroit', appels.length, 1);
@@ -867,6 +878,167 @@ console.log('\nLE DIVISEUR DU PASSÉ — gelé dans le code de production');
   // Un seuil ancien de deux pas vaut 1,68 % de l'étendue, et non 0,2 %.
   verifier('deux pas d’alors valent bien 1,7 % de l’étendue',
     ecartDit(zDuPasHistorique(2)), '1,7 %');
+}
+
+
+
+/* ── LE RENOMMAGE DE LA TÂCHE, ET SON ALIAS ────────────────────────────── */
+
+console.log('\nTÂCHE RENOMMÉE — « plan » se relit « couple »');
+{
+  const ligne = (id: string, essais: number) => ({
+    id,
+    de: 'taille',
+    vers: 'intensite',
+    escalier: { essais },
+  });
+
+  // CE QU'IL DOIT VOIR : l'ancien suffixe mène au nouveau.
+  verifier('l’ancien suffixe mène au nouveau',
+    clefNormalisee('taille>intensite|plan'), 'taille>intensite|couple');
+  verifier('et cumulé avec un nom canonique de dimension',
+    clefNormalisee('vision.size>audition.level|plan'), 'taille>intensite|couple');
+  verifier('le nouveau suffixe est stable',
+    clefNormalisee('taille>intensite|couple'), 'taille>intensite|couple');
+
+  const avant = ligne('taille>intensite|plan', 55);
+  const apres = ligne('taille>intensite|couple', 9);
+  const relus = seuilsRelus([avant, apres]);
+  verifier('un seuil d’avant le renommage se relit', seuilsRelus([avant]).length, 1);
+  verifier('et sous le nom courant', seuilsRelus([avant])[0].id, 'taille>intensite|couple');
+  verifier('les deux noms de tâche ne font qu’un seuil', relus.length, 1);
+  verifier('on garde l’escalier le mieux estimé', relus[0].escalier.essais, 55);
+
+  /*
+     CE QU'IL NE DOIT PAS VOIR, et c'est la moitié qui compte.
+
+     La tâche est dans la clef parce qu'un seuil mesuré sur le couple n'est pas
+     la même grandeur que celui de la tâche de base : il incorpore le coût de
+     tenir deux axes. Les confondre ferait poursuivre un escalier avec les
+     réponses d'un autre, et perdrait les deux mesures. Traduire un suffixe ne
+     doit donc jamais revenir à l'effacer.
+  */
+  verifier('le couple ne se confond pas avec la tâche de base',
+    seuilsRelus([ligne('taille>intensite', 30), avant]).length, 2);
+  verifier('ni avec la tâche modulaire',
+    seuilsRelus([avant, ligne('taille>intensite|modulaire', 30)]).length, 2);
+  // La table ne va que dans un sens : rien ne doit ressortir sous l'ancien nom.
+  verifier('rien ne ressort sous l’ancien nom',
+    seuilsRelus([avant, apres]).some((l) => l.id.includes('plan')), false);
+  // Une tâche qu'une version plus récente aurait ajoutée garde son nom.
+  verifier('un suffixe inconnu est rendu intact',
+    clefNormalisee('taille>intensite|triplet'), 'taille>intensite|triplet');
+}
+
+console.log('\nRENOMMAGE COMPLET — plus un seul site dans les sources');
+{
+  /*
+     POURQUOI CE BALAYAGE.
+
+     Un renommage à moitié fait ne lève pas : la branche oubliée devient
+     simplement inatteignable. « if (tache === 'plan') » sous un type qui ne
+     produit plus « plan » est du code mort qui se lit comme du code vivant, et
+     la tâche se comporterait comme la tâche de base sans que rien le dise.
+
+     Les fichiers d'essai en « .mts » ne sont PAS typés-vérifiés : la liste
+     « include » du tsconfig prend les fichiers en point-ts et pas ceux en
+     point-mts. Le compilateur n'a donc pas attrapé l'identifiant périmé dans
+     ce fichier-ci — le balayage ne le double pas, il couvre ce qu'il ne voit
+     pas.
+  */
+  const FICHIERS = [
+    'src/features/veridical-mapping/session.ts',
+    'src/features/veridical-mapping/correction.ts',
+    'src/features/veridical-mapping/stimulus.ts',
+    'src/features/veridical-mapping/composants/VeridicalMapping.svelte',
+    'scripts/essais-correction.mts',
+  ];
+  /*
+     CE FICHIER-CI EST EXCLU, ET L'EXCLUSION EST GARDÉE.
+
+     Il PORTE les exemples : « clefNormalisee('…|plan') », le motif cherché
+     lui-même, et la contre-épreuve « if (tache === 'plan') ». Le balayage
+     trouvait donc six sites et rougissait sur son propre matériel — une
+     anomalie de l'outil, qui aurait fini par faire désactiver le contrôle.
+
+     Mais une exclusion non gardée est une porte ouverte : si ce fichier
+     cessait de porter des exemples, l'exclusion ne protégerait plus rien et
+     personne ne le saurait. On vérifie donc qu'il en porte — AU MOINS trois,
+     et non « exactement six ». Le compte exact lierait cette assertion à la
+     rédaction des sections voisines, et c'est la leçon du sabotage de
+     l'analyseur de bornes : un seuil souple dit que l'exclusion porte, sans
+     rougir pour une raison étrangère.
+  */
+  const PORTEUR_D_EXEMPLES = 'scripts/essais-veridical.mts';
+  let sites = 0;
+  let lus = 0;
+  for (const chemin of FICHIERS) {
+    const texte = lireSource(chemin);
+    lus += 1;
+    sites += (texte.match(/'plan'/g) ?? []).length;
+  }
+  /*
+     LE COMPTE EST COMPARÉ À UN LITTÉRAL, ET NON À `FICHIERS.length`.
+
+     Il l'était, et c'était une assertion qui se mesurait elle-même : retirer
+     un fichier de la liste retirait aussi l'attendu, donc le contrôle restait
+     VERT en ayant cessé de balayer ce fichier. Mesuré — c'est le seul des sept
+     sabotages de cette série qui n'a pas rougi.
+
+     Les quatre fichiers qui portent la tâche sont donc aussi nommés un par un.
+     Un compte seul ne dirait pas LEQUEL manque, et c'est précisément le
+     fichier retiré qui importe : un balayage qui lit quatre fichiers sur cinq
+     ne trouve rien dans le cinquième, et « rien » est ce que rend un
+     renommage achevé.
+  */
+  verifier('cinq fichiers sont balayés', FICHIERS.length, 5);
+  verifier('et tous ont été lus', lus, 5);
+  for (const indispensable of [
+    'src/features/veridical-mapping/session.ts',
+    'src/features/veridical-mapping/correction.ts',
+    'src/features/veridical-mapping/stimulus.ts',
+    'src/features/veridical-mapping/composants/VeridicalMapping.svelte',
+  ]) {
+    verifier(`le balayage couvre ${indispensable.split('/').pop()}`,
+      FICHIERS.includes(indispensable), true);
+  }
+  verifier('aucun site ne nomme encore l’ancienne tâche', sites, 0);
+  verifier('l’exclusion porte bien sur un fichier qui a des exemples',
+    (lireSource(PORTEUR_D_EXEMPLES).match(/'plan'/g) ?? []).length >= 3, true);
+
+  /*
+     L'EXCEPTION EST GARDÉE. `hub.ts` doit contenir « plan » exactement une
+     fois : la table des alias. Zéro voudrait dire que la table a disparu —
+     donc que les seuils d'avant le renommage sont orphelins —, et deux
+     voudrait dire qu'un site de code y a été ajouté.
+  */
+  const table = lireSource('src/features/veridical-mapping/hub.ts');
+  verifier('la table des alias existe, et une seule fois',
+    (table.match(/plan: 'couple'/g) ?? []).length, 1);
+  verifier('et « plan » n’apparaît dans ce fichier que par elle',
+    (table.match(/'plan'/g) ?? []).length, 0);
+  // CONTRE-ÉPREUVE DU PRÉDICAT : il reconnaît bien un site fautif.
+  verifier('le motif cherché repère bien un site de code',
+    ("if (tache === 'plan') {".match(/'plan'/g) ?? []).length, 1);
+
+  /*
+     LES DEUX SEULS ENDROITS OÙ LA TÂCHE EST ENREGISTRÉE.
+
+     Le relevé demandé par le pilote en donne deux, et deux seulement : la CLEF
+     de « vmSeuils », et le champ `paires` du journal des séances — qui se lit
+     « les arêtes travaillées » mais contient ces mêmes clefs, suffixe compris.
+     Les deux doivent être repris à la lecture, sinon une clef d'avant le
+     renommage ne retrouve plus sa ligne : le rapprochement rend « aucune
+     mesure » là où la mesure existe. Un vide, pas une erreur — donc rien à
+     voir à la relecture, et c'est pourquoi cela se garde ici.
+  */
+  const base = lireSource('src/lib/db.ts');
+  const reprises = base.split('\n').filter((l) => l.includes('ligne.paires.map('));
+  verifier('le journal reprend ses clefs en un seul endroit', reprises.length, 1);
+  verifier('et il les reprend par la normalisation',
+    (reprises[0] ?? '').includes('clefNormalisee'), true);
+  const seuilsLus = base.split('\n').filter((l) => l.includes('return seuilsRelus('));
+  verifier('et les seuils passent par la réduction', seuilsLus.length, 1);
 }
 
 

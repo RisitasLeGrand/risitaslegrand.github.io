@@ -66,7 +66,7 @@ export function stimulus(dimension: Dimension, pas: number): Stimulus {
 /**
  * Superpose deux stimulus visuels en un seul.
  *
- * C'est ce que demande la tâche « plan » : une référence n'y est pas une valeur
+ * C'est ce que demande la tâche « un couple » : une référence n'y est pas une valeur
  * sur une dimension mais un **couple** de valeurs sur deux dimensions, porté par
  * un seul objet — un disque à la fois grand et clair, par exemple.
  *
