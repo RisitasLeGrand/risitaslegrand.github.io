@@ -484,6 +484,17 @@ try {
      return » sans rien faire : la personne restait devant un bouton mort.
 
      Lire le bouton seul ne verrait pas cela ; lire la base seule non plus.
+
+     MESURÉ, et des deux côtés, sur une sonde ciblée qui ouvre une fiche et
+     appuie sur « Lu » pendant que « gagnerXp » lève :
+
+       ancien ordre  →  bouton « Marquer comme lue », base « lue »  : DÉSACCORD
+       nouvel ordre  →  bouton « ✓ Fiche lue »,       base « lue »  : accord
+
+     Le premier sabotage visait trop large — « gagnerXp » sert à toute la
+     gamification, donc le faire lever bloquait l'essai bien plus loin que le
+     geste mesuré, et la course a pendu onze minutes sans rien dire. Une sonde
+     courte sur le seul geste a répondu en trois.
   */
   v(
     'et la base est d’accord avec le bouton — pas l’un sans l’autre',
