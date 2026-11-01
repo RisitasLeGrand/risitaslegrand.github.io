@@ -59,6 +59,60 @@ la relecture, qui trancheraient entre le transport et la bâtisse.
 
 ---
 
+### `essais:cog:navigateur` — la zone de jeu du raisonnement relationnel ne monte pas en haut
+
+**Mesuré, intermittent, et antérieur aux fusions du 1er novembre.** Inscrit le
+1er novembre 2026 par le constructeur.
+
+Quatre assertions de `Raisonnement relationnel` rougissent par intermittence —
+**4, puis 2, puis 3 croix sur le MÊME code**, et 1 croix à `1576ed3f`, c'est-à-dire
+AVANT la fusion de `tri-curseur-regle`. Cette branche n'y est pour rien :
+`CurseurRegle` n'est employé que par `QuadNBack` (relevé par recherche, pas
+supposé), et l'écran en défaut est un autre.
+
+**Ce que les relevés disent**, d'une course à l'autre, sur le même code :
+
+    zone de 1058 px dans 844, haut à 111 px
+    zone de 1165 px dans 844, haut à 111 px
+    zone de  940 px dans 844, haut à 111 px
+    zone de  924 px dans 900, haut à  83 px
+    zone de  985 px dans 900, haut à  83 px
+    entièrement visible,       haut à  83 px
+
+Deux choses, et il faut les séparer. La HAUTEUR de la zone varie beaucoup
+(924 à 1165 px) : l'exercice est tiré au hasard, donc sa hauteur dépend du
+tirage, et c'est ce qui rend le rouge intermittent. Mais le HAUT, lui, ne varie
+pas : 111 px sur téléphone, 83 px sur ordinateur, à chaque fois. La zone ne
+monte pas en haut de la fenêtre ; elle s'arrête à une hauteur constante, qui
+ressemble à celle de ce qui est collé en haut.
+
+La dernière ligne est la plus parlante : « entièrement visible, haut à 83 px »
+est ROUGE. La zone tient dans la fenêtre, donc l'essai exige qu'elle soit
+entière — et elle ne l'est pas, parce qu'elle commence 83 px plus bas et finit
+donc 83 px trop bas.
+
+**La tolérance de l'essai n'est pas inventée**, et c'est ce qui donne du poids au
+constat : `TOLERANCE_HAUT = 4` est reprise de `src/features/cog-training/zone-de-jeu.ts:52`,
+avec le commentaire « la tolérance que zone-de-jeu.ts se donne, reprise pour ne
+pas en inventer une autre ». L'essai mesure donc la règle que le module
+s'impose, et le module ne la tient pas. `amenerLaZone` appelle
+`scrollIntoView({ block: 'start' })` puis attend l'observateur ; elle a une
+sortie de secours — « au-delà, on démarre quand même » — et c'est
+vraisemblablement elle qui rend la main avec la zone à 83 px. Relâcher la
+tolérance de l'essai serait donc **affaiblir la mesure**, pas corriger le
+défaut : l'essai dirait alors que la règle est tenue là où elle ne l'est pas.
+
+**Ce qui n'est pas établi** : pourquoi le défilement s'arrête à cette hauteur
+constante. L'hypothèse du bandeau collé en haut est cohérente avec les deux
+valeurs, et aucun `scroll-margin-top` n'a été trouvé sur cette zone — mais je ne
+l'ai pas mesuré, et je le dis plutôt que de l'affirmer.
+
+**Ce qui retire cette ligne.** Que la zone monte à moins de 4 px du haut, ou que
+le module déclare explicitement la hauteur sous laquelle il s'arrête — et que
+l'essai mesure alors cette règle-là.
+
+---
+
 ### `essais:parametres-navigateur` — l'ancre `#sport` n'emmène nulle part, une fois sur six
 
 **Mesuré, et la cause est dans l'écran, pas dans l'essai.** Inscrit le
