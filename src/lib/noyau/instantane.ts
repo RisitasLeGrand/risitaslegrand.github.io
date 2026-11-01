@@ -257,12 +257,42 @@ export async function instantanerSiMigration(
  * l'utilisateur confirme, jamais une réparation silencieuse : une migration
  * défaite sans qu'on le sache ferait disparaître tout ce qui a été saisi
  * depuis, sans trace.
+ *
+ * ## L'IDENTITÉ DE L'APPAREIL TRAVERSE LE RETOUR, et il a fallu la mesurer
+ *
+ * `etat.appareil` est tiré une fois par le palier 12, et le commentaire de ce
+ * palier dit l'exigence : « il départage deux horloges égales, donc il doit
+ * être stable ; le régénérer à chaque ouverture ferait de chaque session un
+ * appareil distinct, et l'ordre de fusion cesserait d'être reproductible ».
+ *
+ * MESURÉ le 1er novembre, par sonde, sur une base semée en version 11 :
+ *
+ *   base semée en 11      appareil : null
+ *   après migration en 43 appareil : 7KS3FJFA
+ *   après retour en 11    appareil : null        (l'instantané n'en portait pas)
+ *   après remigration     appareil : TV5T90GB    ← UN AUTRE
+ *
+ * L'exigence était donc rompue par le chemin même qui existe pour réparer. Et
+ * l'instantané n'y pouvait rien : pris depuis une base d'avant le palier 12,
+ * il ne porte aucune identité à rendre. Ce n'est pas une donnée de l'époque
+ * d'avant, c'est le NOM de cet appareil — il ne doit pas dépendre du schéma
+ * dans lequel la base se trouve.
+ *
+ * On la lit donc AVANT la suppression et on la rend APRÈS, et seulement si
+ * l'instantané ne l'apporte pas lui-même : quand il la porte, c'est la sienne
+ * qui vaut, puisqu'elle est la même et qu'un instantané rend ce qu'il a pris.
  */
 export async function revenirA(
   nom: string,
   instantane: Instantane,
   preparerSchema: (nom: string, version: number) => Promise<void>,
 ): Promise<void> {
+  /*
+     AVANT LA SUPPRESSION, parce qu'après il n'y a plus rien à lire. On ne
+     prend que cette clé : le reste de la base est précisément ce que le retour
+     arrière est censé défaire.
+  */
+  const identite = await identiteDeLAppareil(nom);
   await supprimer(nom);
   // « preparerSchema » crée les magasins puis referme : ce module n'a pas à
   // connaître la bibliothèque dont l'application se sert pour ouvrir sa base,
@@ -286,5 +316,53 @@ export async function revenirA(
       tx.onerror = () => ko(tx.error);
     });
   }
+
+  /*
+     ET L'IDENTITÉ EST RENDUE, si l'instantané ne l'a pas rendue lui-même.
+     L'ordre compte : après l'écriture de l'instantané, sinon elle serait
+     écrasée par un « etat » qui ne la porte pas.
+  */
+  if (identite !== null && base.objectStoreNames.contains('etat')) {
+    const deja = await new Promise<unknown>((ok) => {
+      const q = base.transaction('etat', 'readonly').objectStore('etat').get('appareil');
+      q.onsuccess = () => ok(q.result);
+      q.onerror = () => ok(undefined);
+    });
+    if (deja === undefined) {
+      await new Promise<void>((ok, ko) => {
+        const tx = base.transaction('etat', 'readwrite');
+        tx.objectStore('etat').put(identite, 'appareil');
+        tx.oncomplete = () => ok();
+        tx.onerror = () => ko(tx.error);
+      });
+    }
+  }
   base.close();
+}
+
+/**
+ * L'identité de cet appareil, si la base en porte une.
+ *
+ * Tolérante par construction : une base absente, un magasin « etat » qui
+ * n'existe pas encore, une lecture qui échoue — tous rendent `null`, et le
+ * retour arrière continue. Perdre l'identité est un défaut ; empêcher un
+ * retour arrière à cause d'elle en serait un pire.
+ */
+async function identiteDeLAppareil(nom: string): Promise<string | null> {
+  try {
+    const base = await ouvrirBrut(nom);
+    if (!base.objectStoreNames.contains('etat')) {
+      base.close();
+      return null;
+    }
+    const lu = await new Promise<unknown>((ok) => {
+      const q = base.transaction('etat', 'readonly').objectStore('etat').get('appareil');
+      q.onsuccess = () => ok(q.result);
+      q.onerror = () => ok(undefined);
+    });
+    base.close();
+    return typeof lu === 'string' && lu ? lu : null;
+  } catch {
+    return null;
+  }
 }
