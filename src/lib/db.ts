@@ -5,7 +5,7 @@
  * plusieurs appareils.
  */
 import { createEmptyCard, type Card } from 'ts-fsrs';
-import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from 'idb';
 /*
    Le signal d'écriture regroupée : un module sans dépendance, sans effet tant
    que personne ne s'y abonne, et qui n'est abonné que par la veille de
@@ -3368,6 +3368,183 @@ export async function exporterMagasins(
     sortie[nom] = await base.getAll(magasin);
   }
   return sortie;
+}
+
+/**
+ * Fait traverser à des données restaurées les paliers qu'elles n'ont pas vus.
+ *
+ * ## Le problème, et pourquoi la réponse évidente est la mauvaise
+ *
+ * Une sauvegarde porte des enregistrements de la forme qu'ils avaient à la
+ * version où elle a été écrite. Les paliers de migration, eux, ne tournent
+ * qu'au CHANGEMENT de version de la base — et une restauration n'en change
+ * pas. Les données entrent donc telles quelles, et plus rien ne les
+ * transforme : les écrans lisent des champs absents et affichent des vides,
+ * sans que personne puisse remonter de là jusqu'à la version du fichier.
+ *
+ * La réponse évidente serait de recopier, dans un module de restauration, ce
+ * que font les paliers qui transforment des données — il y en a cinq. Ce
+ * serait la vraie faute : deux implémentations de la même transformation,
+ * dont une moins relue, qui divergeraient au premier palier ajouté. C'est
+ * exactement ce que `format.ts` refuse de faire pour le chiffrement, et pour
+ * la même raison.
+ *
+ * ## Ce qu'on fait à la place : une base de passage
+ *
+ * On écrit les données dans une base TEMPORAIRE ouverte à la version du
+ * fichier, puis on la rouvre à la version courante. IndexedDB exécute alors
+ * les vrais paliers, dans leur vraie forme, sur des données qui ne les ont
+ * jamais vus — exactement comme sur la base d'une personne qui n'aurait pas
+ * ouvert le site depuis longtemps. Aucune logique n'est recopiée, et il n'y a
+ * rien à tenir à jour : un palier ajouté demain sera traversé sans qu'on
+ * touche à cette fonction.
+ *
+ * L'autre avantage est qu'on ne dépend d'aucune idempotence. Deux des cinq
+ * paliers n'en ont pas — le douzième crée des socles que rien ne dédoublonne,
+ * le bloc FSRS remet à neuf l'état de chaque carte — et un rejeu « à la main »
+ * sur des données déjà transformées les abîmerait. Ici la question ne se pose
+ * pas : les données traversent chaque palier une fois et une seule.
+ *
+ * ## Ce que cette fonction NE fait pas
+ *
+ * Elle ne touche pas à la base réelle. Elle rend des magasins ; c'est à
+ * l'appelant de les écrire, et `remplacerMagasins` le fait dans une
+ * transaction unique. Si quoi que ce soit échoue ici, la base de la personne
+ * n'a pas bougé d'un octet.
+ *
+ * @param magasins les magasins relus du fichier
+ * @param deVersion la version de schéma que le fichier annonce
+ * @returns les mêmes données, à la forme courante, et les magasins traversés
+ */
+export async function migrerDesDonneesRestaurees(
+  magasins: Record<string, unknown[]>,
+  deVersion: number,
+): Promise<{ magasins: Record<string, unknown[]>; traverses: string[] }> {
+  const NOM = 'revinsp-restauration';
+
+  /*
+     TABLE RASE AVANT ET APRÈS. Une base de passage laissée par une tentative
+     interrompue porterait des données étrangères à celle-ci, et le mélange ne
+     se verrait nulle part. Elle ne survit donc jamais à l'appel.
+  */
+  await deleteDB(NOM).catch(() => {});
+
+  const ecrire = async () => {
+    const base = await ouvrirAuSchema(NOM, deVersion);
+    try {
+      /*
+         On n'écrit que les magasins que la version du FICHIER connaissait. Un
+         magasin né après elle n'existe pas dans la base de passage, et
+         prétendre l'y écrire ferait échouer toute la transaction pour une
+         donnée qui n'a de toute façon rien à migrer.
+      */
+      const accueillis = [...base.objectStoreNames].filter(
+        (nom) => Array.isArray(magasins[nom]) && magasins[nom].length > 0,
+      );
+      if (accueillis.length === 0) return [];
+      const tx = base.transaction(accueillis as never, 'readwrite');
+      for (const nom of accueillis) {
+        const magasin = tx.objectStore(nom as never);
+        for (const ligne of magasins[nom]) {
+          /*
+             `etat` est à CLÉS EXTERNES : ses valeurs ne portent pas leur clé.
+             L'export le sait déjà et le rend en paires ; on défait la paire
+             ici, et on la refait à la relecture. Écrire la paire telle quelle
+             produirait un magasin dont chaque valeur serait un objet à deux
+             champs, ce qu'aucun lecteur n'attend.
+          */
+          if (nom === 'etat') {
+            const paire = ligne as { clef?: IDBValidKey; valeur?: unknown };
+            if (paire && typeof paire === 'object' && 'clef' in paire) {
+              await (magasin as never as { put: (v: unknown, k: IDBValidKey) => Promise<unknown> }).put(
+                paire.valeur,
+                paire.clef as IDBValidKey,
+              );
+              continue;
+            }
+          }
+          await (magasin as never as { put: (v: unknown) => Promise<unknown> }).put(ligne);
+        }
+      }
+      await tx.done;
+      return accueillis;
+    } finally {
+      base.close();
+    }
+  };
+
+  const relire = async () => {
+    /* La réouverture à la version courante EST la migration. */
+    const base = await ouvrirAuSchema(NOM, VERSION);
+    try {
+      const sortie: Record<string, unknown[]> = {};
+      for (const nom of base.objectStoreNames) {
+        if (nom === 'etat') {
+          const clefs = await base.getAllKeys('etat');
+          const valeurs = await base.getAll('etat');
+          sortie.etat = clefs.map((clef, i) => ({ clef, valeur: valeurs[i] }));
+          continue;
+        }
+        sortie[nom] = await base.getAll(nom as never);
+      }
+      return sortie;
+    } finally {
+      base.close();
+    }
+  };
+
+  try {
+    const traverses = await ecrire();
+    const sortie = await relire();
+
+    /*
+       LA BASE DE PASSAGE NE PRÊTE PAS SON IDENTITÉ — et ce défaut-ci a été
+       TROUVÉ PAR LA MESURE, pas prévu.
+
+       L'essai au navigateur annonçait « 2 enregistrements écrits » pour un
+       fichier qui n'en portait qu'un. L'intrus venait du palier 12 : il écrit
+       `etat.appareil` quand la clé est absente, et il s'exécute à la CRÉATION
+       de la base de passage, sur une base vide. L'identifiant tiré au hasard
+       pour une base jetable entrait donc dans les données restaurées, et
+       `remplacerMagasins` l'écrivait par-dessus l'identité de l'appareil réel.
+
+       La conséquence n'est pas cosmétique. `etat.appareil` départage deux
+       horloges logiques égales et fonde l'ordre de fusion : le changer en
+       silence ferait de cet appareil un inconnu pour ses pairs. C'est
+       exactement ce que la décision du 26 octobre interdit à une restauration
+       — ne jamais recréer une identité.
+
+       On ne garde donc d'`etat` que les clés que le FICHIER portait. Les
+       autres sont des inventions de la base de passage, et une invention n'est
+       pas une migration. Les magasins à clés internes ne posent pas le même
+       problème : un palier qui y écrit le fait à partir des données du
+       fichier — le onzième tire `notes` des séances, le douzième tire les
+       socles des cartes — et c'est bien une transformation, qu'il faut garder.
+    */
+    const clefsDuFichier = new Set(
+      (Array.isArray(magasins.etat) ? magasins.etat : [])
+        .map((l) => (l as { clef?: unknown })?.clef)
+        .filter((c): c is IDBValidKey => c !== undefined && c !== null)
+        .map((c) => String(c)),
+    );
+    if (Array.isArray(sortie.etat)) {
+      sortie.etat = sortie.etat.filter((l) =>
+        clefsDuFichier.has(String((l as { clef?: unknown })?.clef)),
+      );
+    }
+    /*
+       LES MAGASINS QUE LA BASE DE PASSAGE NE CONNAISSAIT PAS SONT RENDUS TELS
+       QUELS. Ce sont ceux d'une version plus récente que le fichier, donc
+       vides dans le fichier, ou ceux que cette version ne connaît plus. Les
+       perdre en chemin transformerait une migration en effacement partiel.
+    */
+    for (const [nom, lignes] of Object.entries(magasins)) {
+      if (!(nom in sortie)) sortie[nom] = lignes;
+    }
+    return { magasins: sortie, traverses };
+  } finally {
+    await deleteDB(NOM).catch(() => {});
+  }
 }
 
 /**

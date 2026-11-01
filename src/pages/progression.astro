@@ -803,7 +803,23 @@ import LienReglages from '../components/LienReglages.astro';
             ? `, ${pluriel(r.relecture.lignesIllisibles, 'ligne')} ` +
               `${r.relecture.lignesIllisibles > 1 ? 'illisibles' : 'illisible'}`
             : '') +
-          '.',
+          '.' +
+          /*
+             CE QUE LA POLITIQUE DU `.schema` A DÉCIDÉ, quand elle a quelque
+             chose à dire. Trois cas sur quatre sont muets — une restauration
+             d'une version à jour n'a rien à annoncer —, et c'est voulu : un
+             bandeau qui parle quand tout va bien se lit une fois puis
+             s'ignore, et le jour où il dit quelque chose, personne ne le voit
+             plus.
+
+             Les deux cas qui parlent le doivent. « Ce fichier ne dit pas de
+             quelle version il vient » explique d'avance un écran qui
+             paraîtrait incomplet, et sans cela personne ne pourrait remonter
+             de l'écran jusqu'au fichier. « Les données sont mises à la forme
+             actuelle » dit qu'un travail a eu lieu, ce qui explique une
+             restauration plus longue que prévu.
+          */
+          (r.verdict.dire ? ` ${r.verdict.dire}` : ''),
         'succes',
       );
       notifier('Progression restaurée', 'succes');
