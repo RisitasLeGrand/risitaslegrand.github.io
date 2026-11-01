@@ -135,15 +135,40 @@ verifier('aucune dimension discrète de la fiche n’est absente du code',
 verifier('aucun doublon dans les déclarations', declares.size, DIMENSIONS_DISCRETES.length);
 
 /*
-   LA TOLÉRANCE SUR LE GRAIN, et pourquoi elle vaut ce qu'elle vaut.
+   ON COMPARE À UNE DÉCIMALE, PAS À UN EPSILON — méthode reprise de B, qui est
+   meilleure que la mienne et pour une raison nette.
 
-   La fiche imprime une décimale : « 16,7 % » pour 1/6, qui vaut 16,666…. La
-   tolérance est donc la MOITIÉ du dernier chiffre imprimé, soit 0,0005, plus
-   un epsilon pour le cas qui tombe pile dessus — 6,2 % pour 1/16 = 6,25 %.
-   Plus serré rougirait sur un arrondi d'impression ; plus large laisserait
-   passer l'écart de 17 % entre 1/n et 1/(n−1), qui est l'erreur à prendre.
+   Ma première version prenait « 0,0005 + 1e-12 » : la moitié du dernier
+   chiffre imprimé, plus un epsilon pour le seul cas qui tombe pile dessus,
+   « motif_rotation » dont le grain 1/16 vaut 6,25 % que la fiche écrit « 6,2 ».
+   L'epsilon faisait passer ce cas sans dire pourquoi, et il élargissait du même
+   coup la tolérance pour tous les autres.
+
+   La fiche imprime une décimale. On compare donc à une décimale, et l'on
+   accepte LES DEUX ARRONDIS possibles de la valeur calculée — au plus proche et
+   par troncature. « 6,2 » et « 6,3 » désignent le même nombre ; un désaccord de
+   0,05 point, lui, ne passe plus.
+
+   C'est la leçon que B a payée sur un autre contrôle, et elle vaut ici :
+   **une tolérance plus large que l'effet qu'elle mesure rend l'assertion
+   décorative.**
 */
-const TOLERANCE = 0.0005 + 1e-12;
+/**
+ * Un pourcentage, en DIXIÈMES DE POINT entiers — l'unité que la fiche imprime.
+ *
+ * On passe par un entier plutôt que de comparer deux flottants : « 16,7 / 100 »
+ * vaut 0,16699999999999998 et le littéral 0,167 vaut 0,167. Ils désignent le
+ * même nombre et ne sont pas égaux. Vingt-huit assertions ont rougi là-dessus
+ * avant que l'unité soit la bonne, et aucune ne portait sur un vrai désaccord.
+ */
+const dixiemes = (part: number): number => Math.round(part * 1000);
+
+function memeDecimale(calcule: number, imprime: number): boolean {
+  const d = dixiemes(calcule);
+  const i = Math.round(imprime * 10);
+  /* Les deux arrondis du nombre calculé : au plus proche, et par troncature. */
+  return i === d || i === Math.floor(calcule * 1000);
+}
 
 for (const d of DIMENSIONS_DISCRETES) {
   const f = parId.get(d.id);
@@ -152,7 +177,7 @@ for (const d of DIMENSIONS_DISCRETES) {
   verifier(`« ${d.id} » — échelle`, d.echelle, f.echelle);
   verifier(`« ${d.id} » — rebouclage`, d.circulaire === true, f.echelle === 'circ');
   verifier(`« ${d.id} » — pire grain`,
-    Math.abs(d.pireGrain - (f.grain?.valeur ?? -1)) <= TOLERANCE, true);
+    f.grain !== null && dixiemes(d.pireGrain) === dixiemes(f.grain.valeur), true);
 }
 
 /* ── LE GRAIN CONTRE LA RÈGLE ──────────────────────────────────────────── */
@@ -173,7 +198,7 @@ for (const d of DIMENSIONS_DISCRETES) {
       parId.get(d.id)?.grain?.etoile, true);
   } else {
     verifier(`« ${d.id} » — ${d.circulaire ? '1/n' : '1/(n−1)'} = ${regle.toFixed(4)}`,
-      Math.abs(d.pireGrain - regle) <= TOLERANCE, true);
+      memeDecimale(regle, 100 * d.pireGrain), true);
     verifier('  et la fiche ne la marque pas d’une étoile',
       parId.get(d.id)?.grain?.etoile, false);
   }
@@ -188,8 +213,10 @@ for (const d of DIMENSIONS_DISCRETES) {
    circulaires, que l'autre règle serait bien REFUSÉE.
 */
 const serre = DIMENSIONS_DISCRETES.find((d) => d.id === 'vision.motif_rotation');
-verifier('la tolérance sépare 1/n de 1/(n−1), même à seize niveaux',
-  serre !== undefined && Math.abs(serre.pireGrain - 1 / (serre.niveaux - 1)) > TOLERANCE, true);
+verifier('la comparaison sépare 1/n de 1/(n−1), même à seize niveaux',
+  serre !== undefined && !memeDecimale(1 / (serre.niveaux - 1), 100 * serre.pireGrain), true);
+verifier('et elle accepte les deux arrondis du même nombre',
+  serre !== undefined && memeDecimale(1 / serre.niveaux, 100 * serre.pireGrain), true);
 
 /* ── LES DEUX RÈGLES DU PILOTE ─────────────────────────────────────────── */
 
@@ -255,7 +282,7 @@ for (const [grain, noms] of resume) {
     for (const d of portant) {
       couvertes.add(d.id);
       verifier(`  « ${d.id} » : le résumé annonce ${(100 * grain).toFixed(1)} %`,
-        Math.abs(d.pireGrain - grain) <= TOLERANCE, true);
+        dixiemes(d.pireGrain) === dixiemes(grain), true);
     }
   }
 }

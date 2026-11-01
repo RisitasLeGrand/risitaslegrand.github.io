@@ -937,7 +937,22 @@ console.log('\nLE DIVISEUR DU PASSÉ — gelé dans le code de production');
 
   // Les deux constantes ne sont pas interchangeables, et c'est tout l'objet.
   verifier('l’ancienne grille comptait cent vingt points', PAS_HISTORIQUE, 120);
-  verifier('les deux grilles diffèrent', PAS === PAS_HISTORIQUE, false);
+  /*
+     LE TRANSTYPAGE EST ICI LA MESURE, et non un contournement.
+
+     TypeScript affecte à `PAS` et `PAS_HISTORIQUE` leurs types littéraux, 1001
+     et 120, et refuse la comparaison : « ces types n'ont aucun recouvrement ».
+     Il a raison, et c'est précisément ce qu'on veut savoir — il le PROUVE à la
+     compilation. L'assertion reste parce qu'elle tient le cas où quelqu'un
+     rendrait les deux constantes égales : la comparaison deviendrait alors
+     légitime aux yeux du compilateur, et c'est elle qui rougirait.
+
+     Relevé en mesurant une remarque de B : « tsc -p tsconfig.json » ne couvre
+     pas les fichiers « .mts », parce que son « include » ne porte que sur
+     l'extension « .ts ». Cette erreur dormait donc depuis le lot
+     PAS_HISTORIQUE, et aucun typecheck ne l'avait vue.
+  */
+  verifier('les deux grilles diffèrent', (PAS as number) === (PAS_HISTORIQUE as number), false);
   verifier('le diviseur d’alors ne suit pas la grille courante',
     zDuPasHistorique(119), 1);
   verifier('alors que celui de la grille courante en est loin',

@@ -18,6 +18,8 @@ import { stimulus } from '../src/features/veridical-mapping/stimulus';
 import {
   ECARTS_REQUIS,
   ecartMontre,
+  ecartsPresentables,
+  ecartsPresentablesExacts,
   grainDe,
   manquentLeGrisNeutre,
   nombresSansDureeFixe,
@@ -28,6 +30,7 @@ import {
   type DimensionL5,
 } from '../src/features/veridical-mapping/dimensions-l5';
 import { PLANCHER_MESURABLE } from '../src/features/veridical-mapping/escalier';
+import { DIMENSIONS_DISCRETES } from '../src/features/veridical-mapping/dimensions-discretes';
 
 let echecs = 0;
 const v = (titre: string, obtenu: unknown, attendu: unknown) => {
@@ -240,49 +243,271 @@ for (const dim of DIMENSIONS) {
   vrai('un attribut absent fait lever, au lieu de rendre un z de zéro', aLeve);
 }
 
-console.log('\n\x1b[1mLES SEPT PARLÉES DU PLAN L0, CONTRE LA FRONTIÈRE\x1b[0m\n');
+console.log('\n\x1b[1mLE GRAIN, CONTRE LA FICHE DE RÉFÉRENCE D’A\x1b[0m\n');
 /*
-   CE BLOC N'INVENTE RIEN, et c'est la raison pour laquelle il peut exister
-   avant VMTrainer.html. Les sept NOMS viennent du plan L0 d'A
-   (docs/cyclades/p63-l0-plan-veridical-mapping.md, § 5, lot 5d) ; les comptes
-   de niveaux viennent du MONDE et non d'un choix de conception — il y a sept
-   jours dans la semaine et douze mois dans l'année.
+   DEUX ROUTES INDÉPENDANTES VERS LE MÊME NOMBRE, et c'est ce qui donne sa
+   valeur à ce contrôle. A a EXTRAIT ces grains des 123 déclarations de
+   VMTrainer ; cette formule les CALCULE depuis le nombre de niveaux et la
+   circularité. Si elles divergent quelque part, l'un de nous se trompe, et il
+   vaut mieux le savoir ici que sur l'écran de quelqu'un.
 
-   Les deux comptes ambigus sont éprouvés dans leurs DEUX lectures, pour que le
-   verdict ne dépende pas de celle que j'aurais retenue : « compass_point » à
-   huit aires de vent ou à seize, « note_name » à sept noms ou à douze avec les
-   altérations. Les quatre cas sont refusés.
+   Source : « docs/cyclades/p63-dimensions-reference.md » sur
+   claude/a-cog-zone-de-jeu, tableau « les 32 discrètes, du plus grossier au
+   plus fin ».
 
-   À confirmer contre VMTrainer.html quand il arrivera : si la référence donne
-   un autre compte pour l'une d'elles, c'est ce contrôle qui le dira.
+   ET J'AVAIS TORT SUR DEUX POINTS, tous deux relevés par A :
+
+   1. « number » n'a pas dix niveaux mais VINGT. J'avais écrit « les dix
+      chiffres » — c'est-à-dire que j'ai pris le nombre dans le MONDE au lieu
+      de le lire dans la DÉCLARATION, qui dit « STEP(20,false) ». C'est
+      exactement la faute que je reproche ailleurs, commise sur une colonne que
+      je croyais évidente. Conséquence : « number » passe AU-DESSUS de la
+      frontière et n'a jamais eu à être écarté.
+
+   2. Le grain n'est pas 1/(n−1) partout. Cinq des sept « parlées » sont
+      CIRCULAIRES, et « STEP » y vaut « round(z·n) modulo n » : le grain est
+      1/n. Sur « weekday » à sept niveaux, 1/(n−1) rendait 16,7 % là où la
+      référence dit 14,3 %.
 */
-const PARLEES: [string, number][] = [
-  ['weekday', 7],
-  ['month', 12],
-  ['clock_hour', 12],
-  ['compass_point', 8],
-  ['note_name', 7],
-  ['number', 10],
-];
-for (const [nom, niveaux] of PARLEES) {
-  vrai(
-    `« ${nom} » (${niveaux} niveaux) n’est pas mesurable par cet escalier`,
-    horsEscalier(d(nom, niveaux)) !== null,
+/*
+   LA TABLE DÉRIVE DES DÉCLARATIONS, et ne les recopie plus — changement d'A à
+   la fusion du 1er novembre.
+
+   Elle était transcrite à la main depuis la fiche de référence, en dix-sept
+   lignes, pendant que `dimensions-discretes.ts` portait les mêmes nombres sur
+   trente-deux. Deux transcriptions de la même source finissent par diverger,
+   et c'est la faute que ce fichier relève ailleurs.
+
+   **La comparaison garde toute sa valeur, parce que les deux ROUTES restent
+   indépendantes.** Ce que cette boucle confronte n'est pas une table à une
+   autre : c'est le grain CALCULÉ par `grainDe` depuis (niveaux, circularité)
+   au grain EXTRAIT des déclarations de « VMTrainer.html ». La première route
+   est une formule, la seconde une lecture. Faire dériver la table supprime une
+   transcription sans rapprocher les deux routes d'un pouce.
+
+   Et la dérivation couvre les trente-deux plutôt que les dix-sept
+   combinaisons distinctes : chaque dimension est nommée, au lieu que
+   « nesting_depth » tienne pour ses deux homonymes. Les lignes en double
+   n'éprouvent rien de neuf, mais elles ne coûtent rien et elles disent
+   lesquelles ont été vues.
+*/
+const DISCRETES: [string, number, 'lin' | 'circ' | 'log', number, number?][] =
+  DIMENSIONS_DISCRETES.map((d) => [
+    d.id,
+    d.niveaux,
+    d.echelle,
+    /* La fiche imprime une décimale : on compare à ce qu'elle imprime. */
+    Math.round(d.pireGrain * 1000) / 10,
+    d.echelle === 'log' ? d.pireGrain : undefined,
+  ]);
+
+
+const laDimension = (nom: string, niveaux: number, echelle: string, pire?: number): DimensionL5 => ({
+  id: nom,
+  niveaux,
+  ...(echelle === 'circ' ? { circulaire: true as const } : {}),
+  ...(pire !== undefined ? { pireGrain: pire } : {}),
+});
+
+let accords = 0;
+for (const [nom, niveaux, echelle, attenduPct, pire] of DISCRETES) {
+  const obtenu = 100 * grainDe(laDimension(nom, niveaux, echelle, pire));
+  /*
+     LA FICHE DONNE UNE DÉCIMALE, DONC ON COMPARE À UNE DÉCIMALE — et on
+     accepte les deux arrondis possibles plutôt qu'un epsilon choisi pour que
+     ça passe.
+
+     « motif_rotation » est le seul cas où cela se voit : 1/16 vaut 6,25 %,
+     que la fiche écrit « 6,2 » et que l'arrondi au plus proche écrirait
+     « 6,3 ». Les deux désignent le même nombre. Un epsilon de 0,06 l'aurait
+     laissé passer aussi, mais en masquant POURQUOI, et il aurait laissé
+     passer du même coup un vrai désaccord de 0,05 point.
+  */
+  const arrondi = Math.round(obtenu * 10) / 10;
+  const tronque = Math.floor(obtenu * 10) / 10;
+  const ok = attenduPct === arrondi || attenduPct === tronque;
+  if (ok) accords += 1;
+  else echecs += 1;
+  const note = arrondi !== tronque && ok ? `  (${tronque} ou ${arrondi} : 1/${niveaux} = ${obtenu} %)` : '';
+  console.log(
+    `  ${ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m'} ${nom.padEnd(30)} ${String(niveaux).padStart(3)} ${echelle.padEnd(5)} ` +
+      `calculé ${obtenu.toFixed(2)} % · fiche ${attenduPct} %${note}`,
   );
 }
-/* Les deux lectures ambiguës, pour que le verdict n'en dépende pas. */
-vrai('« compass_point » reste refusée même à seize niveaux', horsEscalier(d('compass_point', 16)) !== null);
-vrai('« note_name » reste refusée même à douze niveaux', horsEscalier(d('note_name', 12)) !== null);
+console.log(`\n  ${accords} accords sur ${DISCRETES.length} entre ma formule et l’extraction d’A.\n`);
+
+console.log('\x1b[1mCE QUE LA FRONTIÈRE ÉCARTE, UNE FOIS LES VRAIS GRAINS CONNUS\x1b[0m\n');
 /*
-   ET LA SEULE QUI PASSE, qui donne sa valeur aux six refus : sans elle, un
-   critère qui refuserait TOUT aurait le même air.
+   LE RÉSULTAT CHANGE D'ÉCHELLE. Je disais « six des sept parlées » ; la
+   référence montre que les 32 discrètes ont toutes un grain supérieur à 0,02,
+   et la frontière en écarte la plus grande part. Seules « number » et
+   « letter » la passent — dans les deux domaines, puisque chacune existe en
+   vision et en audition.
 */
-v('« letter » (26 niveaux) est admise, tout juste au plancher', horsEscalier(d('letter', 26)), null);
-proche('et son grain vaut exactement le plancher de la procédure', grainDe(d('letter', 26)), PLANCHER_MESURABLE);
+const admises: string[] = [];
+const ecartees: string[] = [];
+for (const [nom, niveaux, echelle, , pire] of DISCRETES) {
+  const d = laDimension(nom, niveaux, echelle, pire);
+  (horsEscalier(d) === null ? admises : ecartees).push(nom);
+}
+console.log(`  admises  (${admises.length}) : ${admises.join(', ')}`);
+console.log(`  écartées (${ecartees.length}) : ${ecartees.join(', ')}\n`);
+/*
+   LE VERDICT EST MAINTENANT PAR DIMENSION, et non par combinaison.
+
+   L'assertion attendait « letter, number » : deux noms courts, pour les dix-sept
+   combinaisons distinctes. Depuis que la table dérive des trente-deux
+   déclarations, elle rend QUATRE dimensions — chacune des deux existe en vision
+   et en audition. C'est le chiffre que j'annonçais en prose, « quatre sur
+   trente-deux, vingt-huit écartées », et que la table courte ne savait pas dire.
+
+   Le compte est donc assis aux deux bouts : quatre admises ET vingt-huit
+   écartées. Une assertion sur les seules admises resterait verte si une
+   dimension disparaissait de la table.
+*/
+v('quatre dimensions sur trente-deux passent la frontière', admises.sort(), [
+  'audition.letter',
+  'audition.number',
+  'vision.letter',
+  'vision.number',
+]);
+v('et vingt-huit sont écartées', ecartees.length, 28);
+v('les deux comptes couvrent bien les trente-deux',
+  admises.length + ecartees.length, DIMENSIONS_DISCRETES.length);
+vrai('et « number » n’est PLUS écartée, contrairement à ce que j’avais écrit',
+  horsEscalier(laDimension('number', 20, 'lin')) === null);
+vrai('« weekday », circulaire à sept niveaux, reste écartée',
+  horsEscalier(laDimension('weekday', 7, 'circ')) !== null);
+proche('et son grain vaut 1/7 et non 1/6', grainDe(laDimension('weekday', 7, 'circ')), 1 / 7);
+
+console.log('\n\x1b[1mLA PHRASE DE REFUS, ET TROIS DÉFAUTS QU’ELLE PORTAIT\x1b[0m\n');
+/*
+   TROIS DÉFAUTS TROUVÉS EN RELISANT MON PROPRE FICHIER avant de le livrer,
+   dont un qui enfreignait une règle qu'on m'avait donnée.
+*/
+const refusWeekday = horsEscalier(laDimension('weekday', 7, 'circ')) ?? '';
+console.log(`  ${refusWeekday}\n`);
+faux('la phrase ne porte aucun « (s) » — règle d’écriture', refusWeekday.includes('(s)'));
+vrai('elle accorde le pluriel : « 1 écart présentable »', refusWeekday.includes('1 écart présentable'));
+vrai('et le pluriel quand il y en a deux',
+  (horsEscalier(laDimension('motif_rotation', 16, 'circ')) ?? '').includes('2 écarts présentables'));
+vrai('et le singulier à zéro',
+  (horsEscalier(laDimension('nesting_depth', 5, 'lin')) ?? '').includes('0 écart présentable'));
+
+/*
+   Le « undefined niveaux » n'était pas atteignable par les dimensions de la
+   fiche, qui déclarent toutes leurs niveaux. Il l'était par une log qui ne
+   déclare que son pire grain — et c'est la forme que la fiche marque d'une
+   étoile, donc pas un cas de laboratoire.
+*/
+const refusLog = horsEscalier({ id: 'une-log', pireGrain: 0.24 }) ?? '';
+console.log(`  ${refusLog}\n`);
+faux('une dimension sans « niveaux » n’annonce plus « undefined niveaux »',
+  refusLog.includes('undefined'));
+vrai('elle nomme son grain sans l’attribuer à un compte de niveaux',
+  refusLog.includes('son grain le plus grossier vaut'));
+/*
+   ET C'EST ICI QUE L'ESSAI A RENDU SERVICE. J'avais écrit l'assertion avec
+   une espace ORDINAIRE, et elle a rougi : « Intl » pose une espace
+   INSÉCABLE (U+00A0) devant le signe, ce que la typographie française
+   demande et qu'un « toFixed » suivi de « + ' %' » ne donne pas. Je l'ai
+   d'abord annoncée « fine insécable » (U+202F) ; relevé dans ce moteur,
+   c'est U+00A0. La différence ne se voit pas à l'œil et se mesure ici.
+*/
+v('le pourcentage porte une espace insécable, donc vient d’Intl',
+  [...'24\u00a0%'].every((c) => refusLog.includes(c)) && refusLog.includes('24\u00a0%'),
+  true);
+faux('et non l’espace ordinaire d’une concaténation à la main', refusLog.includes('24 %'));
+
+console.log('\n\x1b[1mLE DÉFAUT FLOTTANT : CE QU’IL FAIT, ET CE QU’IL NE FAIT PAS\x1b[0m\n');
+/*
+   J'AI D'ABORD ÉCRIT ICI UNE ASSERTION FAUSSE, ET ELLE ÉTAIT VERTE.
+
+   Elle disait « 0,24 / 0,08 ne vaut pas 3 en flottant mais un peu moins » et
+   passait par `proche`, dont la tolérance est 1e-9. La division vaut 3,
+   exactement ; l'écart que l'assertion prétendait détecter vaudrait 4e-16.
+   **Une tolérance plus large que l'effet qu'elle mesure rend l'assertion
+   décorative** : elle ne pouvait pas distinguer 3 de « presque 3 », donc elle
+   ne mesurait rien.
+
+   Le sabotage l'a dit, et lui seul : retirer le « + 1e-9 » du code laissait
+   l'essai tout vert. Un essai qui reste vert quand on casse ce qu'il prétend
+   garder ne garde rien.
+
+   Ce qui suit mesure donc le défaut par une SECONDE ROUTE — l'arithmétique
+   entière, qui n'a pas de flottant — au lieu de recopier le calcul du code.
+*/
+const DEPARTS_EN_CENTIEMES = [18, 24, 12, 20, 25, 30, 36, 50];
+let divergences = 0;
+let reparees = 0;
+let cassees = 0;
+let desaccords = 0;
+const exemples: string[] = [];
+for (const centiemes of DEPARTS_EN_CENTIEMES) {
+  const depart = centiemes / 100;
+  for (let n = 2; n <= 400; n++) {
+    for (const circulaire of [true, false] as const) {
+      const dim: DimensionL5 = { id: `n${n}`, niveaux: n, ...(circulaire ? { circulaire } : {}) };
+      const pas = circulaire ? n : n - 1;
+      const exact = ecartsPresentablesExacts(centiemes, pas);
+      const sansGarde = Math.floor(depart / grainDe(dim));
+      const avecGarde = ecartsPresentables(dim, depart);
+      if (sansGarde !== exact) {
+        divergences += 1;
+        if (avecGarde === exact) reparees += 1;
+        if (exemples.length < 3) {
+          exemples.push(
+            `départ ${centiemes} % · ${pas} pas · exact ${exact} · sans garde ${sansGarde} · quotient ${depart / grainDe(dim)}`,
+          );
+        }
+      }
+      if (avecGarde !== exact) cassees += 1;
+      if (avecGarde !== exact) desaccords += 1;
+    }
+  }
+}
+for (const e of exemples) console.log(`  ${e}`);
+console.log(`\n  ${divergences} divergences entre le flottant et l’exact, sur ${DEPARTS_EN_CENTIEMES.length * 399 * 2} couples.\n`);
+vrai('le défaut existe : le flottant diverge de l’exact quelque part', divergences > 0);
+v('et la garde répare TOUTES les divergences', reparees, divergences);
+v('sans en casser aucune', cassees, 0);
+v('donc le compte livré est exact partout où il a été relevé', desaccords, 0);
+
+/*
+   ET MAINTENANT CE QU'IL NE FAIT PAS, qui est la moitié que j'avais sautée.
+*/
+let basculesDeVerdict = 0;
+for (let millionieme = 1; millionieme <= 180000; millionieme++) {
+  const grain = millionieme / 1000000;
+  const dim: DimensionL5 = { id: 'g', pireGrain: grain };
+  const exact = ecartsPresentablesExacts(18, 1000000 / millionieme);
+  const sansGarde = Math.floor(0.18 / grain);
+  if ((exact >= ECARTS_REQUIS) !== (sansGarde >= ECARTS_REQUIS)) basculesDeVerdict += 1;
+  void dim;
+}
+v(`aucun des 180 000 grains ne fait basculer le verdict à ${ECARTS_REQUIS} écarts requis`, basculesDeVerdict, 0);
+console.log(
+  '      \x1b[2mdonc la garde est INVISIBLE à travers raisonDInaptitude aujourd’hui :\x1b[0m\n' +
+    '      \x1b[2mles divergences sont toutes à neuf écarts ou plus, le seuil est à trois.\x1b[0m',
+);
+
+/*
+   LA RAISON DE LA GARDER, elle, se mesure : la divergence est exactement à la
+   hauteur où quelqu'un pourrait porter le seuil.
+*/
+const grainDe75 = { id: 'un-75e', pireGrain: 1 / 75 };
+v('à 1/75 sous un départ de 12 %, le compte exact vaut neuf',
+  ecartsPresentablesExacts(12, 75), 9);
+v('et le flottant seul en rendrait huit', Math.floor(0.12 / (1 / 75)), 8);
+v('la garde rend bien neuf', ecartsPresentables(grainDe75, 0.12), 9);
+console.log(
+  '      \x1b[2mun seuil porté à neuf écarterait donc cette dimension sans la garde —\x1b[0m\n' +
+    '      \x1b[2mc’est ce qu’elle empêche, et c’est tout ce qu’elle empêche.\x1b[0m',
+);
 
 console.log(
   echecs === 0
     ? '\n\x1b[32mTous les essais passent.\x1b[0m\n'
-    : `\n\x1b[31m${echecs} échec(s).\x1b[0m\n`,
+    : `\n\x1b[31m${echecs} ${echecs >= 2 ? 'échecs' : 'échec'}.\x1b[0m\n`,
 );
 process.exit(echecs ? 1 : 0);

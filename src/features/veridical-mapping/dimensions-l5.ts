@@ -14,7 +14,11 @@
  * L'escalier demande un écart en `z`, part sans unité de l'étendue de la
  * dimension. Son plancher est `PLANCHER_MESURABLE`, soit 0,04. Une dimension
  * discrète à `niveaux` valeurs ne peut présenter que des écarts multiples de
- * `1 / (niveaux - 1)`. Mesuré :
+ * son grain. Celui-ci vaut `1 / (niveaux - 1)` quand la dimension est ouverte
+ * aux deux bouts, et `1 / niveaux` quand elle REBOUCLE — un jour de la semaine,
+ * un mois, un point cardinal —, parce que `STEP` y vaut alors « round(z·n)
+ * modulo n ». Ma première version prenait 1/(n−1) partout ; l'agent A l'a
+ * relevé. Mesuré, sur des dimensions ouvertes :
  *
  * | niveaux | grain | ce qu'un écart de 0,04 devient |
  * |---|---|---|
@@ -88,6 +92,49 @@ export interface TraitsDeL5 {
    */
   niveaux?: number;
   /**
+   * LA DIMENSION REBOUCLE-T-ELLE SUR ELLE-MÊME ?
+   *
+   * Elle change le GRAIN, et pas seulement l'écart entre deux positions. La
+   * référence d'A donne la déclaration : « STEP » vaut « round(z·n) modulo n »
+   * quand la dimension reboucle, et « round(z·(n−1)) » sinon. Le grain est donc
+   * 1/n pour une circulaire et 1/(n−1) pour les autres.
+   *
+   * Ma première version prenait 1/(n−1) partout. Sur une circulaire à sept
+   * niveaux — « weekday », « note_name » — elle rendait 16,7 % là où la
+   * référence dit 14,3 % : une surestimation de 17 %. La direction était
+   * prudente, et le chiffre faux ; un plancher trop grossier écarte des
+   * dimensions mesurables.
+   *
+   * ## « boolean » ET NON « true », ET C'EST LE TYPE QUI L'EXIGE
+   *
+   * Ce champ était déclaré deux fois à la fusion du 1er novembre : « ?: true »
+   * ici, « ?: boolean » dans `DimensionL5`. L'intersection des deux vaut
+   * « true », et les trente-deux déclarations qui écrivent « circulaire:
+   * false » ne compilaient plus.
+   *
+   * Il reste en `boolean`, pour deux raisons. La première est de type :
+   * `Dimension`, dans le registre d'A, le déclare `boolean` — avec « ?: true »
+   * une dimension du registre ne serait pas une `DimensionL5`, et c'est
+   * précisément l'interchangeabilité que ce champ existe pour permettre. La
+   * seconde est de relecture : dans une table de trente-deux lignes, un
+   * « false » écrit se voit, une colonne laissée vide ne se voit pas.
+   */
+  circulaire?: boolean;
+  /**
+   * LE PIRE GRAIN, quand il ne se déduit pas du nombre de niveaux.
+   *
+   * Sur une échelle logarithmique, le grain VARIE avec la position et il est le
+   * plus grossier en bas de la plage : « audition.event_count » vaut 24 % en
+   * bas et bien moins en haut. Le nombre de niveaux ne suffit donc plus à le
+   * dire, et la référence le marque d'une étoile.
+   *
+   * On prend le pire, et c'est un choix : un plancher calculé localement serait
+   * plus fin, mais il changerait de valeur selon l'endroit où l'escalier se
+   * trouve — et un seuil dont l'unité bouge en cours de mesure ne se compare à
+   * rien, pas même à lui-même.
+   */
+  pireGrain?: number;
+  /**
    * La dimension fait-elle varier quelque chose DANS LE TEMPS ?
    *
    * Un clignotement, un motif rythmique, une apparition. Règle photosensible
@@ -111,14 +158,6 @@ export interface TraitsDeL5 {
 export type DimensionL5 = TraitsDeL5 & {
   id: string;
   niveaux?: number;
-  /**
-   * La dimension REBOUCLE-T-ELLE ? Ajouté par A, et le grain en dépend.
-   *
-   * Même nom et même sens que dans son registre, pour qu'une dimension puisse
-   * porter les deux types sans traduction. Voir `grainDe` juste dessous : ce
-   * champ n'est pas un ornement, il change le grain d'un facteur n/(n−1).
-   */
-  circulaire?: boolean;
 };
 
 /* ── LE GRAIN, ET CE QU'IL AUTORISE ───────────────────────────────────── */
@@ -131,6 +170,12 @@ export type DimensionL5 = TraitsDeL5 & {
  * lui qui commande.
  */
 export function grainDe(d: DimensionL5): number {
+  /*
+     LE PIRE GRAIN DÉCLARÉ L'EMPORTE, parce qu'il vient d'une mesure sur la
+     plage réelle et non d'un compte de niveaux. Il n'existe que pour les
+     échelles logarithmiques, où le grain dépend de la position.
+  */
+  if (d.pireGrain !== undefined) return d.pireGrain;
   if (d.niveaux === undefined) return PLANCHER_MESURABLE;
   if (!Number.isInteger(d.niveaux) || d.niveaux < 2) {
     throw new Error(
@@ -156,8 +201,18 @@ export function grainDe(d: DimensionL5): number {
      le rendu n'emploie pas, et l'écart ENREGISTRÉ est celui qui devient le
      seuil d'une personne.
 
-     Aucun des verdicts de l'essai de ce fichier ne bascule : vérifié sur les
-     sept parlées, circulaires comprises, elles restent toutes écartées.
+     CETTE PHRASE DISAIT LE CONTRAIRE, ET LA CORRECTION DE B L'A RENVERSÉE.
+
+     J'avais écrit « aucun verdict ne bascule : les sept parlées restent
+     toutes écartées ». C'était vrai quand « number » comptait dix niveaux et
+     c'est faux depuis qu'elle en compte vingt — B avait pris le nombre dans
+     le monde (« il y a dix chiffres ») au lieu de le lire dans la
+     déclaration. « number » (5,3 %) et « letter » (4 %) passent la frontière
+     des trois écarts ; les cinq autres restent hors escalier, et s'y mesurent
+     par identification.
+
+     Une affirmation sur des verdicts se périme donc dès qu'un chiffre
+     d'entrée bouge, et celle-ci avait l'air d'une conclusion.
   */
   return d.circulaire ? 1 / d.niveaux : 1 / (d.niveaux - 1);
 }
@@ -217,26 +272,118 @@ export function ecartMontre(d: DimensionL5, ecartDemande: number): number {
  */
 export const ECARTS_REQUIS = 3;
 
+/**
+ * COMBIEN D'ÉCARTS NON NULS LA DIMENSION PEUT PRÉSENTER SOUS LE DÉPART.
+ *
+ * Extrait de `raisonDInaptitude` pour une seule raison : la ligne qui suit a
+ * un défaut flottant, et tant qu'elle était enfouie dans la phrase de refus
+ * ce défaut n'était pas mesurable. Il l'est maintenant.
+ *
+ * ## LE DÉFAUT, ET CE QU'IL NE FAIT PAS
+ *
+ * « departDelta / grain » est une division flottante. Relevé sur huit valeurs
+ * de départ et tous les grains 1/n et 1/(n−1) jusqu'à n = 400 : **70 couples
+ * où le quotient tombe juste sous l'entier** — 0,18 / (1/150) rend
+ * 26,999999999999996 au lieu de 27 — et le plancher les couche alors d'un
+ * rang. Le « + 1e-9 » les répare tous, et n'en casse aucun.
+ *
+ * **Et il ne change aucun verdict aujourd'hui, ce qu'il faut dire.** Les 70
+ * divergences se produisent toutes à neuf écarts ou plus, là où le seuil est
+ * à trois : les deux côtés de l'erreur sont au-dessus, donc la dimension est
+ * admise dans les deux cas. Relevé plus largement : sur les 18 000 grains au
+ * cent-millième entre 0 et 0,18, **aucun ne fait basculer le verdict**.
+ *
+ * J'ai d'abord écrit l'inverse — que la garde réparait une dimension à trois
+ * écarts exacts injustement écartée — sur la foi de « 0,24 / 0,08 », que
+ * j'avais supposé valoir 2,9999999999999996. Il vaut 3, exactement.
+ * L'assertion qui devait l'établir était verte parce qu'elle passait par un
+ * comparateur à 1e-9, et l'écart qu'elle prétendait détecter vaut 4e-16 : une
+ * tolérance plus large que l'effet qu'elle mesure rend l'assertion
+ * décorative. C'est le sabotage qui l'a dit — retirer la garde ne rougissait
+ * rien.
+ *
+ * ## POURQUOI LA GARDE RESTE
+ *
+ * Parce que `ECARTS_REQUIS` est une constante, et que la divergence est
+ * exactement à la hauteur où quelqu'un pourrait la porter. À neuf écarts
+ * requis, un grain de 1/75 sous un départ de 0,12 en présente neuf, et sans
+ * la garde il en présenterait huit : la dimension serait écartée pour une
+ * erreur de représentation, avec une phrase parfaitement plausible. La garde
+ * ne répare donc rien d'observable ; elle empêche qu'un changement de seuil
+ * rende observable un défaut déjà présent.
+ */
+export function ecartsPresentables(d: DimensionL5, departDelta = 0.18): number {
+  return Math.floor(departDelta / grainDe(d) + 1e-9);
+}
+
+/**
+ * LE COMPTE EXACT, par arithmétique entière, pour servir de référence.
+ *
+ * Il n'est pas appelé par le programme : il existe pour que l'essai ait une
+ * seconde route vers le même nombre, qui ne passe par aucun flottant. Une
+ * assertion qui recalculerait le compte comme le code le calcule ne
+ * vérifierait que sa propre copie.
+ *
+ * Exposé plutôt que recopié dans l'essai pour la raison inverse : recopié, il
+ * dériverait. Le départ est donné en centièmes parce que c'est ainsi qu'il est
+ * écrit — 0,18 n'est pas représentable en binaire, 18 l'est.
+ */
+export function ecartsPresentablesExacts(centiemesDeDepart: number, pasDansLaDimension: number): number {
+  return Math.floor((centiemesDeDepart * pasDansLaDimension) / 100);
+}
+
+/**
+ * LA DIMENSION SORT-ELLE DE L'ESCALIER, ET SINON POURQUOI.
+ *
+ * Rend `null` quand l'escalier peut l'encadrer, et sinon la phrase à écrire.
+ *
+ * **Elle s'appelait « raisonDInaptitude », et le nom était faux.** Renommée le
+ * 1er novembre sur décision du pilote : « on ne rejette que les dimensions de
+ * moins de 3 niveaux ». Le critère mesuré ici reste exact — un escalier
+ * n'encadre pas un seuil sur sept niveaux —, mais il ne dit pas qu'une
+ * dimension est inapte : il dit qu'elle ne se mesure pas PAR ESCALIER, et
+ * qu'elle se mesure par identification, au lot L6. Le nom d'une fonction qui
+ * rend un verdict EST le verdict : sous l'ancien, cinq dimensions parlées
+ * quittaient le chantier au motif d'une mesure qui ne disait pas cela.
+ * `raisonDInaptitude`, juste dessous, porte le seul critère de rejet. Le pilote demande
+ * que les dimensions écartées le soient « avec leur raison écrite » : la raison
+ * est donc produite ici, à côté du critère, et non rédigée à la main ailleurs —
+ * deux sources finiraient par ne plus dire la même chose.
+ *
+ * Le critère : il faut que l'escalier puisse présenter des écarts DE PART ET
+ * D'AUTRE du seuil, ce qui demande au moins trois écarts distincts non nuls
+ * sous le départ. Avec un départ à 0,18, un grain de 0,0909 n'en offre que
+ * deux — 0,0909 et 0,1818 —, et un grain de 0,25 aucun.
+ */
 export function horsEscalier(d: DimensionL5, departDelta = 0.18): string | null {
   const grain = grainDe(d);
-  const disponibles = Math.floor(departDelta / grain);
+  const disponibles = ecartsPresentables(d, departDelta);
   if (disponibles >= ECARTS_REQUIS) return null;
+  const pourCent = new Intl.NumberFormat('fr-FR', {
+    style: 'percent',
+    maximumFractionDigits: 1,
+  });
   /*
-     « Intl » ET NON « toFixed », et ce n'est pas une préférence de style.
+     « écart présentable » s'accorde, il ne porte pas de « (s) ».
 
-     `essais:accords` refuse tout `toFixed` affiché dans « src/ » : il écrit un
-     point décimal et colle le signe, là où le français veut une virgule et une
-     espace insécable. Ce pourcentage-ci part dans une phrase montrée, donc il
-     passe par « Intl ». Mesuré : le noyau portait un `toFixed` ici, et
-     `essais:accords` — qui est au socle — rougissait.
+     La règle d'écriture l'interdit, et ce n'est pas une coquetterie : le
+     nombre vaut ici zéro, un ou deux, tous connus à l'écriture. « 0 écart »
+     est la forme française — le singulier va jusqu'à deux exclu.
   */
-  const pct = (x: number) =>
-    new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 }).format(x);
-  const ecarts = disponibles === 1 ? 'un écart présentable' : `${disponibles} écarts présentables`;
+  const ecarts = `${disponibles} ${disponibles >= 2 ? 'écarts présentables' : 'écart présentable'}`;
+  /*
+     Une échelle logarithmique déclare son pire grain sans que le nombre de
+     niveaux le commande : le dire « à n niveaux » serait faux, et sur une
+     dimension sans « niveaux » la phrase annonçait « undefined niveaux ».
+  */
+  const origine =
+    d.pireGrain !== undefined
+      ? 'son grain le plus grossier vaut'
+      : `${d.niveaux} niveaux donnent un grain de`;
   return (
-    `« ${d.id} » ne se mesure pas par escalier : ${d.niveaux} niveaux ` +
-    `donnent un grain de ${pct(grain)}, donc ${ecarts} ` +
-    `sous le départ de ${pct(departDelta)}, là où il en faut ${ECARTS_REQUIS} pour ` +
+    `« ${d.id} » n’est pas mesurable par cet escalier : ${origine} ` +
+    `${pourCent.format(grain)}, donc ${ecarts} sous le départ de ` +
+    `${pourCent.format(departDelta)}, là où il en faut ${ECARTS_REQUIS} pour ` +
     `encadrer un seuil. Mesurée quand même, elle rendrait un chiffre : la personne ` +
     `répondrait au hasard devant deux stimulus trop proches pour différer, et ` +
     `l’escalier lirait ses erreurs comme un seuil. Elle se mesure par ` +
