@@ -176,27 +176,71 @@ export async function devientVisible(page, selecteur, visible, { delai = 10000 }
  * déclenche rien ici : la marque survit, et l'attente expire. Dans ce cas,
  * `apresLeChangementDeTexte` ou un compteur sur la zone conviennent.
  *
+ * ## CE QU'ELLE FAIT DE SON EXPIRATION, ET POURQUOI CELA A CHANGÉ
+ *
+ * Elle l'avalait — `catch(() => {})` — et ne rendait rien. Employée comme
+ * post-condition, une peinture qui ne venait JAMAIS devenait donc trente
+ * secondes de silence, puis un rouge PLUS LOIN, à l'assertion suivante, qui
+ * ne nomme plus la cause. C'est exactement la famille de défaut que cette
+ * bibliothèque existe pour supprimer : une attente qui ne peut pas rougir ne
+ * garde rien, et celle-ci rougissait ailleurs, ce qui est pire que de rougir
+ * chez elle. Le constructeur l'a relevé le 1er novembre.
+ *
+ * Le remède suit LA FORME DE L'APPEL, parce que les deux usages n'ont pas le
+ * même contrat.
+ *
+ *  - **Avec un geste**, la peinture est une conséquence de ce qu'on vient de
+ *    faire : son absence est une panne. L'attente LÈVE alors, en nommant la
+ *    zone et le délai.
+ *  - **Sans geste**, on attend la prochaine peinture d'un écran qui se repeint
+ *    tout seul. Une peinture qui ne vient pas est une information, pas une
+ *    panne : l'attente rend `false` et laisse l'appelant en décider.
+ *
+ * `exiger` permet de forcer l'un ou l'autre, mais le défaut est le bon dans
+ * les deux cas connus, et c'est voulu : une option qu'il faut penser à passer
+ * ne protège que ceux qui y pensent.
+ *
  * @param page la page de Playwright
  * @param zone le conteneur dont les enfants sont remplacés
  * @param geste ce qui déclenche la peinture — rien, pour attendre la suivante
  * @param options.delai en millisecondes, 30 000 par défaut
+ * @param options.exiger lever si la peinture n'arrive pas ; par défaut, oui
+ *   quand un geste est donné
+ * @returns vrai si la peinture a eu lieu ; faux si elle n'est pas venue et
+ *   qu'on ne l'exigeait pas
  */
-export async function apresLeRemplacement(page, zone, geste = null, { delai = 30000 } = {}) {
+export async function apresLeRemplacement(
+  page,
+  zone,
+  geste = null,
+  { delai = 30000, exiger = geste !== null } = {},
+) {
   await page.evaluate(
     (s) => document.querySelector(s)?.firstElementChild?.setAttribute('data-ancien', 'oui'),
     zone,
   );
   if (geste) await geste();
-  await page
-    .waitForFunction(
+  try {
+    await page.waitForFunction(
       (s) => {
         const premier = document.querySelector(s)?.firstElementChild;
         return Boolean(premier) && !premier.hasAttribute('data-ancien');
       },
       zone,
       { timeout: delai },
-    )
-    .catch(() => {});
+    );
+    return true;
+  } catch {
+    if (exiger) {
+      throw new Error(
+        `apresLeRemplacement : « ${zone} » n'a pas repeint ses enfants en ${delai} ms. ` +
+          'Le geste a eu lieu, la peinture non : la cause est ici, et non dans ' +
+          "l'assertion qui suit. Si cette zone modifie ses enfants EN PLACE au lieu " +
+          'de les remplacer, prenez « apresLeChangementDeTexte » ou un compteur.',
+      );
+    }
+    return false;
+  }
 }
 
 /**
@@ -437,6 +481,29 @@ export async function attendreEnBase(page, magasin, estSatisfait, { delai = 3000
  * On attend donc : **non vide, et ne disant plus « en cours »**. Cette aide ne
  * présume ni du refus ni de la réussite — c'est l'assertion qui tranche, et
  * c'est bien son travail.
+ *
+ * ## SA LIMITE, ET ELLE EST PLUS ÉTROITE QU'ON NE LA LIT
+ *
+ * Elle rend la main quand LE VERDICT EST ÉCRIT. Elle ne promet pas que l'écran
+ * a fini d'écrire : sur un écran dont le verdict n'est pas la dernière
+ * écriture, le travail continue après elle.
+ *
+ * Mesuré par le constructeur le 1er novembre, sur « stockage.astro » :
+ * `appliquerEffacement` écrit son verdict, PUIS repeint les listes de domaines
+ * par un `replaceChildren()`. Les cases redeviennent neuves et décochées
+ * après le verdict. Un essai qui cochait une case juste après cette attente la
+ * voyait remplacée, et « Compter » tombait sur le garde-fou « Choisissez au
+ * moins un domaine. » L'essai était intermittent — vert, rouge, vert, vert sur
+ * le même code — et la cause semblait venir d'ailleurs.
+ *
+ * Ce n'est pas un défaut de cette fonction : elle est exacte sur ce qu'elle
+ * promet. C'est la même famille que la limite écrite pour `quandCelaSeFixe` —
+ * « une valeur qui n'a pas encore COMMENCÉ à changer est stable elle aussi ».
+ * Une post-condition juste peut garantir moins que ce que son nom suggère.
+ *
+ * **Donc** : quand ce qui suit l'attente touche à des nœuds que l'écran peut
+ * repeindre après son verdict, enchaînez avec `apresLeRemplacement` sur la
+ * zone repeinte — ou visez le dernier fait écrit, et non le premier.
  *
  * @param page la page de Playwright
  * @param zone le sélecteur de la zone de message
