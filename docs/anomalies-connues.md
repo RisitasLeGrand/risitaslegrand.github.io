@@ -132,6 +132,76 @@ sert bien cet arbre, et se demander si un autre agent construisait au même
 moment. Les trois faux rouges du 31 octobre auraient tous été évités par la
 première de ces trois questions.
 
+## La règle qui explique l'intermittence du 1er novembre
+
+**Un écran qui annonce son verdict AVANT de repeindre laisse une course
+derrière lui, et `travailFini` ne la couvre pas.**
+
+Inscrit le 1er novembre 2026 par le constructeur, après mesure.
+
+`essais:effacement:navigateur` — au socle — a rendu, sur le MÊME code et sans
+qu'une ligne de `src/` change entre les courses : vert, rouge, vert, puis vert.
+Un code 1 sans croix : le script expirait dans `recompter`, en attendant
+« Compté » pendant trente secondes.
+
+**Ce qu'une sonde a dit, là où la lecture du code ne disait rien.** L'essai a
+été fait imprimer ce qu'il lisait à l'instant de l'expiration. Le message ne
+disait pas « Compté » mais **« Choisissez au moins un domaine. »**, et les
+treize cases de domaine étaient **toutes à faux** — dont celle que l'essai
+venait de cocher deux lignes plus haut.
+
+**Le mécanisme, lu ensuite à la ligne près.** `appliquerEffacement`
+(`src/pages/stockage.astro`) écrit son verdict, notifie, cache le décompte,
+puis appelle `rafraichirComptes()`, qui repeint les deux listes de domaines par
+`peindreGroupes` — et `peindreGroupes` fait `zone.replaceChildren()`. Les cases
+sont donc des éléments NEUFS, décochés, et cette peinture vient **après** le
+verdict. `travailFini` rend la main sur le verdict : il ne garantit rien de ce
+qui est peint ensuite. L'essai cochait alors une case que la peinture suivante
+remplaçait, et le clic sur « Compter » tombait sur le premier garde-fou du
+gestionnaire, qui écrit « Choisissez au moins un domaine. » et sort sans jamais
+écrire « Compté ». Selon que la peinture arrivait avant ou après le cochage,
+l'essai passait ou expirait.
+
+La même cause produit **une seconde forme de rouge**, à une autre ligne et avec
+une croix cette fois : un domaine décoché fait répondre « Choisissez au moins
+un domaine. » là où l'essai attend la phrase de la période à l'envers.
+
+**Ce qui a été corrigé.** Dans l'essai, et non dans l'écran : une post-condition
+en deux moitiés, à trois endroits — on marque le premier enfant de la liste des
+domaines AVANT le geste d'effacement, et l'on attend un premier enfant SANS la
+marque. Elle ne peut pas être vraie d'avance. Trois sabotages hors du site
+prouvent qu'elle expire quand la peinture ne vient pas, qu'elle rend la main
+quand elle vient, et qu'elle attend une peinture tardive. Six courses de suite
+vertes, là où deux sur quatre rougissaient.
+
+**Ce qui n'est PAS corrigé, et qui reste à arbitrer.** L'écran annonce avant de
+peindre. Tant que c'est le cas, `travailFini('#message-effacement')` n'est une
+post-condition que du verdict, et tout essai qui touche aux domaines après un
+effacement doit attendre la peinture lui-même. Le corriger côté écran — écrire
+le verdict en DERNIER, après `rafraichirComptes()` — rendrait `travailFini`
+exact partout, mais touche au chemin de l'effacement et ferait dire
+« Effacement interrompu » à une peinture qui échoue après un effacement réussi.
+Ce n'est pas une correction à faire en passant.
+
+**Et une correction de mon propre compte rendu.** J'avais retiré mon correctif
+d'identité (`b7ffc6b7`, retiré par `357f66e2`) en écrivant que son effet de
+bord sur cet essai était « déterministe, et de moi ». Il ne l'était pas : deux
+rouges avec lui et des verts sans lui étaient un tirage, pas une loi. Le retour
+en arrière reste la bonne décision — un correctif dont l'effet n'est pas compris
+ne se garde pas — mais la raison avancée était fausse, et la cause réelle est
+celle ci-dessus. Le défaut d'identité au retour en arrière, lui, reste réel et
+non corrigé : une base semée en 11, migrée en 43, ramenée en 11 par le bouton
+puis remigrée change d'identité d'appareil (`7KS3FJFA` puis `TV5T90GB`, mesuré
+par sonde).
+
+**Un détail de bibliothèque, pour qui voudra réutiliser la forme.**
+`apresLeRemplacement` de `scripts/lib/post-condition.mjs` fait exactement ce
+marquage, mais **avale son expiration** (`.catch(() => {})`). Employée comme
+post-condition, elle change donc une peinture qui ne vient jamais en trente
+secondes d'attente puis en un rouge plus loin, qui ne nomme plus la cause.
+C'est pourquoi l'essai de l'effacement écrit l'attente en clair plutôt que de
+l'appeler.
+
 ## Ce qui est VOULU, et qu'il ne faut pas prendre pour un défaut
 
 Ces lignes ne sont pas des anomalies. Elles sont ici parce qu'elles
