@@ -266,42 +266,36 @@ console.log('\x1b[1m1. LE CHEMIN NORMAL — « etat » déclaré par la branche\
   }
 }
 
-console.log('\n\x1b[1m2. LA FRAGILITÉ, DÉMONTRÉE — « etat » absent de la branche\x1b[0m');
+console.log('\n\x1b[1m2. LE REFUS AVANT TOUTE ÉCRITURE — « etat » absent de la branche\x1b[0m');
 {
   /*
-     Le fichier porte les mêmes données ; seule sa DÉCLARATION change. Si le
-     raccord est solide, le sel du fichier arrive quand même ; s'il ne l'est
-     pas, la migration rend un « etat » vide et le sel disparaît.
+     LE CHEMIN QUI MENAIT À UN COFFRE MUET, ET CE QU'IL FAIT MAINTENANT.
+
+     Le fichier porte les mêmes données qu'en section 1 ; seule sa DÉCLARATION
+     change. Sans le refus, « coffre.sel » rendait NULL — mesuré avant de poser
+     le garde-fou — et l'on écrivait une base cohérente et inutilisable.
+
+     La restauration s'arrête désormais, et la propriété qui compte n'est pas
+     le message : c'est que RIEN N'A ÉTÉ ÉCRIT. Le sel LOCAL doit donc être
+     encore là, intact. Une base qui n'a pas bougé se restaure de nouveau ;
+     une base à demi écrite, non.
   */
   const chemin = `${S}/raccord-etat-non-declare.cyclades`;
   writeFileSync(chemin, await forger(ANCIENNE, false));
   await semerLeSelLocal();
   v('prémisse : le sel local est bien celui de cet appareil', await etatEnBase('coffre.sel'), SEL_LOCAL);
-  const applique = await restaurer(chemin, 'remplace');
-  vrai('  la restauration s’est appliquée', applique);
-  vrai('  et les paliers ont tourné ici aussi', (await horlogeDeLEntree()) !== null);
-  const apres = await etatEnBase('coffre.sel');
-  console.log(`      sel en base après restauration : ${JSON.stringify(apres)}`);
+  await restaurer(chemin, 'remplace');
+  const dit = (await page.textContent('#message-cyclades')) ?? '';
+  console.log(`      l’écran dit : « ${dit.slice(0, 170)} »`);
+  vrai('l’écran dit que le coffre serait impossible à ouvrir', /impossible à ouvrir/.test(dit));
+  vrai('et qu’il met la faute sur le programme, non sur la personne',
+    /défaut du programme/.test(dit));
+  vrai('et que rien n’a été touché', /[Rr]ien n’a été touché/.test(dit));
   /*
-     CE CONTRÔLE CONSTATE LE DÉFAUT, IL NE LE DÉPLORE PAS.
-
-     Mesuré : le sel DISPARAÎT. La chaîne est celle-ci. La migration tourne
-     branche par branche et ne reçoit que les magasins déclarés ; comme « etat »
-     n'en est pas, « clefsDuFichier » est vide ; le filtre qui protège de
-     l'identité inventée par le palier 12 vide alors « etat » en entier ; et
-     « { ...magasins, ...migres.magasins } » écrit ce vide par-dessus l'état du
-     fichier. L'identité tranche ensuite sur un côté « fichier » inexistant.
-
-     Une base sans « coffre.sel » est un coffre qu'on ne peut plus ouvrir DU
-     TOUT — pire que l'un ou l'autre des deux sels. Et rien ne lèverait : on
-     écrit une base cohérente et inutilisable.
-
-     **Ce cas n'est pas atteignable par un fichier de Cyclades**, et c'est la
-     section 3 qui le garde. On l'affirme ici tel qu'il est mesuré, pour que le
-     jour où quelqu'un rend ce chemin atteignable, la section 3 rougisse en
-     nommant la cause plutôt que de laisser découvrir un coffre muet.
+     LA GARANTIE, et non le texte : la base n'a pas bougé. Le sel local est
+     intact, donc le coffre de cet appareil s'ouvre toujours.
   */
-  v('  le sel disparaît — la fragilité est bien là, et elle est nommée', apres, null);
+  v('LE SEL LOCAL EST INTACT — rien n’a été écrit', await etatEnBase('coffre.sel'), SEL_LOCAL);
 }
 
 console.log('\n\x1b[1m3. CE QUI REND LA FRAGILITÉ INATTEIGNABLE\x1b[0m');

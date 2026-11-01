@@ -469,6 +469,52 @@ export async function restaurer(
   const aEcrire = { ...magasins, etat: identite.etat };
 
   /*
+     LE REFUS QUI EMPÊCHE UN COFFRE MUET — défense en profondeur, décidée par le
+     pilote le 1er novembre après la relecture de ce raccord.
+
+     « coffre.sel » est le sel du coffre, et il est dans TOUJOURS_DU_FICHIER :
+     une base restaurée avec le sel d'un AUTRE appareil, ou sans sel du tout, ne
+     s'ouvre plus avec le mot de passe du fichier. Et rien ne lèverait : on
+     écrirait une base parfaitement cohérente et inutilisable.
+
+     Le chemin qui y mène est connu et mesuré. La migration tourne branche par
+     branche et ne reçoit que les magasins que la branche DÉCLARE ; si « etat »
+     n'en est pas, le filtre qui protège de l'identité inventée par le palier 12
+     ne trouve aucune clé du fichier et vide « etat » en entier, que
+     « { ...magasins, ...migres.magasins } » écrit ensuite par-dessus l'état du
+     fichier. Mesuré sur un fichier forgé ainsi : « coffre.sel » rend NULL.
+
+     Aucun fichier de Cyclades ne prend ce chemin aujourd'hui — « etat » est
+     dans les magasins d'une sauvegarde, et un paquet de synchronisation écrit
+     « branches: [] », donc la boucle ne tourne pas. Ce contrôle ne corrige donc
+     rien d'atteignable : il garantit que le jour où quelqu'un rend ce chemin
+     atteignable, la restauration S'ARRÊTE au lieu d'écrire un coffre qu'on ne
+     pourra plus ouvrir.
+
+     ON COMPARE AU FICHIER BRUT, et non à l'état migré : c'est l'état migré qui
+     se vide, donc le comparer à lui-même ne verrait jamais rien. La question
+     est « le fichier portait-il un sel que nous nous apprêtons à ne pas
+     écrire », et seul « relecture.magasins » répond du fichier.
+
+     Et le refus tombe AVANT « remplacerMagasins », donc avant toute écriture :
+     une base qui n'a pas bougé se restaure de nouveau, une base à demi écrite,
+     non.
+  */
+  const porteLeSel = (entrees: unknown): boolean =>
+    Array.isArray(entrees) &&
+    entrees.some((e) => String((e as { clef?: unknown })?.clef) === 'coffre.sel');
+  if (porteLeSel(relecture.magasins.etat) && !porteLeSel(aEcrire.etat)) {
+    throw new SauvegardeRefusee(
+      'sel-du-coffre-perdu',
+      'Cette sauvegarde porte le sel du coffre, et la restauration ne l’aurait pas ' +
+        'réécrit : le coffre restauré serait impossible à ouvrir, même avec le bon ' +
+        'mot de passe. Rien n’a été touché. Signalez ce fichier : c’est un défaut ' +
+        'du programme, pas une erreur de votre part.',
+      relecture.entete,
+    );
+  }
+
+  /*
      ET « inconnus » NE VIENT PAS D'ICI : il a été compté plus haut, sur la
      charge déchiffrée, avant l'instantané et avant l'écriture (M-2bis (b) de
      b-cyclades-v2). La valeur ne dépend donc pas de l'issue de l'écriture.
