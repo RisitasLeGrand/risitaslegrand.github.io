@@ -1,6 +1,43 @@
 /**
  * ATTENDRE UNE POST-CONDITION, ET NON UN ÉTAT DURABLE.
  *
+ * ## ⚠ NE RENDEZ PAS « v() » LEVANTE
+ *
+ * Cet avertissement est ici parce qu'il n'a nulle part d'autre où être : les
+ * aides d'assertion — `v`, `vrai`, `faux` — sont définies DANS CHAQUE ESSAI,
+ * et il y en a 222 copies. Un commentaire « à côté de v() » serait donc 222
+ * commentaires, qui divergeraient. Celui-ci est dans le module que tout
+ * auteur d'essai ouvre.
+ *
+ * Ces aides COMPTENT au lieu de lever :
+ *
+ *     let echecs = 0;
+ *     const v = (titre, obtenu, attendu) => { if (!ok) echecs += 1; … };
+ *     process.exit(echecs ? 1 : 0);
+ *
+ * Les rendre levantes a l'air d'une amélioration — on arrêterait l'essai à la
+ * première croix, au lieu d'en imprimer cinq de conséquence. **Ce serait une
+ * régression de mesure, et elle serait silencieuse.**
+ *
+ * La raison : dans ces essais, les assertions viennent en bloc derrière une
+ * attente, et certaines affirment une ABSENCE — `faux(…isVisible)`, un compte
+ * à zéro. Une absence est satisfaite par une page pas encore peinte : elle
+ * VERDIT à faux. Ce qui l'empêche aujourd'hui de cacher quoi que ce soit est
+ * qu'une assertion voisine du même bloc compare à une valeur, rend `null` sur
+ * une page pas encore peinte, et rougit — **que le compte s'arrête ou non à
+ * elle**. C'est parce que le code de sortie ne tombe qu'à la fin que la garde
+ * joue dans les DEUX SENS, y compris quand le cri vient après l'absence.
+ *
+ * Rendre `v()` levante retirerait la moitié de cette garde d'un coup : les
+ * dix absences du dépôt qui ne sont gardées que par un cri situé APRÈS elles
+ * deviendraient des faux verts le jour même, sans qu'une seule ligne d'essai
+ * change de forme.
+ *
+ * `npm run essais:deguisees` — au socle — garde cet invariant : il vaut 1 dès
+ * qu'une absence se trouve seule dans son bloc. Si vous changez `v()` malgré
+ * cet avertissement, c'est ce passage qu'il faudra regarder, et non les
+ * essais un par un. Voir `cadence-des-essais.md` § 8.
+ *
  * ## Le défaut que ce module évite
  *
  * `docs/cyclades/cadence-des-essais.md` § 3 le décrit en entier. En deux
