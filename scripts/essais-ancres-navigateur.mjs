@@ -618,6 +618,106 @@ for (const largeur of LARGEURS) {
   await contexte.close();
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   L'ARRIVÉE À FROID : ENTRER SUR UNE PAGE LONGUE PAR SON ANCRE
+   ══════════════════════════════════════════════════════════════════════════
+
+   ## Le défaut, et pourquoi les sections du dessus ne le voyaient pas
+
+   Tout ce qui précède mesure la MARGE : la cible arrive-t-elle juste sous ce
+   qui barre le haut de la fenêtre ? Pour l'isoler, ces mesures SAUTENT DEUX
+   FOIS, sur une page dont la mise en page est déjà faite — c'est écrit plus
+   haut, et c'était la bonne décision pour la question posée.
+
+   Mais ce double saut MASQUE une autre question, et c'est celle que la personne
+   vit : entrer directement sur `/parametres/#sport`, une fois, à froid. Le
+   premier saut tombe mal, le second rattrape — et seul le premier existe dans
+   la vraie vie.
+
+   MESURÉ avant correction, fenêtre de 390 px : la section `#sport` est à
+   9 731 px, la page se stabilise à 7 824 px. **1 907 px trop haut**, la section
+   pas à l'écran du tout. `defilement.ts` reconnaissait bien l'ancre — « une
+   ancre dans l'adresse a toujours raison » — mais SORTAIT, laissant le
+   navigateur défiler à l'analyse du document ; les blocs du dessus grandissent
+   ensuite et la section descend, sans que rien ne repose la position.
+
+   ## Ce que cette section mesure, et ce qu'elle ne mesure pas
+
+   Elle ne mesure PAS la marge — les sections du dessus le font mieux. Elle
+   mesure qu'après l'arrivée et la fin des agrandissements, la cible est **à
+   l'écran**, et pas à deux mille pixels de là. Le seuil est donc large à
+   dessein : une erreur de quelques pixels relève de la marge, une erreur de
+   mille relève de ce défaut-ci.
+
+   ## Une page neuve avant chaque entrée
+
+   On passe par une autre page entre deux mesures. Sans cela, la seconde entrée
+   hériterait du défilement de la première et pourrait sembler juste sans que
+   rien ne l'ait reposée — le genre de vert qui ne prouve rien.
+*/
+
+console.log('\n  L’ARRIVÉE À FROID, PAR L’ADRESSE');
+
+const AFROID = [
+  { route: '/parametres/', fragment: 'sport', quoi: 'les réglages du sport, tout en bas d’une page de 12 000 px' },
+  { route: '/planification/', fragment: 'planning', quoi: 'le planning' },
+  { route: '/odyssee/veille/', fragment: 'ressources', quoi: 'les numéros d’écoute' },
+  { route: '/profil/', fragment: 'journee', quoi: 'une section du profil (en-tête léger)' },
+];
+
+const ctxFroid = await nav.newContext({ viewport: { width: 390, height: 760 } });
+const pageFroid = await ctxFroid.newPage();
+await franchirInitialisation(pageFroid, RACINE, MDP);
+
+for (const a of AFROID) {
+  /* Une page neutre entre deux entrées : voir la glose ci-dessus. */
+  await pageFroid.goto(`${RACINE}/revisions/`, { waitUntil: 'networkidle' });
+  await pageFroid.goto(`${RACINE}${a.route}#${a.fragment}`, { waitUntil: 'networkidle' });
+  /* La fenêtre de grâce de `defilement.ts` dure 3 s : on attend qu'elle soit
+     passée, puis que la page ait cessé de grandir. */
+  await pageFroid.waitForTimeout(4000);
+
+  const m = await pageFroid.evaluate((id) => {
+    const el = document.getElementById(id);
+    if (!el) return { manque: 'la cible' };
+    const r = el.getBoundingClientRect();
+    return {
+      y: Math.round(window.scrollY),
+      cibleY: Math.round(r.top + window.scrollY),
+      dansLaVue: Math.round(r.top),
+      hauteurFenetre: window.innerHeight,
+      hauteurPage: Math.round(document.documentElement.scrollHeight),
+    };
+  }, a.fragment);
+
+  if (m.manque) {
+    verifier(`prémisse — ${a.route}#${a.fragment} porte sa cible`, m.manque, 'rien ne manque');
+    continue;
+  }
+  /*
+     PRÉMISSE : LA PAGE DOIT ÊTRE PLUS HAUTE QUE LA FENÊTRE. Sur une page qui
+     tient à l'écran, toute ancre est « à l'écran » sans que rien ne l'ait
+     amenée — la mesure serait vide.
+  */
+  verifier(
+    `prémisse — ${a.route} dépasse la fenêtre (${m.hauteurPage} px)`,
+    m.hauteurPage > m.hauteurFenetre + 200,
+    true,
+  );
+  verifier(
+    `${a.quoi} : la cible est à l’écran après l’arrivée (haut à ${m.dansLaVue} px)`,
+    m.dansLaVue >= -8 && m.dansLaVue < m.hauteurFenetre,
+    true,
+  );
+  releves.push({
+    nom: `à froid ${a.route}#${a.fragment}`,
+    attendu: m.cibleY,
+    cible: m.y,
+    barres: `écart ${Math.abs(m.cibleY - m.y - m.dansLaVue)} px`,
+  });
+}
+await ctxFroid.close();
+
 await nav.close();
 
 if (releves.length) {

@@ -105,7 +105,7 @@ const cleDeLEcran = (): string => location.pathname + location.search;
  * s'arrête net. Rien n'est plus désagréable qu'une page qui se reprend la
  * main sous le doigt.
  */
-function rendreLaPosition(cible: number): void {
+function tenirPendantLaGrace(viser: () => void, poserMaintenant = true): void {
   let fini = false;
   const racine = document.documentElement;
   const ancrageInitial = racine.style.overflowAnchor;
@@ -126,12 +126,11 @@ function rendreLaPosition(cible: number): void {
 
   const poser = () => {
     if (fini) return;
-    const max = Math.max(0, racine.scrollHeight - window.innerHeight);
     // Le défilement doux est joli quand on clique un lien d'ancre ; ici il
     // ferait glisser la page sous les yeux à chaque agrandissement.
     const doux = racine.style.scrollBehavior;
     racine.style.scrollBehavior = 'auto';
-    window.scrollTo(0, Math.min(cible, max));
+    viser();
     racine.style.scrollBehavior = doux;
   };
 
@@ -140,7 +139,78 @@ function rendreLaPosition(cible: number): void {
   const observateur =
     'ResizeObserver' in window ? new ResizeObserver(() => poser()) : null;
   observateur?.observe(racine);
-  poser();
+  /*
+     POSER TOUT DE SUITE, OU SEULEMENT CORRIGER ENSUITE.
+
+     À l'ouverture d'une page sur son ancre, on pose : le navigateur a déjà
+     fait son saut, et le refaire ne coûte rien.
+
+     Au CHANGEMENT de fragment dans la même page, non. Le navigateur est en
+     train de défiler, souvent en douceur — c'est ce qu'on veut quand on clique
+     un lien d'ancre, et un saut instantané posé par-dessus le remplacerait par
+     une secousse. On laisse donc l'animation se faire, et l'on ne corrige que
+     si la page GRANDIT sous elle, ce qui est le seul cas qui l'égare.
+  */
+  if (poserMaintenant) poser();
+}
+
+/** Repose la page à une HAUTEUR fixe — la reprise d'un retour en arrière. */
+function rendreLaPosition(cible: number): void {
+  const racine = document.documentElement;
+  tenirPendantLaGrace(() => {
+    const max = Math.max(0, racine.scrollHeight - window.innerHeight);
+    window.scrollTo(0, Math.min(cible, max));
+  });
+}
+
+/**
+ * Tient une ANCRE sous les yeux pendant que la page se construit.
+ *
+ * ## Le défaut que cette fonction existe pour corriger
+ *
+ * « Une ancre dans l'adresse a toujours raison » : c'était écrit ici, et
+ * c'était juste. Mais la reconnaître ne suffisait pas — le module se contentait
+ * de SORTIR, et laissait le navigateur défiler à l'analyse du document. Les
+ * blocs du dessus grandissent ensuite, la section descend d'autant, et rien ne
+ * repose la position.
+ *
+ * MESURÉ sur `/parametres/#sport`, fenêtre de 390 px : la section est à
+ * 9 731 px, la page se stabilise à 7 824 px. **1 907 px trop haut**, et la
+ * section n'est pas à l'écran du tout. La personne arrive au mauvais endroit
+ * sans rien pour le lui dire.
+ *
+ * ## Pourquoi une fonction et non la cible en pixels
+ *
+ * `rendreLaPosition` tient une hauteur FIXE, ce qui est exact pour un retour
+ * en arrière : la position mémorisée est un nombre. Une ancre, elle, SE
+ * DÉPLACE — c'est tout le défaut. Sa hauteur doit donc être relue à chaque
+ * agrandissement, et c'est pourquoi la fenêtre de grâce prend désormais une
+ * fonction plutôt qu'un nombre.
+ *
+ * `scrollIntoView` plutôt qu'un calcul à la main : il honore
+ * `scroll-margin-top`, que `calerLaMargeDAncre` pose pour que l'en-tête
+ * collant ne recouvre pas le titre visé. Le refaire ici le ferait diverger au
+ * premier changement d'en-tête.
+ *
+ * Le reste est hérité : un geste de la personne l'emporte toujours, et la
+ * reprise s'arrête net.
+ */
+function tenirLAncre(ancre: Element, poserMaintenant = true): void {
+  tenirPendantLaGrace(() => {
+    ancre.scrollIntoView({ block: 'start', inline: 'nearest' });
+  }, poserMaintenant);
+}
+
+/** La cible du fragment de l'adresse, ou `null` s'il ne désigne rien. */
+function ancreDeLAdresse(): Element | null {
+  if (!location.hash) return null;
+  try {
+    return document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  } catch {
+    /* Un fragment mal encodé ne doit pas emporter le module : `decodeURI` lève
+       sur un « % » isolé, et l'adresse vient de l'extérieur. */
+    return null;
+  }
 }
 
 /**
@@ -238,8 +308,68 @@ export function brancherLeDefilement(): void {
     if (document.visibilityState === 'hidden') noter();
   });
 
-  // Une ancre dans l'adresse a toujours raison : c'est une position demandée.
-  if (location.hash) return;
+  /*
+     UNE ANCRE DANS L'ADRESSE A TOUJOURS RAISON — MAIS LA RECONNAÎTRE NE SUFFIT
+     PAS.
+
+     Ce retour anticipé était là, avec ce commentaire, et l'intention était
+     juste : une ancre est une position DEMANDÉE, elle l'emporte sur la
+     position mémorisée. Seulement sortir d'ici revenait à confier le travail
+     au navigateur, qui défile à l'analyse du document — avant que les blocs du
+     dessus aient fini de grandir. La section visée descend ensuite d'autant, et
+     plus rien ne repose la position.
+
+     On ne sort donc plus : on fait entrer l'ancre dans la MÊME fenêtre de grâce
+     que la reprise d'un retour en arrière. Voir `tenirLAncre` pour la mesure et
+     pour la raison qui lui fait relire la hauteur au lieu de la figer.
+
+     Une ancre qui ne désigne rien (un fragment périmé, une faute de frappe)
+     laisse la page où le navigateur l'a mise : il n'y a pas de position
+     demandée à tenir, et inventer une cible serait pire que de ne rien faire.
+  */
+  /*
+     ── ET LE CHANGEMENT DE FRAGMENT DANS LA MÊME PAGE ──
+
+     Ce module ne s'exécute qu'au CHARGEMENT d'un document. Or une adresse qui
+     ne diffère que par son fragment ne recharge rien : le navigateur défile, et
+     `brancherLeDefilement` ne repasse jamais. Le défaut y est donc entier.
+
+     MESURÉ sur le chemin de `essais:parametres-navigateur`, qui arrive sur
+     `/parametres/#sport` alors qu'il est déjà sur `/parametres/`. Sonde posée
+     dans l'attente de l'essai :
+
+         {"pourquoi":"défilement arrêté","aBouge":true,"parScrollend":true,
+          "y":190,"top":11420}
+
+     Le défilement a bien eu lieu et s'est bien TERMINÉ — la page est allée à
+     190 px, là où `#sport` se trouvait alors. Les sections du dessus ont ensuite
+     grandi, la page est passée à 15 309 px, et la section est descendue à
+     11 610. Personne ne l'a suivie.
+
+     L'écoute de `hashchange` fait entrer ce chemin dans la même fenêtre de
+     grâce — sans poser tout de suite, pour ne pas remplacer le défilement doux
+     d'un clic d'ancre par une secousse.
+  */
+  addEventListener('hashchange', () => {
+    const ancre = ancreDeLAdresse();
+    if (ancre) tenirLAncre(ancre, false);
+  });
+
+  /*
+     UNE ANCRE DANS L'ADRESSE A TOUJOURS RAISON — MAIS LA RECONNAÎTRE NE SUFFIT
+     PAS. Voir la glose de `tenirLAncre` : le retour anticipé qui était ici
+     confiait le travail au navigateur, qui défile à l'analyse du document,
+     avant que les blocs du dessus aient fini de grandir.
+
+     Une ancre qui ne désigne rien laisse la page où le navigateur l'a mise : il
+     n'y a pas de position demandée à tenir, et inventer une cible serait pire
+     que de ne rien faire.
+  */
+  if (location.hash) {
+    const ancre = ancreDeLAdresse();
+    if (ancre) tenirLAncre(ancre);
+    return;
+  }
 
   const entree = performance.getEntriesByType('navigation')[0] as
     | PerformanceNavigationTiming

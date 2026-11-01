@@ -203,6 +203,35 @@ const apresLeRemontage = (idReglage: string, geste: () => Promise<void>) =>
  * son auxiliaire `__name` — absent de la page. La version en fonction a échoué
  * exactement là, sur un « __name is not defined » qui ne parlait pas du site.
  */
+/**
+ * Attend la fin du défilement — et D'ABORD qu'il ait COMMENCÉ.
+ *
+ * ## Le défaut, mesuré le 1er novembre
+ *
+ * La version précédente comptait dix trames pendant lesquelles `scrollY` n'avait
+ * pas bougé, et rendait la main. Mais un défilement d'ancre est ANIMÉ : entre le
+ * changement de fragment et la première trame de l'animation, `scrollY` ne bouge
+ * pas non plus. L'attente était donc satisfaite **avant que le défilement
+ * commence** — une post-condition vraie d'avance, qui ne mesurait rien.
+ *
+ * D'où un rouge intermittent sur « `#sport` amène la section dans l'écran »,
+ * selon que dix trames oisives passaient ou non avant le départ de l'animation.
+ * Relevé sur dix courses : CINQ rouges. Et la trace du déplacement montre que
+ * la page arrive bien — `top` 9 721 → 5 690 → 71 px en une seconde environ —,
+ * donc l'écran n'avait rien de cassé sur ce chemin-là : c'est l'attente qui
+ * regardait trop tôt.
+ *
+ * (Le chemin de l'ARRIVÉE À FROID, lui, portait un vrai défaut d'écran, corrigé
+ * dans `src/lib/defilement.ts` et gardé par `essais:ancres:navigateur` : une
+ * page chargée directement sur son ancre restait 1 907 px trop haut.)
+ *
+ * ## La forme juste
+ *
+ * On rend la main sur `scrollend`, ou bien après dix trames immobiles **à
+ * condition d'avoir vu le défilement bouger au moins une fois**. Et comme une
+ * ancre déjà sous les yeux ne fait bouger personne, un plafond de trames rend
+ * tout de même la main — sinon l'essai se figerait au lieu de rougir.
+ */
 const attendreLaFinDuDefilement = () =>
   page.evaluate(`
     new Promise((fini) => {
@@ -212,17 +241,35 @@ const attendreLaFinDuDefilement = () =>
         rendu = true;
         fini();
       }
-      document.addEventListener('scrollend', rendre, { once: true });
       var immobiles = 0;
+      var trames = 0;
+      var aBouge = false;
       var derniere = window.scrollY;
+      document.addEventListener('scrollend', function () { parScrollend = true; }, { once: true });
+      var parScrollend = false;
       function trame() {
         if (rendu) return;
+        trames += 1;
         if (window.scrollY === derniere) immobiles += 1;
         else {
           immobiles = 0;
+          aBouge = true;
           derniere = window.scrollY;
         }
-        if (immobiles >= 10) rendre();
+        // Dix trames immobiles ne valent QUE si l'on a vu le défilement
+        // bouger, ou si « scrollend » a dit qu'il s'était terminé. Sans l'une
+        // des deux, on regarde un défilement qui n'a pas encore commencé.
+        if ((aBouge || parScrollend) && immobiles >= 10) rendre();
+        /*
+           ET L'ON NE SE FIGE JAMAIS. Trois cents trames font environ cinq
+           secondes. Ce plafond est atteint dans un cas réel : quand le
+           défilement s'est terminé AVANT que cette attente soit posée — ni
+           mouvement, ni « scrollend » à voir. Il coûte alors cinq secondes à
+           l'essai, et c'est le prix d'une attente qui ne se contente pas de
+           l'immobilité. Une attente qui ne rend jamais la main, elle, ne
+           rougit pas : elle expire ailleurs, et ne nomme plus la cause.
+        */
+        else if (trames >= 300) rendre();
         else requestAnimationFrame(trame);
       }
       requestAnimationFrame(trame);
@@ -535,7 +582,11 @@ const ancre = await page.evaluate(() => {
   const r = section.getBoundingClientRect();
   return Math.round(r.top);
 });
-verifier('`#sport` amène la section dans l’écran', ancre !== null && ancre > -50 && ancre < 400, true);
+verifier(
+  `\`#sport\` amène la section dans l’écran (haut à ${ancre} px, attendu entre -50 et 400)`,
+  ancre !== null && ancre > -50 && ancre < 400,
+  true,
+);
 
 /* ── 6. Les cibles tactiles des commandes construites ────────────────────── */
 
