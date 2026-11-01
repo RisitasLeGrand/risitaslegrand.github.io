@@ -42,6 +42,7 @@ import {
 import { readFileSync } from 'node:fs';
 import {
   DEPART_MAXIMUM,
+  PLANCHER_MESURABLE,
   DEPART_MINIMUM,
   RATIO_DE_DEPART,
   REGLAGES,
@@ -1188,6 +1189,99 @@ console.log('\nDÉPART — il épargne des essais SANS déplacer le seuil');
   // CONTRE-ÉPREUVE DU PRÉDICAT : la forme fautive est bien reconnue comme telle.
   verifier('le prédicat distingue la forme sans règle',
     'escalier: escalierNeuf(),'.includes('departPour('), false);
+}
+
+
+
+/* ── LA PHRASE QUI DIT LE PLANCHER DE LA MESURE ────────────────────────── */
+
+console.log('\nPLANCHER DIT — le chiffre suit le réglage');
+{
+  /*
+     LA PHRASE ANNONCE UN CHIFFRE, DONC LE CHIFFRE DOIT ÊTRE VRAI.
+
+     Une phrase d'aide ne lève pas. Écrite « 4 % » à la main, elle serait
+     devenue fausse au premier changement de `deltaMinimum` — et fausse en
+     silence, ce qui est pire qu'absente : la personne lirait un plancher qui
+     n'existe pas, ou croirait mesurable un seuil qui ne l'est pas.
+  */
+  const plancher = PLANCHER_MESURABLE;
+  verifier('le plancher est le double de la borne basse',
+    plancher, REGLAGES.deltaMinimum * 2);
+  verifier('et il vaut 4 % de l’étendue', plancher, 0.04);
+  verifier('et il se dit « 4 % »', ecartDit(plancher), '4 %');
+  // Si la borne changeait, la phrase changerait avec elle : on le mesure.
+  verifier('une autre borne donnerait une autre phrase', ecartDit(0.03 * 2), '6 %');
+
+  /*
+     ET QUE L'ÉCRAN LE CALCULE, AU LIEU DE LE RECOPIER. Ce site-là est dans un
+     composant : aucune assertion pure ne rougirait si la phrase portait « 4 % »
+     en dur.
+  */
+  const bord = lireSource('src/features/veridical-mapping/composants/TableauDeBord.svelte');
+  const calcul = bord.split('\n').filter((l) => l.includes('const PLANCHER_DIT'));
+  verifier('le plancher est calculé en un seul endroit', calcul.length, 1);
+  /*
+     LA VUE LIT UN NOM, ELLE NE CALCULE PLUS.
+
+     L'assertion vérifiait que la ligne contenait « REGLAGES.deltaMinimum ».
+     Elle était donc vraie aussi SANS le facteur deux — mesuré par sabotage :
+     l'écran affichait « 2 % » pour un plancher à 4 %, et rien ne rougissait.
+     Une assertion plus fine sur l'arithmétique de la vue aurait marché, mais
+     elle aurait entériné l'arithmétique dans la vue. Le facteur deux a été
+     déplacé dans « escalier.ts », avec sa raison, et la vue lit un nom : il
+     n'y a plus de calcul à saboter ici.
+  */
+  verifier('et depuis le plancher nommé par la procédure',
+    (calcul[0] ?? '').includes('PLANCHER_MESURABLE'), true);
+  /*
+     ON INTERDIT L'ARITHMÉTIQUE, PAS LE MOT. Le premier jet cherchait
+     « deltaMinimum » n'importe où dans le fichier : il le trouvait dans un
+     COMMENTAIRE qui explique la règle, ce qui est légitime et même
+     souhaitable. Une assertion qui interdit de nommer une notion en prose
+     finit par faire effacer la prose.
+  */
+  /*
+     ET LE PLANCHER LUI-MÊME DÉRIVE DE LA BORNE, DANS SA PROPRE SOURCE.
+
+     Sans cette ligne, écrire « 0,04 » en dur dans `escalier.ts` passait au
+     vert — mesuré par sabotage. L'assertion de valeur ci-dessus n'aurait
+     rougi QUE le jour où `deltaMinimum` change : une garde latente, pas vaine,
+     mais latente au pire moment, celui où quelqu'un déplace la borne et
+     s'appuie sur une phrase d'aide restée à l'ancien chiffre.
+  */
+  const proc = lireSource('src/features/veridical-mapping/escalier.ts');
+  const def = proc.split('\n').filter((l) => l.includes('export const PLANCHER_MESURABLE'));
+  verifier('le plancher est défini une fois', def.length, 1);
+  verifier('et il dérive de la borne basse',
+    /REGLAGES\.deltaMinimum\s*\*\s*2/.test(def[0] ?? ''), true);
+  verifier('le motif refuserait une valeur écrite en dur',
+    /REGLAGES\.deltaMinimum\s*\*\s*2/.test('export const PLANCHER_MESURABLE = 0.04;'), false);
+
+  verifier('la vue ne fait plus l’arithmétique de la borne',
+    bord.split('\n').filter((l) => /deltaMinimum\s*\*/.test(l)).length, 0);
+  // CONTRE-ÉPREUVE : la forme interdite est bien repérée.
+  verifier('et le motif repère bien cette arithmétique',
+    /deltaMinimum\s*\*/.test('ecartDit(REGLAGES.deltaMinimum * 2)'), true);
+  const phrases = bord.split('\n').filter((l) => l.includes('{PLANCHER_DIT}'));
+  verifier('deux écrans de lecture portent la phrase', phrases.length, 2);
+  // CE QU'IL NE DOIT PAS VOIR : le chiffre écrit à la main dans une phrase.
+  verifier('aucune phrase ne recopie le chiffre',
+    /En dessous d’environ \d/.test(bord) || /sous environ \d/.test(bord), false);
+  // CONTRE-ÉPREUVE DU PRÉDICAT : la forme fautive est bien reconnue.
+  verifier('le prédicat repère un chiffre recopié',
+    /En dessous d’environ \d/.test('En dessous d’environ 4 %, la mesure'), true);
+
+  /*
+     LE BIAIS QUE LA PHRASE ANNONCE EST MESURÉ AILLEURS DANS CE MÊME ESSAI :
+     la section de l'observateur simulé éprouve un seuil vrai de 2,5 %, soit
+     SOUS le plancher, et vérifie que l'estimation est au-dessus — « biais vers
+     le HAUT, jamais vers le bas ». La phrase ne fait que porter cela à
+     l'écran, et cette ligne-ci dit que le cas éprouvé est bien sous le
+     plancher ; sans quoi la phrase parlerait d'un domaine que rien ne mesure.
+  */
+  verifier('le cas éprouvé est bien sous le plancher',
+    zDuPasHistorique(3) < plancher, true);
 }
 
 

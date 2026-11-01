@@ -26,7 +26,7 @@
     zDuPasHistorique,
     type Famille,
   } from '../dimensions';
-  import { INTITULES_STATUT } from '../escalier';
+  import { INTITULES_STATUT, PLANCHER_MESURABLE } from '../escalier';
   import { arbreCouvrant, idArete } from '../hub';
   import { offrirLeFichier } from '../../../lib/telecharger';
 
@@ -78,6 +78,33 @@
    * avec `zDuPasHistorique`, qui ne bougera plus.
    */
   const BORNES_RAMPE = [24, 12, 6, 3].map(zDuPasHistorique);
+
+  /**
+   * LE PLANCHER DE LA MESURE, DIT À LA PERSONNE.
+   *
+   * La procédure ne présente pas d'écart plus petit que `deltaMinimum`. Un
+   * seuil réellement plus fin que le DOUBLE de cette borne ne peut donc pas
+   * être encadré : les excursions vers le bas sont tronquées, et la moyenne
+   * des rebroussements se place au-dessus du seuil vrai. Le biais est vers le
+   * HAUT, toujours — c'est la direction protectrice, puisqu'elle sous-estime
+   * ce que la personne distingue —, mais il faut le dire, sans quoi un palier
+   * à cette valeur se lit comme un palier de l'aptitude.
+   *
+   * **Le chiffre est LU et non recopié, ni calculé ici.** Écrire « 4 % » dans
+   * la phrase aurait produit un texte faux au premier changement de la borne,
+   * et faux sans rien casser : une phrase d'aide ne lève pas.
+   *
+   * Et le calcul lui-même ne vit pas ici. Cette ligne multipliait la borne
+   * basse par deux ; un sabotage a montré que supprimer ce facteur laissait
+   * l'écran afficher « 2 % » sans qu'aucune assertion rougisse — une vue qui
+   * calcule une grandeur de la mesure est une seconde source. Le facteur et sa
+   * raison vivent dans `escalier.ts`, et cette ligne lit un nom.
+   *
+   * `essais:veridical` mesure déjà ce biais sur l'observateur simulé — ligne
+   * « sous le double de la borne basse — biais vers le HAUT, jamais vers le
+   * bas ». Cette phrase ne fait que porter à l'écran ce qui est mesuré.
+   */
+  const PLANCHER_DIT = ecartDit(PLANCHER_MESURABLE);
 
   function classeDuSeuil(valeur: number | null | undefined): string {
     if (valeur === null || valeur === undefined) {
@@ -205,6 +232,8 @@
       Seuil en part de l’étendue, de la ligne vers la colonne. Plus la cellule est foncée, plus le
       seuil est fin.
       Les deux sens d'une paire se lisent de part et d'autre de la diagonale.
+      En dessous d’environ {PLANCHER_DIT}, la mesure peut surestimer l’écart : pour l’encadrer, il
+      lui faudrait présenter des écarts plus fins encore, et elle n’en présente pas.
     </p>
     <div class="mt-2 overflow-x-auto">
       <table class="text-xs">
@@ -317,6 +346,8 @@
     {#if courbe.length}
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
         En part de l’étendue. Une courbe qui descend est un progrès : le seuil devient plus fin.
+        Elle ne descend pas sous environ {PLANCHER_DIT} : c’est le plancher de la mesure, et non le
+        vôtre.
       </p>
       <svg viewBox="0 0 {LARGEUR} {HAUTEUR}" class="mt-2 h-auto w-full max-w-xl" role="img"
         aria-label="Écart médian sur {courbe.length} session{courbe.length > 1 ? 's' : ''}">

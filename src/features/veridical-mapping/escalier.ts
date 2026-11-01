@@ -94,6 +94,28 @@ export interface EtatEscalier {
   reussis: number;
 }
 
+/**
+ * LE SEUIL LE PLUS FIN QUE LA PROCÉDURE PEUT ENCADRER.
+ *
+ * Le double de `deltaMinimum`, et le facteur deux n'est pas une marge de
+ * prudence : pour encadrer un seuil, l'escalier doit pouvoir présenter des
+ * écarts DE PART ET D'AUTRE de lui. Sous le double de la borne basse, les
+ * excursions vers le bas sont tronquées, la moyenne des rebroussements se
+ * place au-dessus du seuil vrai, et la mesure surestime l'écart.
+ *
+ * Le biais est donc vers le HAUT, toujours. C'est la direction protectrice —
+ * elle sous-estime ce que la personne distingue —, mais il faut le dire à
+ * l'écran, sans quoi un palier à cette valeur se lit comme un palier de
+ * l'aptitude.
+ *
+ * **La constante vit ici, et non dans la vue.** Le tableau de bord écrivait
+ * « REGLAGES.deltaMinimum * 2 » dans son propre fichier : un sabotage a montré
+ * que supprimer le facteur deux laissait l'écran afficher « 2 % » — un chiffre
+ * faux, dans une phrase d'aide, qui ne lève pas. Une vue qui calcule une
+ * grandeur de la mesure est une seconde source ; elle lit maintenant un nom.
+ */
+export const PLANCHER_MESURABLE = REGLAGES.deltaMinimum * 2;
+
 /* ── LE DÉPART D'UN ESCALIER NEUF ──────────────────────────────────────── */
 
 /**
