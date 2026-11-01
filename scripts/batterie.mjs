@@ -266,6 +266,59 @@ const SOCLE = [
      une partie montée par progression s'afficherait au plafond du curseur.
   */
   ['essais:curseurs-pas:navigateur', 'les neuf curseurs avancent d’un cran, et n monte jusqu’au moteur'],
+  /*
+     LE MOTEUR DE PCCT, au socle dès son premier jour (prompt 64, L1).
+
+     Il ne coûte rien — pas de navigateur, deux secondes — et il tient sept
+     invariants qu'une retouche défait sans bruit : la division qui tombe juste à
+     toute plage, l'échauffement qui ne note rien, les bornes du rythme, le bloc
+     de cinq qui exige quatre justes, l'ajustement borné de la précision cible,
+     une consigne échue qui n'en fait pas manquer une autre, et la programmation
+     des consignes qui ne se verrouille jamais.
+
+     Éprouvé par neuf sabotages avant d'y entrer, chacun rendant un rouge NOMMÉ :
+     1 rouge pour la divisibilité, 9 pour l'échauffement, 8 pour les bornes, 1
+     pour le bloc, 1 pour l'ajustement, 4 pour les consignes simultanées, 1 pour
+     la programmation verrouillée, 1 pour la copie superficielle des défauts, 1
+     pour la séance close deux fois.
+
+     Deux de ces neuf ont d'abord passé au VERT, et les deux fois la garde était
+     vide : celle de la copie en profondeur portait sur un nombre, où une copie
+     superficielle est indiscernable d'une copie profonde ; celle de la
+     programmation comparait deux états neufs, ce qui ne montre pas qu'un refus
+     ne verrouille pas. Un vert ne prouve rien tant qu'un sabotage ne sait pas
+     le faire rougir.
+  */
+  ['essais:pcct', 'le moteur de PCCT : tirage, calcul, rythme, mémoire prospective'],
+  /*
+     L'ÉCRAN DE PCCT, au socle avec son moteur (prompt 64, L2).
+
+     Il coûte un navigateur, et c'est assumé : 31 secondes mesurées, pour 46
+     contrôles — dont trois qui ne se mesurent QUE là, et qu'une retouche de
+     mise en page défait sans bruit. Les cibles de ses vingt-cinq touches sous
+     pointeur grossier ; l'animation du nombre, éteinte par les DEUX réglages de
+     mouvement réduit, celui du système et celui de l'application ; et les deux
+     régions `aria-live`, qui doivent rester deux — les deux tâches rendent un
+     verdict en même temps, et une région unique verrait le second effacer le
+     premier.
+
+     Ce qui relève du moteur n'y est pas repris : le rythme, l'attribution d'une
+     frappe, les réponses possibles du pavé et leur remélange s'éprouvent en
+     millisecondes dans `essais:pcct`, et les mesurer deux fois coûterait une
+     bâtisse pour la même certitude.
+
+     Éprouvé par neuf sabotages avant d'y entrer. Cinq ont mordu du premier
+     coup. Quatre ont d'abord rendu ZÉRO rouge, ou un rouge sans message, et
+     c'est ce qu'ils ont appris qui a corrigé le banc : un témoin de mouvement
+     réduit qui mesurait un élément injecté, donc hors du style porté du
+     composant ; une garde de 44 px que la feuille du socle rendait invraie,
+     la hauteur venant de `global.css` pour tout `button` sous « coarse » ; une
+     attente de disparition non rattrapée, qui tuait l'essai au lieu de rougir ;
+     et une garde d'horloge qui ne couvrait pas ce que j'avais écrit. Un vert ne
+     prouve rien tant qu'un sabotage ne sait pas le faire rougir, et un rouge ne
+     vaut que s'il se nomme.
+  */
+  ['essais:pcct:navigateur', 'l’écran de PCCT : pavé au doigt, régions vocales, mouvement réduit'],
   ['essais:defilement', 'aucun écran ne contourne le module de défilement'],
   ['essais:graphiques', 'les deux histogrammes : ligne tracée, tableau, 3:1'],
   /*

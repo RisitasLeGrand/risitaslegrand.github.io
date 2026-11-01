@@ -12,6 +12,7 @@
     "archiver:corpus": "tsx scripts/archiver-corpus.mts",
     "qcm:vers-source": "tsx scripts/qcm-dgfip-vers-source.mts",
     "essais:ancres:navigateur": "node scripts/essais-ancres-navigateur.mjs",
+    "essais:pcct": "tsx scripts/essais-pcct.mts",
     "essais:recuperation-corpus": "tsx scripts/essais-recuperation-corpus.mts",
     "essais:recuperation-invariants": "tsx scripts/essais-recuperation-invariants.mts",
     "essais:qcm-source": "tsx scripts/essais-qcm-dgfip-source.mts",
@@ -407,7 +408,8 @@
     "essais:contours:navigateur": "node scripts/essais-contours-de-controle-navigateur.mjs",
     "essais:laterale:navigateur": "node scripts/essais-barre-laterale-navigateur.mjs",
     "essais:modales:navigateur": "node scripts/essais-modales-navigateur.mjs",
-    "essais:reglages-restaures:navigateur": "node scripts/essais-reglages-restaures-navigateur.mjs"
+    "essais:reglages-restaures:navigateur": "node scripts/essais-reglages-restaures-navigateur.mjs",
+    "essais:pcct:navigateur": "node scripts/essais-pcct-navigateur.mjs"
   },
   "repository": {
     "type": "git",
