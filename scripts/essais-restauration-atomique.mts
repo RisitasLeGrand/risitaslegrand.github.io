@@ -254,9 +254,20 @@ const restaurerCyclades = async () => {
     ' ',
   );
   verifier('la confirmation énumère les rubriques', /rubrique par rubrique/.test(texteDeLaBoite), true);
+  /*
+     LES ACCORDS, ET NON LE « (s) » — rendu juste par le lot B1 (1e0715ed).
+     La phrase disait « soit 31 enregistrement(s) en tout » ; elle dit
+     maintenant « soit 31 enregistrements en tout ». Cet essai attendait le
+     littéral parenthésé et rougissait sur une phrase DEVENUE correcte.
+
+     Le motif accepte les deux accords et exige toujours le NOMBRE : c'est
+     lui que ce contrôle garde — une confirmation sans total est ce qui a
+     fait écraser Odyssée entière en croyant risquer trente et un
+     enregistrements.
+  */
   verifier(
     'et elle donne un total de toutes les rubriques',
-    /enregistrement\(s\) en tout/.test(texteDeLaBoite),
+    /\d[\d\s\u00a0\u202f]* enregistrements? en tout/.test(texteDeLaBoite),
     true,
   );
   await repondreALaBoite(page, 'Remplacer', { delai: 20000 });
