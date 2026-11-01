@@ -24,6 +24,15 @@ import {
   verifier,
   type Magasins,
 } from '../src/lib/sauvegarde/format';
+/*
+   ET « service.ts », POUR UNE SEULE SECTION — celle du magasin scellé et
+   inconnu. Ce fichier éprouve d'ordinaire le module de format seul, qui est
+   pur ; mais ce que M-2bis (b) corrige est précisément une COUTURE entre les
+   deux — ce que l'en-tête cesse de dire, et où la restauration doit le
+   rattraper. L'éprouver des deux côtés séparément ne dirait rien de la couture.
+   Les deux fonctions employées ici sont pures et ne touchent pas la base.
+*/
+import { apercu, magasinsInconnus } from '../src/lib/sauvegarde/service';
 
 let echecs = 0;
 const verifierQue = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -505,6 +514,72 @@ console.log('\n\x1b[1mNI NOM NI COMPTE SCELLÉ DANS LE CLAIR (M-2 et M-2bis)\x1b
     'et c’est là que leur nom se lit, et nulle part avant',
     Object.keys(relu.magasins).includes('odysseeCycleJournal'),
     true,
+  );
+}
+
+console.log('\n\x1b[1mUN MAGASIN SCELLÉ ET INCONNU RESTE SIGNALÉ (M-2bis b)\x1b[0m');
+{
+  /*
+     CE QUE M-2bis COÛTE, ET CE QUI LE COMPENSE.
+
+     Un magasin SCELLÉ que cette version ne sait pas écrire — ce que porterait
+     une sauvegarde venue d'une version plus récente — n'est plus nommé dans
+     l'en-tête en clair. « Vérifier cette sauvegarde », qui répond sans mot de
+     passe, ne peut donc plus le voir : c'est le prix de l'arbitrage, et il est
+     mesuré ici plutôt qu'admis.
+
+     La compensation est que le compte se fait désormais sur la charge utile
+     DÉCHIFFRÉE, avant l'instantané et avant l'écriture. Les deux assertions
+     vont donc par paire : l'une montre la perte, l'autre montre qu'elle est
+     rattrapée. Séparées, aucune des deux ne dirait quoi que ce soit.
+  */
+  const AVEC_INCONNU: Magasins = {
+    cartes: [{ id: 'c1' }],
+    odysseeRituelFutur: [{ id: 'f1' }, { id: 'f2' }],
+  };
+  const fichier = await ecrire({
+    magasins: AVEC_INCONNU,
+    branches: [{ id: 'revisions', schema: 99, magasins: Object.keys(AVEC_INCONNU) }],
+    versionApplication: 'essai',
+    portee: { branches: ['revisions'] },
+    motDePasse: MDP,
+    magasinsScelles: ['odysseeRituelFutur'],
+    maintenant: new Date('2026-10-31T12:00:00.000Z'),
+  } as never);
+
+  const vu = await apercu(fichier.octets);
+  verifierQue(
+    'sans mot de passe, le magasin scellé inconnu est INVISIBLE — le prix de M-2bis',
+    vu.magasinsInconnus.includes('odysseeRituelFutur'),
+    false,
+  );
+  verifierQue(
+    'et la vérification à blanc garde tout de même son objet',
+    vu.entete.versionFormat,
+    VERSION_FORMAT,
+  );
+
+  const relu = await relire(fichier.octets, MDP);
+  verifierQue(
+    'après le mot de passe, il est signalé — et AVANT toute écriture',
+    magasinsInconnus(Object.keys(relu.magasins)),
+    ['odysseeRituelFutur'],
+  );
+  /*
+     ET LE SABOTAGE : si le compte se faisait sur l'en-tête plutôt que sur la
+     charge utile — ce qu'il faisait avant M-2bis (b) — ce magasin passerait
+     inaperçu. C'est exactement la régression que l'assertion précédente garde.
+  */
+  verifierQue(
+    'alors que le compter sur l’en-tête le manquerait — la régression gardée',
+    magasinsInconnus(Object.keys(relu.entete.magasins)),
+    [],
+  );
+  /* Et ce qui est connu reste connu : le contrôle ne crie pas sur tout. */
+  verifierQue(
+    'et un magasin connu n’est pas signalé',
+    magasinsInconnus(['cartes']),
+    [],
   );
 }
 

@@ -200,13 +200,30 @@ export interface Apercu extends Verification {
  * C'est le bouton « Vérifier cette sauvegarde ». Il répond à la seule question
  * qui compte avant d'agir : qu'est-ce que ce fichier, et est-il entier ?
  */
+/**
+ * Les magasins qu'un fichier porte et que cette version ne sait pas écrire.
+ *
+ * Une seule définition, parce qu'elle sert à deux moments qui doivent répondre
+ * la même chose : la vérification à blanc, sans mot de passe, et la
+ * restauration, après déchiffrement. Deux définitions finiraient par diverger
+ * exactement le jour où la différence compte.
+ *
+ * Ces magasins sont CONSERVÉS et jamais perdus — c'est pour cela qu'on les
+ * nomme plutôt que de les refuser : un fichier venu d'une version plus récente
+ * porte des choses que celle-ci ne comprend pas, et les jeter serait pire que
+ * de les laisser dormir.
+ */
+export function magasinsInconnus(noms: readonly string[]): string[] {
+  const connus = new Set<string>(MAGASINS_PROGRESSION);
+  return noms.filter((nom) => !connus.has(nom));
+}
+
 export async function apercu(octets: Uint8Array): Promise<Apercu> {
   const v = await verifier(octets);
-  const connus = new Set<string>(MAGASINS_PROGRESSION);
   return {
     ...v,
     enregistrements: Object.values(v.entete.magasins ?? {}).reduce((s, n) => s + n, 0),
-    magasinsInconnus: Object.keys(v.entete.magasins ?? {}).filter((nom) => !connus.has(nom)),
+    magasinsInconnus: magasinsInconnus(Object.keys(v.entete.magasins ?? {})),
   };
 }
 
@@ -254,6 +271,26 @@ export async function restaurer(
   // Relire d'abord : si le fichier est refusé, rien n'a été touché.
   const relecture = await relire(options.octets, options.motDePasse);
 
+  /*
+     LES MAGASINS INCONNUS SE COMPTENT ICI, ET NON DANS L'ÉCRITURE — M-2bis (b).
+
+     Ils se lisaient dans le retour de `remplacerMagasins`, c'est-à-dire APRÈS
+     que tout a été écrit. Tant que l'en-tête en clair les annonçait tous, cela
+     ne coûtait rien : « Vérifier cette sauvegarde » les nommait avant qu'on
+     touche à quoi que ce soit, sans mot de passe.
+
+     Depuis M-2bis l'en-tête ne nomme plus les magasins scellés. Un magasin
+     SCELLÉ et inconnu — ce que porterait une sauvegarde venue d'une version
+     plus récente — devenait donc invisible jusqu'à ce que l'écriture soit
+     faite. L'arbitrage gagnait en confidentialité ce qu'il perdait en sûreté de
+     restauration, et ce n'est pas l'échange qui avait été demandé.
+
+     On les compte donc sur la charge utile DÉCHIFFRÉE, avant l'instantané et
+     avant l'écriture. La valeur ne vient plus de l'écriture : elle ne peut donc
+     plus dépendre de son issue.
+  */
+  const inconnus = magasinsInconnus(Object.keys(relecture.magasins));
+
   let instantane: ResultatSauvegarde | null = null;
   if (options.instantane !== false) {
     const mdp =
@@ -263,7 +300,7 @@ export async function restaurer(
     instantane = await fabriquer(mdp);
   }
 
-  const { ecrits, inconnus } = await remplacerMagasins(relecture.magasins);
+  const { ecrits } = await remplacerMagasins(relecture.magasins);
   return { relecture, ecrits, inconnus, instantane };
 }
 
