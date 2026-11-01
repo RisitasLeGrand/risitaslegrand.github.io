@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import './polices.css';
 @import './tokens.css';
+@import './logotype-anime.css';
 /* Les couleurs d'Égée et du thème Séance, engendrées par « npm run themes ».
    Les treize autres thèmes sont dans public/themes/ et ne sont chargés que
    si on les choisit : seul le thème actif pèse sur le premier affichage. */

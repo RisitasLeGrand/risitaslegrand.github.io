@@ -19,9 +19,14 @@ import { dirname, resolve } from 'node:path';
 const ICI = dirname(fileURLToPath(import.meta.url));
 const RACINE = resolve(ICI, '..');
 const { svgLogotype, VARIANTE_EN_TETE } = await import(`${RACINE}/src/lib/logotype.ts`);
-const { CSS_ANIMATIONS, ANIMATIONS, enLettres } = await import(
-  `${RACINE}/src/lib/logotype-animation.ts`,
-);
+/*
+   LA FEUILLE EST LUE SUR LE DISQUE, et non recopiée : c'est celle que le site
+   charge, et une copie divergerait au premier retouchage. Même habitude que
+   `planche-logotype.mjs`, qui lit `polices.css` de la même façon.
+*/
+const { readFileSync } = await import('node:fs');
+const CSS_ANIMATION = readFileSync(resolve(RACINE, 'src/styles/logotype-anime.css'), 'utf8');
+const ANIMATION = { id: 'maree', nom: 'La marée — l’animation retenue' };
 
 const PLAFOND_MS = 1500;
 let croix = 0;
@@ -35,12 +40,19 @@ const vrai = (titre, condition) => v(titre, Boolean(condition), true);
 
 const statique = svgLogotype(VARIANTE_EN_TETE, '1.125rem');
 
+/*
+   LE MÊME DESSIN DES DEUX CÔTÉS, et c'est ce qui donne son sens à la
+   comparaison : `logotype.ts` émet désormais ses `<tspan>` lui-même, donc
+   l'élément animé et l'élément statique sont le MÊME balisage. Si l'état final
+   de l'un diffère de l'autre, c'est l'animation qui en est la cause, et rien
+   d'autre.
+*/
 const page = (anim) => `<!doctype html><html><head><meta charset="utf-8"><style>
-${CSS_ANIMATIONS}
+${CSS_ANIMATION}
 body { margin: 0; }
 #statique, #anime { display: inline-block; }
 </style></head><body>
-<span id="anime" data-logo-anime="${anim}">${anim === 'maree' ? enLettres(statique) : statique}</span>
+<span id="anime" data-logo-anime="${anim}">${statique}</span>
 <span id="statique">${statique}</span>
 </body></html>`;
 
@@ -49,9 +61,10 @@ const nav = await chromium.launch({
   args: ['--no-sandbox'],
 });
 
-console.log('LES TROIS ANIMATIONS D’ENTRÉE DU LOGOTYPE\n');
+console.log('« LA MARÉE » — L’ANIMATION D’ENTRÉE DU LOGOTYPE\n');
 
-for (const { id, nom } of ANIMATIONS) {
+{
+  const { id, nom } = ANIMATION;
   console.log(`${nom}`);
 
   /* ── Mouvement normal ────────────────────────────────────────────────── */
@@ -226,17 +239,17 @@ for (const { id, nom } of ANIMATIONS) {
    ailleurs.
 */
 console.log('LA FEUILLE NE DEMANDE RIEN DE NEUF');
-vrai('aucun script dans la feuille', !/<script|javascript:|expression\(/i.test(CSS_ANIMATIONS));
-vrai('aucune URL dans la feuille', !/url\(/i.test(CSS_ANIMATIONS));
+vrai('aucun script dans la feuille', !/<script|javascript:|expression\(/i.test(CSS_ANIMATION));
+vrai('aucune URL dans la feuille', !/url\(/i.test(CSS_ANIMATION));
 vrai(
   'aucune couleur posée par l’animation',
-  !/(^|[^-])(color|fill|background)\s*:/i.test(CSS_ANIMATIONS),
+  !/(^|[^-])(color|fill|background)\s*:/i.test(CSS_ANIMATION),
 );
 vrai(
   'le mouvement réduit est bien prévu',
-  /prefers-reduced-motion:\s*reduce/.test(CSS_ANIMATIONS),
+  /prefers-reduced-motion:\s*reduce/.test(CSS_ANIMATION),
 );
 
 await nav.close();
-console.log(croix === 0 ? '\nLes trois animations tiennent les six règles.' : `\n${croix} croix.`);
+console.log(croix === 0 ? '\n« La marée » tient les six règles.' : `\n${croix} croix.`);
 process.exit(croix === 0 ? 0 : 1);

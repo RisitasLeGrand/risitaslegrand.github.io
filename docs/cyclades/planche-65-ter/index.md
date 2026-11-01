@@ -113,13 +113,62 @@ attrapé, au premier tour, que ma sonde mesurait l'icône de menu — elle aussi
 une `<svg>`, et placée avant le logotype dans la rangée — au lieu du logotype.
 J'ai failli corriger l'animation pour un défaut de ma mesure.
 
-## Ce qui reste à faire après le choix
 
-Le branchement, à l'endroit centralisé de `logotype.ts`, avec :
 
-- dans l'en-tête, l'animation jouée **une fois par session** et non à chaque
-  navigation — l'en-tête persiste par `view-transition-name: entete-principal`,
-  donc une animation posée à chaque page se rejouerait sur un élément qui n'a
-  pas bougé ;
-- les deux propositions non retenues **retirées du dépôt**, comme l'ont été
-  celles du 65 bis.
+---
+
+## La décision, et ce qu'il a fallu pour la tenir
+
+**Alexis a choisi B, « la marée ».** Elle est branchée : l'en-tête la joue une
+fois par session, le voile reste statique.
+
+« L'horizon » et « la levée » ont été **retirées du dépôt** — garder un dessin
+que seule une planche appelle, c'est garder du code que rien ne mesure. Leurs
+bandes restent ci-dessus comme trace de ce qui a été soumis ; elles ne sont
+simplement plus regénérables, et `npm run planche:logotype:ter` ne photographie
+plus que l'animation retenue.
+
+Le dessin livré émet désormais lui-même ses `<tspan>` : la planche montre donc
+exactement le balisage du site, sans rien transformer.
+
+### TROIS DÉFAUTS DE BRANCHEMENT, ET AUCUNE GARDE HORS DU SITE NE LES AURAIT VUS
+
+C'est la leçon de ce lot, et elle vaut au-delà du logotype.
+`essais:logotype:animation` mesurait la feuille et le dessin, et les deux
+étaient corrects — pendant que **personne ne voyait jamais l'animation**.
+
+1. **Appelée au chargement**, la fonction animait un en-tête de hauteur
+   ZÉRO, caché derrière l'écran de mot de passe, et consommait son témoin de
+   session. Relevé dans l'aperçu : `porteurs: 1`, `enTeteVisible: false`.
+2. **Passée derrière le déverrouillage**, elle ne consommait plus rien — mais
+   elle sortait aussitôt : au moment où le déverrouillage est annoncé,
+   l'en-tête n'est *pas encore peint*. Aucune mutation de l'attribut observée,
+   alors que l'en-tête mesure 18 px un instant plus tard.
+3. **Une fois l'attente par trames ajoutée**, elle attrapait l'en-tête de la
+   page qu'on s'apprête à QUITTER : le déverrouillage navigue vers
+   `/initialisation/` par un chargement complet. Le témoin était consommé par
+   une animation que personne n'avait vue — le même défaut que les deux fois
+   d'avant, un cran plus loin.
+
+Il a fallu, pour voir le troisième, poser l'observateur par `addInitScript`
+afin qu'il survive au rechargement : une trace installée après `goto`
+disparaissait avec le document, et son absence se lisait comme « rien ne s'est
+passé ».
+
+**La correction ne devine plus, elle attend un FAIT** : le témoin n'est marqué
+que lorsque la dernière lettre a fini de monter (`animationend`). Si la page
+part avant, le témoin reste vierge et la page d'arrivée rejoue — ce qui est
+exactement ce qu'on veut, puisque personne n'a encore rien vu.
+
+### Ce qui est gardé, et où
+
+`essais:logotype:animation` garde la feuille et le dessin, hors du site.
+`essais:logotype:navigateur` garde le BRANCHEMENT, dans le site, en comptant
+les événements `animationstart` et `animationend` du nom `logo-maree` — et non
+les porteurs de l'attribut, parce qu'un attribut posé sur une page qu'on quitte
+en porte autant qu'un attribut vu :
+
+- les huit lettres s'animent et **vont au bout** ;
+- elle **ne rejoue pas** à la page suivante, ni à celle d'après ;
+- le voile **est là** et n'est dans **aucun** porteur animé ;
+- une **session neuve** la rejoue.

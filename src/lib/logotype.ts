@@ -140,13 +140,39 @@ function arcOuvert(): string {
  * lapidaire, Spectral est chez elle là où Public Sans est une police
  * d'interface.
  */
+const MOT = 'Cyclades';
+
 function lettrage(y: number): string {
+  /*
+     UN `<tspan>` PAR LETTRE, ET SANS ABSCISSE.
+
+     C'est l'animation d'entrée « la marée » (prompt 65 ter) qui a besoin de
+     nœuds séparés pour faire monter les lettres l'une après l'autre. Les
+     `<tspan>` sont le seul découpage qui ne change RIEN au dessin : ils n'ont
+     pas d'abscisse à eux et héritent de la composition du `<text textLength>`
+     parent, donc la géométrie reste celle d'avant, au pixel près.
+
+     Une version intermédiaire découpait le mot en huit `<text>` placés au
+     centre de cellules de largeur égale. La vague traversait bien le mot, mais
+     la planche a montré sans appel que l'espacement final était FAUX — un
+     « I » dans la même cellule qu'un « D », le « S » à la dérive. Mesuré avant
+     d'être écrit : les abscisses des `<tspan>` relevées dans Chrome sont 0, 58,
+     120, 178, 232, 295, 357 et 411, c'est-à-dire celles que `textLength`
+     distribue, et non des cellules régulières.
+
+     `--rang` sert à l'animation et à elle seule : le logo statique ne le lit
+     pas. Le rang est porté ici plutôt que déduit d'un `nth-child` pour que le
+     nombre de lettres ne soit écrit nulle part.
+  */
+  const lettres = [...MOT]
+    .map((lettre, i) => `<tspan style="--rang:${i}">${lettre}</tspan>`)
+    .join('');
   return (
     `<text x="0" y="${y}"` +
     ` textLength="${LARGEUR_MOT}" lengthAdjust="spacing"` +
     ` font-size="74" font-weight="500" font-family="var(--font-serif)"` +
     ` style="text-transform:uppercase"` +
-    ` fill="var(--etat-texte)">Cyclades</text>`
+    ` fill="var(--etat-texte)">${lettres}</text>`
   );
 }
 

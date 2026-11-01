@@ -1,0 +1,79 @@
+/*
+   ── « LA MARÉE » : L'ANIMATION D'ENTRÉE DU LOGOTYPE (prompt 65 ter) ──
+
+   Choisie par Alexis parmi trois propositions ; la planche qui a servi au choix
+   est dans `docs/cyclades/planche-65-ter/`.
+
+   Chaque lettre monte à sa place à son tour, de gauche à droite : 420 ms par
+   lettre, 58 ms de décalage entre deux, soit 826 ms en tout pour les huit.
+
+   ## Où elle se joue, et où elle NE se joue PAS
+
+   Dans l'EN-TÊTE, une fois par session — c'est `brancherLAnimationDuLogotype`
+   qui pose l'attribut, et lui seul.
+
+   Jamais sur le VOILE, et c'est une mesure qui l'a décidé. Le voile est l'image
+   que le sélecteur d'applications garde en vignette ; `voile.ts` documente que
+   le système capture quand il veut, et que rien ne garantit que
+   `visibilitychange` soit traité avant. Mesuré : le voile atteint son état
+   final en ZÉRO trame — il est dans le DOM synchroniquement sur l'événement, et
+   à la première trame peinte il est déjà complet. Une animation ferait de cette
+   fenêtre une centaine de trames pendant lesquelles la vignette montrerait un
+   logo à moitié dessiné. Aujourd'hui, gagner la course donne la vignette
+   entière ; avec une animation, la gagner ne suffirait plus.
+
+   ## Pourquoi `backwards` et non `both`
+
+   Une garde l'a imposé. Avec `both`, la dernière image reste appliquée pour
+   toujours : l'élément garderait une matrice identité, c'est-à-dire une
+   propriété qui crée un bloc conteneur et un contexte d'empilement — de quoi
+   rogner un jour un contour de focus. Avec `backwards`, l'élément revient à son
+   état NATUREL dès l'animation finie. C'est aussi ce qui rend le bloc de
+   mouvement réduit trivial : l'état final étant l'état naturel, il n'y a
+   littéralement rien à rétablir.
+
+   ## Ce qu'elle ne fait pas
+
+   Elle ne se répète jamais : un mouvement qui revient ressemblerait à un
+   indicateur de chargement, le défaut qui a écarté l'anneau du prompt 65.
+   Elle ne décale rien — `opacity` et `transform` ne participent pas à la mise
+   en page, et la place est de toute façon réservée par le `viewBox`. Elle ne
+   peint aucune couleur, ne bloque aucune interaction, ne change rien de ce qui
+   est lu, et n'attire pas le focus.
+
+   `npm run essais:logotype:animation` mesure tout cela.
+*/
+
+@keyframes logo-maree {
+  from {
+    opacity: 0;
+    transform: translateY(14%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+   LES `<tspan>` ET NON DES `<text>` SÉPARÉS, et c'est la planche qui l'a
+   imposé. Une première version découpait le mot en huit `<text>` placés au
+   centre de cellules de largeur égale : la vague traversait bien le mot, mais
+   l'espacement final était FAUX — un « I » occupait la même cellule qu'un
+   « D », le « S » partait à la dérive. Les `<tspan>` n'ont pas d'abscisse à
+   eux : ils héritent de la composition du `<text textLength>` parent, donc la
+   géométrie reste celle du logo statique, au pixel près.
+*/
+[data-logo-anime='maree'] tspan {
+  animation: logo-maree 420ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  animation-delay: calc(var(--rang, 0) * 58ms);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* RIEN, et l'état final est l'état naturel : il n'y a donc rien à rétablir. */
+@media (prefers-reduced-motion: reduce) {
+  [data-logo-anime] tspan {
+    animation: none !important;
+  }
+}

@@ -579,6 +579,160 @@ verifier('il ne livre aucun autre texte', voile?.texteEnPlus, 'Cyclades');
 verifier('il ne porte qu’un seul enfant', voile?.nbEnfants, 1);
 verifier('et il reste muet pour les technologies d’assistance', voile?.cache, true);
 
+/* ── 6. L'animation d'entrée, dans le site et non en éprouvette ─────────── */
+
+/*
+   TROIS DÉFAUTS DE BRANCHEMENT, ET AUCUNE GARDE HORS DU SITE NE LES AURAIT VUS.
+
+   `essais:logotype:animation` mesure la feuille et le dessin, et les deux
+   étaient corrects pendant que PERSONNE ne voyait jamais l'animation :
+
+     1. appelée au chargement, elle animait un en-tête de hauteur nulle, caché
+        derrière l'écran de mot de passe, et consommait son témoin de session ;
+     2. passée derrière le déverrouillage, elle sortait aussitôt : au moment où
+        celui-ci est annoncé, l'en-tête n'est pas encore peint ;
+     3. et une fois l'attente par trames ajoutée, elle attrapait l'en-tête de la
+        page QU'ON S'APPRÊTE À QUITTER — le déverrouillage navigue vers
+        « /initialisation/ » par un chargement complet —, marquait le témoin, et
+        la page d'arrivée n'avait plus rien à jouer.
+
+   D'où cette section. Elle ne mesure pas le dessin, ni la feuille : elle mesure
+   que l'animation ARRIVE SOUS LES YEUX, qu'elle ne revient pas, et qu'elle ne
+   touche jamais le voile.
+
+   Le compte se fait sur les ÉVÉNEMENTS `animationstart` et `animationend` du
+   nom `logo-maree`, posés par `addInitScript` pour survivre au rechargement du
+   déverrouillage. Compter les porteurs de l'attribut ne dirait rien : un
+   attribut posé sur une page qu'on quitte en porte autant qu'un attribut vu.
+*/
+
+console.log('\nL’ANIMATION D’ENTRÉE ARRIVE SOUS LES YEUX, UNE FOIS');
+
+const ctxAnim = await nav.newContext({ viewport: { width: 1280, height: 900 } });
+await ctxAnim.addInitScript(() => {
+  window.__maree = { demarrees: 0, finies: 0 };
+  document.addEventListener(
+    'animationstart',
+    (e) => {
+      if (e.animationName === 'logo-maree') window.__maree.demarrees += 1;
+    },
+    true,
+  );
+  document.addEventListener(
+    'animationend',
+    (e) => {
+      if (e.animationName === 'logo-maree') window.__maree.finies += 1;
+    },
+    true,
+  );
+});
+const pageAnim = await ctxAnim.newPage();
+const vuesAnim = () => pageAnim.evaluate(() => ({ ...window.__maree }));
+
+await franchirInitialisation(pageAnim, RACINE, MDP);
+await pageAnim.waitForSelector('header [data-logotype]', { timeout: 20000 });
+/* La dernière lettre part à 406 ms et dure 420 : on attend la FIN, et on
+   l'attend par son événement plutôt que par un délai. */
+await pageAnim
+  .waitForFunction(() => window.__maree.finies >= 8, undefined, { timeout: 15000 })
+  .catch(() => {});
+const auPremierEcran = await vuesAnim();
+verifier(
+  'les huit lettres s’animent, et vont au bout',
+  { demarrees: auPremierEcran.demarrees, finies: auPremierEcran.finies },
+  { demarrees: 8, finies: 8 },
+);
+
+await pageAnim.goto(`${RACINE}/revisions/`, { waitUntil: 'networkidle' });
+await pageAnim.waitForTimeout(1200);
+const surLaSuivante = await vuesAnim();
+verifier('et elle ne rejoue pas à la page suivante', surLaSuivante.demarrees, 0);
+
+await pageAnim.goto(`${RACINE}/`, { waitUntil: 'networkidle' });
+await pageAnim.waitForTimeout(1200);
+verifier('ni à la suivante', (await vuesAnim()).demarrees, 0);
+
+/*
+   LE VOILE N'EST JAMAIS ANIMÉ. La mesure ne se contente pas de compter zéro
+   animation — un zéro peut venir d'un voile absent. On vérifie qu'il EST là,
+   et qu'il n'est dans aucun porteur animé : non pas « on évite de l'animer »,
+   mais « il ne peut pas l'être ».
+*/
+await pageAnim.evaluate(() => window.dispatchEvent(new Event('blur')));
+await pageAnim.waitForTimeout(400);
+const voileAnime = await pageAnim.evaluate(() => {
+  const el = document.getElementById('voile-confidentialite');
+  return {
+    present: Boolean(el),
+    dansUnPorteurAnime: Boolean(el?.closest('[data-logo-anime]')),
+    animations: el ? el.getAnimations({ subtree: true }).length : -1,
+  };
+});
+verifier('le voile est là, et aucune animation ne le touche', voileAnime, {
+  present: true,
+  dansUnPorteurAnime: false,
+  animations: 0,
+});
+/* Le contexte reste ouvert : l'onglet neuf ci-dessous doit être le SIEN. */
+const ctxAnim2 = ctxAnim;
+
+/*
+   ET UN ONGLET NEUF LA REJOUE — UN ONGLET, PAS UN NAVIGATEUR NEUF.
+
+   C'est un sabotage qui a imposé cette nuance, et il a d'abord montré que ma
+   mesure était VIDE. Le témoin doit être dans `sessionStorage` : rouvrir
+   l'application mérite de revoir son nom se poser, là où `localStorage` ne le
+   montrerait qu'une fois dans la vie de l'appareil.
+
+   Ma première version ouvrait un CONTEXTE neuf pour mesurer cela. Mais un
+   contexte neuf a aussi un `localStorage` neuf : les deux stockages s'y
+   comportent pareil, et le sabotage qui remplaçait l'un par l'autre passait
+   au vert.
+
+   Un ONGLET du même contexte les sépare : `sessionStorage` y est vierge,
+   `localStorage` y est partagé. C'est la seule façon de mesurer la différence
+   qu'on prétend garder.
+*/
+const pageOnglet = await ctxAnim2.newPage();
+await franchirInitialisation(pageOnglet, RACINE, MDP);
+await pageOnglet.waitForSelector('header [data-logotype]', { timeout: 20000 });
+await pageOnglet
+  .waitForFunction(() => window.__maree.demarrees >= 8, undefined, { timeout: 15000 })
+  .catch(() => {});
+verifier(
+  'un onglet neuf du même navigateur la rejoue',
+  await pageOnglet.evaluate(() => window.__maree.demarrees),
+  8,
+);
+await ctxAnim2.close();
+
+/* Et un navigateur neuf aussi, bien sûr — la mesure la plus faible des deux,
+   gardée parce qu'elle ne coûte rien et qu'elle couvre le cas où le témoin
+   partirait dans un cookie ou dans IndexedDB. */
+const ctxNeuf = await nav.newContext({ viewport: { width: 1280, height: 900 } });
+await ctxNeuf.addInitScript(() => {
+  window.__maree = { demarrees: 0, finies: 0 };
+  document.addEventListener(
+    'animationstart',
+    (e) => {
+      if (e.animationName === 'logo-maree') window.__maree.demarrees += 1;
+    },
+    true,
+  );
+});
+const pageNeuve = await ctxNeuf.newPage();
+await franchirInitialisation(pageNeuve, RACINE, MDP);
+await pageNeuve.waitForSelector('header [data-logotype]', { timeout: 20000 });
+await pageNeuve
+  .waitForFunction(() => window.__maree.demarrees >= 8, undefined, { timeout: 15000 })
+  .catch(() => {});
+verifier(
+  'un navigateur neuf aussi',
+  (await pageNeuve.evaluate(() => window.__maree.demarrees)),
+  8,
+);
+await ctxNeuf.close();
+
 verifier('aucune erreur de page', erreurs.slice(0, 3), []);
 
 await nav.close();

@@ -1522,6 +1522,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       import { initGlossaireGlobal } from '../lib/glossaire';
       import { suivreTemps } from '../lib/temps';
       import { brancherLeVoile } from '../lib/voile';
+      import { brancherLAnimationDuLogotype } from '../lib/logotype-animation';
       import { brancherLesPiles } from '../lib/piles-navigateur';
       import { miroirDesHeures, surveillerLHeure } from '../lib/theme';
       import { champ } from '../lib/profil';
@@ -1544,6 +1545,25 @@ const flecheVisible = !estLeMenu && !sansNavigation;
          c'est précisément celle qu'on aurait sous les yeux en quittant.
       */
       brancherLeVoile();
+      /*
+         L'ANIMATION D'ENTRÉE DU LOGOTYPE, « la marée » (prompt 65 ter).
+
+         Ici pour la même raison que le voile — une page oubliée rendrait le
+         comportement imprévisible selon la page d'entrée —, et le module ne
+         pose son attribut qu'une fois par session : l'en-tête persiste par
+         `view-transition-name`, donc une animation posée à chaque navigation
+         se rejouerait sur un élément qui n'a pas bougé.
+      */
+      /*
+         DERRIÈRE LE DÉVERROUILLAGE, et c'est une mesure dans l'aperçu qui l'a
+         imposé : appelée au chargement, la fonction trouvait un en-tête de
+         hauteur nulle — caché derrière l'écran de mot de passe —, animait un
+         logotype invisible et consommait son témoin de session. Personne ne
+         voyait jamais l'animation. `quandDeverrouille` rend la main tout de
+         suite si la session est déjà ouverte, donc le cas courant n'attend
+         rien.
+      */
+      quandDeverrouille(brancherLAnimationDuLogotype);
       /*
          La bascule jour/nuit, une fois la page affichée.
 

@@ -1,186 +1,170 @@
 /**
- * LES TROIS ANIMATIONS D'ENTRÉE SOUMISES AU CHOIX (prompt 65 ter).
+ * « LA MARÉE » : LE BRANCHEMENT DE L'ANIMATION D'ENTRÉE DU LOGOTYPE.
  *
- * Ce module est TEMPORAIRE, au même titre que `logotype-bis.ts` l'a été : il
- * porte trois propositions dont une seule survivra. Les deux autres seront
- * retirées quand Alexis aura choisi, et la retenue ira dans le composant.
+ * Le dessin est dans `logotype.ts`, l'animation dans
+ * `src/styles/logotype-anime.css`. Ce module ne fait qu'une chose : décider
+ * QUAND elle se joue, en posant un attribut.
  *
- * ## Ce qui est animé, et ce qui ne l'est pas
+ * ## Une fois par session, et pourquoi pas à chaque page
  *
- * **L'EN-TÊTE, oui. LE VOILE, NON** — et c'est une mesure qui l'a décidé.
+ * L'en-tête porte `view-transition-name: entete-principal` : il PERSISTE d'une
+ * page à l'autre, c'est tout l'objet de cette déclaration. Une animation posée
+ * à chaque navigation se rejouerait donc sur un élément qui n'a pas bougé —
+ * et un mouvement qui revient à chaque page est précisément ce qu'on a voulu
+ * éviter en écartant l'anneau du prompt 65 : l'idiome de l'indicateur de
+ * chargement.
  *
- * Le voile est l'image que le sélecteur d'applications garde en vignette ; sa
- * raison d'être est de ne rien livrer de l'écran qu'il cache. `voile.ts`
- * documente déjà que le système prend sa vignette quand il veut, et que rien
- * ne garantit que `visibilitychange` soit traité AVANT la capture : le voile
- * réduit la fenêtre, il ne la ferme pas.
+ * Le témoin est dans `sessionStorage` et non dans `localStorage` : une session
+ * est un onglet, et rouvrir l'application mérite de revoir son nom se poser.
+ * `localStorage` ferait que l'animation ne se joue qu'UNE FOIS dans la vie de
+ * l'appareil, ce qui reviendrait à ne pas l'écrire.
  *
- * Mesuré ici, cinq tours : le voile est dans le DOM synchroniquement sur
- * l'événement, et à la PREMIÈRE trame peinte — 4 à 13 ms plus tard — il est
- * déjà dans son état final : opacité 1, aucune transformation, ZÉRO animation
- * en cours, pleine largeur. La fenêtre pendant laquelle la vignette pourrait
- * montrer un logo à moitié dessiné est donc aujourd'hui de zéro trame.
+ * ## Ce que ce module ne fait pas
  *
- * Une animation d'entrée d'une seconde et demie la porterait à une centaine.
- * Je ne peux pas mesurer d'ici le moment où iOS prend sa capture, et je ne le
- * prétends pas — mais l'argument n'en a pas besoin : il est de DOMINATION
- * STRICTE. Aujourd'hui, si le voile gagne la course, la vignette montre le
- * logo entier. Avec une animation, la gagner ne suffirait plus.
+ * Il ne touche PAS au voile. Le voile est l'image que le sélecteur
+ * d'applications garde en vignette, et une animation y ferait montrer un logo
+ * à moitié dessiné — la mesure et le raisonnement sont en tête de
+ * `src/styles/logotype-anime.css`.
  *
- * Le voile reste donc dans son état final, et l'animation ne se joue qu'à
- * l'ouverture de l'application, dans l'en-tête.
- *
- * ## Les règles que les trois respectent
- *
- * — une seule fois, jamais en boucle : un mouvement qui revient ressemblerait
- *   à un indicateur de chargement, le défaut qui a écarté l'anneau du 65 ;
- * — 900 ms au plus, soit bien en deçà du plafond d'une seconde et demie ;
- * — aucune variation brusque de luminance, aucun clignotement : les trois ne
- *   font que découvrir ou faire monter le dessin, par une courbe d'accélération
- *   unique et monotone ;
- * — aucun décalage de mise en page : `clip-path`, `opacity` et `transform` ne
- *   participent pas à la mise en page, et la place est de toute façon réservée
- *   par le `viewBox` ;
- * — l'état final est IDENTIQUE au logo statique : c'est l'état naturel de
- *   l'élément, et c'est ce qui rend `prefers-reduced-motion` trivial. Les trois
- *   emploient pour cela `backwards` et NON `both`, et c'est une garde qui l'a
- *   imposé : avec `both`, la dernière image reste appliquée pour toujours —
- *   « horizon » gardait un `clip-path: inset(0 0 0 0)` et « levée » une matrice
- *   identité. Invisibles à l'œil, mais ce sont des propriétés qui créent un
- *   bloc conteneur et un contexte d'empilement, de quoi rogner un jour un
- *   contour de focus. Avec `backwards`, l'élément revient à son état naturel
- *   dès l'animation finie, et il n'y a donc littéralement rien à retirer ;
- * — rien ne bloque l'interaction : aucun élément n'est ajouté au-dessus, et
- *   `pointer-events` n'est pas touché ;
- * — rien ne change de ce qui est lu : l'animation ne porte que sur des
- *   propriétés de peinture, l'`aria-label` et le rôle sont intacts, et aucun
- *   élément focusable n'est créé.
- *
- * ## `prefers-reduced-motion`
- *
- * `animation: none`, et rien d'autre. Comme l'état final EST l'état naturel de
- * l'élément — les trois animations partent d'un état artificiel pour y revenir
- * —, supprimer l'animation rend le logo final directement, sans scintillement
- * ni état transitoire. C'est la raison pour laquelle aucune des trois ne pose
- * son état final dans une règle : il n'y aurait alors plus rien à retirer.
+ * Il n'ajoute aucun élément, ne touche pas au focus, et ne change rien de ce
+ * qui est lu : il pose un attribut sur le conteneur, et c'est la feuille de
+ * style qui fait le reste. En mouvement réduit, l'attribut est posé mais la
+ * feuille ne l'anime pas — c'est le navigateur qui décide, pas ce module, et
+ * c'est voulu : une préférence qui change en cours de session est alors prise
+ * en compte sans qu'on ait à l'écouter.
  */
 
-export type AnimationLogotype = 'horizon' | 'maree' | 'levee';
+/** Le témoin de session, nommé en clair : il sera lu par quelqu'un un jour. */
+const TEMOIN = 'cyclades:logotype-anime';
 
-export const ANIMATIONS: { id: AnimationLogotype; nom: string; quoi: string }[] = [
-  {
-    id: 'horizon',
-    nom: 'A · l’horizon',
-    quoi: 'le mot se découvre de gauche à droite, comme une côte qui sort de la brume',
-  },
-  {
-    id: 'maree',
-    nom: 'B · la marée',
-    quoi: 'chaque lettre monte à sa place à son tour, de gauche à droite',
-  },
-  {
-    id: 'levee',
-    nom: 'C · la levée',
-    quoi: 'le mot entier paraît en montant de quelques pixels — le plus sobre',
-  },
-];
+/** L'attribut que la feuille de style attend, et la valeur qu'elle reconnaît. */
+const ATTRIBUT = 'data-logo-anime';
+const VALEUR = 'maree';
 
 /**
- * La feuille de style des trois propositions.
+ * Pose l'animation sur les logotypes de l'en-tête, une fois par session.
  *
- * Elle est écrite ici en une seule chaîne pour que la planche et le site
- * montrent exactement la même chose — la leçon du 65, où recopier le balisage
- * aurait fait choisir sur une image qui n'était pas celle qu'on livre.
- *
- * Aucun script : ce sont des animations CSS, posées par un attribut. La
- * politique de sécurité du site n'a rien à autoriser de nouveau.
+ * Montée depuis la mise en page, comme le voile : une page oubliée suffirait à
+ * rendre le comportement imprévisible selon la page d'entrée.
  */
-export const CSS_ANIMATIONS = `
-/* La même courbe pour les trois : sortie douce, sans rebond ni surcourse —
-   un dépassement ferait osciller le mot, donc ressembler à un mouvement qui
-   se répète. */
-@keyframes logo-horizon {
-  from { clip-path: inset(0 100% 0 0); }
-  to   { clip-path: inset(0 0 0 0); }
-}
-@keyframes logo-maree {
-  from { opacity: 0; transform: translateY(14%); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes logo-levee {
-  from { opacity: 0; transform: translateY(22%); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-[data-logo-anime='horizon'] svg {
-  animation: logo-horizon 900ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
-}
-[data-logo-anime='levee'] svg {
-  animation: logo-levee 620ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
-}
-/* « marée » anime chaque lettre : le retard vient d'une variable posée sur
-   le nœud, et non d'une liste de « nth-child », pour que le nombre de lettres
-   ne soit écrit nulle part. */
-[data-logo-anime='maree'] tspan {
-  animation: logo-maree 420ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
-  animation-delay: calc(var(--rang, 0) * 58ms);
-  transform-box: fill-box;
-  transform-origin: center;
-}
-
-/* RIEN, et l'état final est l'état naturel : il n'y a donc rien à rétablir. */
-@media (prefers-reduced-motion: reduce) {
-  [data-logo-anime] svg,
-  [data-logo-anime] tspan {
-    animation: none !important;
+/** Pose l'attribut si un logotype d'en-tête est visible. Rend `true` si c'est fait. */
+function poserLAnimation(): boolean {
+  let dejaJoue = false;
+  try {
+    dejaJoue = sessionStorage.getItem(TEMOIN) === 'oui';
+  } catch {
+    /*
+       Un stockage refusé — navigation privée, réglage du navigateur — ne doit
+       pas empêcher l'animation : on la joue, simplement, et on ne saura pas
+       s'en souvenir. Le défaut d'un témoin illisible est de rejouer, pas de
+       casser.
+    */
   }
+  if (dejaJoue) return true;
+
+  /*
+     LES LOGOTYPES DE L'EN-TÊTE, ET EUX SEULS. Le voile en porte un aussi, mais
+     il est créé plus tard et n'est pas dans l'en-tête — le sélecteur ne peut
+     donc pas l'atteindre, ce qui est la garantie qu'on veut : non pas « on
+     évite de l'animer », mais « on ne peut pas ».
+  */
+  const dansLEnTete = document.querySelectorAll('header [data-logotype]');
+
+  /*
+     ── ON N'ANIME QUE CE QUI SE VOIT, ET C'EST LA MESURE DANS LE SITE RÉEL QUI
+        L'A IMPOSÉ ──
+
+     Ma première version posait l'attribut sur tous les logotypes d'en-tête et
+     marquait aussitôt le témoin. Mesuré sur l'aperçu : AVANT le déverrouillage
+     l'attribut était bien posé — mais l'en-tête avait une hauteur de ZÉRO, il
+     n'était pas affiché ; et APRÈS le déverrouillage l'attribut avait disparu
+     avec le ré-affichage, le témoin étant déjà consommé.
+
+     Autrement dit : l'animation se jouait sur un élément invisible, une fois
+     par session, et PERSONNE ne la voyait jamais. Aucune garde hors du site
+     ne pouvait l'attraper — l'essai de l'animation mesurait la feuille et le
+     dessin, tous deux corrects.
+
+     Deux conséquences, et les deux comptent :
+       — on écarte les logotypes de hauteur nulle, donc ceux d'un en-tête
+         caché ;
+       — on ne marque le témoin QUE si l'on a animé quelque chose. Un appel
+         qui ne trouve rien à animer ne consomme rien, et le suivant rejouera.
+
+     Et l'appel lui-même est passé derrière `quandDeverrouille` dans la mise en
+     page : c'est le moment où l'en-tête existe pour de bon.
+  */
+  const visibles = [...dansLEnTete].filter((n) => n.getBoundingClientRect().height > 0);
+  if (!visibles.length) return false;
+
+  for (const svg of visibles) {
+    const porteur = svg.parentElement;
+    if (!porteur) continue;
+    porteur.setAttribute(ATTRIBUT, VALEUR);
+    /*
+       ── LE TÉMOIN EST MARQUÉ QUAND L'ANIMATION EST ALLÉE AU BOUT, ET PAS
+          QUAND ELLE EST POSÉE ──
+
+       Troisième mesure dans le site, troisième cause, et celle-là je ne
+       l'aurais jamais devinée : le déverrouillage NAVIGUE vers
+       « /initialisation/ », par un chargement complet. Relevé à la trace, sur
+       un observateur posé par `addInitScript` pour survivre au rechargement :
+       le document où l'attribut était posé n'était pas celui qu'on finissait
+       par regarder.
+
+       Ma version précédente attrapait donc l'en-tête pendant la fraction de
+       seconde où il paraît sur la page QU'ON S'APPRÊTE À QUITTER, marquait le
+       témoin, et la page d'arrivée n'avait plus rien à jouer. Le témoin était
+       consommé par une animation que personne n'avait vue — le même défaut que
+       les deux fois d'avant, un cran plus loin.
+
+       On ne marque donc plus sur une intention mais sur un FAIT : la dernière
+       lettre a fini de monter. Si la page part avant, le témoin reste vierge et
+       la page d'arrivée rejoue — ce qui est exactement ce qu'on veut, puisque
+       personne n'a encore rien vu. `animationend` remonte depuis les `<tspan>`,
+       d'où l'écoute sur le porteur ; `once` suffit, la dernière lettre étant la
+       seule qui nous intéresse… et c'est pourquoi on compte.
+    */
+    let restantes = porteur.querySelectorAll('tspan').length;
+    porteur.addEventListener('animationend', function fini() {
+      restantes -= 1;
+      if (restantes > 0) return;
+      porteur.removeEventListener('animationend', fini);
+      try {
+        sessionStorage.setItem(TEMOIN, 'oui');
+      } catch {
+        /* Voir ci-dessus : ne pas pouvoir se souvenir n'est pas une raison de
+           ne pas jouer. */
+      }
+    });
+  }
+  return true;
 }
-`;
 
 /**
- * « Marée » découpe le mot en `<tspan>`, À L'INTÉRIEUR du `<text>` d'origine.
+ * ON ATTEND QUE L'EN-TÊTE PARAISSE, SUR AU PLUS UNE SECONDE.
  *
- * ## Ce que cela change, et ce que cela ne change pas
+ * Troisième mesure, troisième correction — et chacune n'était visible que dans
+ * le site, jamais dans une garde hors du site :
  *
- * RIEN du dessin. Le `<text>` garde son `textLength` et son `lengthAdjust`, et
- * ce sont eux qui placent les lettres : les `<tspan>` n'ont pas de `x` à eux,
- * ils héritent de la composition du parent. La géométrie finale est donc
- * RIGOUREUSEMENT celle du logo statique, au pixel près — ce qui est la
- * condition qu'on s'est donnée pour toutes les propositions.
+ *   1. appelée au chargement, la fonction animait un en-tête de hauteur nulle,
+ *      caché derrière l'écran de mot de passe, et consommait son témoin ;
+ *   2. passée derrière `quandDeverrouille`, elle ne consommait plus rien — mais
+ *      elle sortait aussitôt, parce qu'au moment où le déverrouillage est
+ *      annoncé l'en-tête n'est PAS ENCORE peint. Relevé : aucune mutation de
+ *      l'attribut observée, alors que l'en-tête mesure 18 px un instant plus
+ *      tard ;
+ *   3. d'où cette attente.
  *
- * ## Et ce que j'ai dû jeter pour en arriver là
- *
- * Ma première version séparait le mot en huit `<text>` distincts, chacun placé
- * au centre d'une cellule de largeur égale. Cela marchait — la vague traversait
- * le mot — mais la planche l'a montré sans appel : l'espacement final était
- * FAUX. Un « I » occupait la même cellule qu'un « D », le « S » partait à la
- * dérive, « CY » se serrait. J'avais documenté ce compromis comme acceptable ;
- * l'image a dit le contraire, et c'est l'image qui avait raison.
- *
- * Les `<tspan>` l'annulent entièrement. Mesuré avant d'être écrit : Chrome
- * anime bien `opacity` et `transform` sur un `<tspan>` (avec
- * `transform-box: fill-box`), et les abscisses relevées — 0, 58, 120, 178,
- * 232, 295, 357, 411 — sont celles que `textLength` distribue, et non des
- * cellules régulières.
- *
- * Les trois propositions laissent donc le dessin livré intact : aucune ne
- * demande de changer `logotype.ts` si elle est retenue.
+ * Elle se fait par TRAMES et non par un délai : une trame est exactement l'unité
+ * dans laquelle une hauteur devient non nulle, et un délai en millisecondes
+ * serait un pari sur la vitesse de l'appareil. Soixante trames font environ une
+ * seconde sur un écran ordinaire — au-delà, on renonce en silence, sans
+ * consommer le témoin, parce qu'un en-tête qui n'a pas paru en une seconde ne
+ * relève plus de l'animation d'entrée.
  */
-export function enLettres(svg: string): string {
-  const m = svg.match(/<text([^>]*)>([^<]*)<\/text>/);
-  if (!m) return svg;
-  const [entier, attributs, texte] = m;
-  /*
-     UN SEUL ATTRIBUT `style` PAR LETTRE, et c'est la garde de la planche qui
-     l'a attrapé. Une version intermédiaire gardait le `style` du parent ET en
-     ajoutait un second portant `--rang` : le parseur ne retient que le PREMIER
-     et laisse tomber l'autre en silence. La variable n'arrivait jamais, toutes
-     les lettres partageaient le même retard, et la sonde ne trouvait plus sa
-     cible. Ici le `<tspan>` ne porte QUE `--rang` : le reste du style est sur
-     le parent, où il doit être.
-  */
-  const lettres = [...texte]
-    .map((lettre, i) => `<tspan style="--rang:${i}">${lettre}</tspan>`)
-    .join('');
-  return svg.replace(entier, `<text${attributs}>${lettres}</text>`);
+export function brancherLAnimationDuLogotype(tramesRestantes = 60): void {
+  if (poserLAnimation()) return;
+  if (tramesRestantes <= 0) return;
+  requestAnimationFrame(() => brancherLAnimationDuLogotype(tramesRestantes - 1));
 }

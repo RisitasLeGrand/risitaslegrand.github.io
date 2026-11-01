@@ -40,12 +40,25 @@ const SORTIE = process.env.SORTIE ?? resolve(RACINE, 'docs/cyclades/planche-65-t
 const PROVISOIRE = '/tmp/planche-65-ter-html';
 
 const { svgLogotype, VARIANTE_EN_TETE } = await import(`${RACINE}/src/lib/logotype.ts`);
-const { CSS_ANIMATIONS, ANIMATIONS, enLettres } = await import(
-  `${RACINE}/src/lib/logotype-animation.ts`
-);
+/*
+   LA FEUILLE EST LUE SUR LE DISQUE, comme `polices.css` plus bas : c'est celle
+   que le site charge, et une copie divergerait au premier retouchage.
+*/
+const CSS_ANIMATION = readFileSync(resolve(RACINE, 'src/styles/logotype-anime.css'), 'utf8');
 
-/** La durée totale de chaque proposition, en millisecondes. */
-const DUREES = { horizon: 900, levee: 620, maree: 420 + 7 * 58 };
+/*
+   UNE SEULE PROPOSITION DEPUIS LE CHOIX D'ALEXIS. « L'horizon » et « la levée »
+   ont été retirées du dépôt — garder un dessin que seule une planche appelle,
+   c'est garder du code que rien ne mesure. Leurs bandes restent dans
+   `docs/cyclades/planche-65-ter/` comme trace de la décision ; elles ne sont
+   simplement plus regénérables, et l'`index.md` le dit.
+*/
+const ANIMATIONS = [
+  { id: 'maree', nom: 'La marée — retenue', quoi: 'chaque lettre monte à sa place à son tour' },
+];
+
+/** La durée totale, en millisecondes : 420 ms par lettre, 58 ms d'écart. */
+const DUREES = { maree: 420 + 7 * 58 };
 const INSTANTS = [0, 20, 40, 60, 80, 100];
 const LARGEUR = 520;
 
@@ -58,9 +71,8 @@ const polices = lire('src/styles/polices.css').replace(
 /** Le CSS qui fige une ligne à un pourcentage donné de l'animation. */
 function figer(anim, rang, pourcent) {
   const t = Math.round((DUREES[anim] * pourcent) / 100);
-  const retard =
-    anim === 'maree' ? `calc(var(--rang, 0) * 58ms - ${t}ms)` : `-${t}ms`;
-  const cible = anim === 'maree' ? 'tspan' : 'svg';
+  const retard = `calc(var(--rang, 0) * 58ms - ${t}ms)`;
+  const cible = 'tspan';
   return (
     `#ligne-${rang} [data-logo-anime] ${cible} {` +
     ` animation-delay: ${retard} !important;` +
@@ -70,8 +82,9 @@ function figer(anim, rang, pourcent) {
 
 function pageDe(anim, mode) {
   const feuille = lire('src/styles/theme-defaut.css');
-  const brut = svgLogotype(VARIANTE_EN_TETE, '1.125rem');
-  const dessin = anim === 'maree' ? enLettres(brut) : brut;
+  /* Le dessin livré porte désormais ses `<tspan>` lui-même : la planche
+     montre exactement le balisage du site, sans rien transformer. */
+  const dessin = svgLogotype(VARIANTE_EN_TETE, '1.125rem');
   const lignes = INSTANTS.map(
     (p, i) => `
     <section class="ligne" id="ligne-${i}">
@@ -95,7 +108,7 @@ function pageDe(anim, mode) {
 <style>
 ${polices}
 ${feuille}
-${CSS_ANIMATIONS}
+${CSS_ANIMATION}
 ${gels}
 :root { --font-sans: 'Public Sans', Arial, sans-serif; --font-serif: 'Spectral', Georgia, serif; }
 * { box-sizing: border-box; }

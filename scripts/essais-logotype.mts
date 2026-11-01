@@ -102,7 +102,25 @@ verifier(
    capitalisation dans l'`aria-label`.
 */
 for (const { variante, svg } of rendus) {
-  const texte = svg.match(/>([^<]*)<\/text>/)?.[1] ?? '';
+  /*
+     LE MOT EST RECOMPOSÉ DEPUIS LE CONTENU DU `<text>`, BALISES ÔTÉES.
+
+     Mon premier motif lisait `>([^<]*)</text>` — ce qui marchait tant que le
+     mot était un seul morceau de texte. Depuis que le dessin émet un `<tspan>`
+     par lettre (pour l'animation « la marée »), ce motif capture la chaîne
+     VIDE entre `</tspan>` et `</text>`, et la garde a rougi en disant
+     « texte «  » ». Elle a rougi sur sa propre prémisse, ce qui est la bonne
+     façon d'échouer.
+
+     Le piège, ici, aurait été de relâcher le motif jusqu'à ce qu'il passe :
+     une garde qui lit une chaîne vide est verte pour toutes les capitales du
+     monde. On recompose donc le contenu réel — on prend tout ce qui est entre
+     `<text…>` et `</text>`, on en ôte les balises, et on compare au mot. Un
+     « CYCLADES » écrit dans le balisage est alors attrapé, qu'il soit d'un
+     seul tenant ou réparti sur huit `<tspan>`.
+  */
+  const dedans = svg.match(/<text[^>]*>([\s\S]*?)<\/text>/)?.[1] ?? '';
+  const texte = dedans.replace(/<[^>]*>/g, '');
   verifier(
     `${variante} : le mot n'est pas écrit en capitales dans le balisage`,
     texte === 'Cyclades' && svg.includes('text-transform:uppercase'),
