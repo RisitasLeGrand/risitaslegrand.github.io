@@ -234,6 +234,13 @@ console.log('\n\x1b[1mN1 — SUR TÉLÉPHONE, LA BARRE DU BAS\x1b[0m\n');
        ligne resterait verte en affirmant qu'une touche a refermé quelque
        chose qui n'était pas ouvert.
 
+     MESURÉ, en empêchant la feuille de s'ouvrir du tout — le cas exact que
+     l'ancienne forme laissait passer. Ancienne forme : UN rouge, celui de
+     « Plus ouvre la feuille », et « la touche d'échappement la referme »
+     restait VERTE, affirmant une fermeture qui n'avait pas eu lieu sur une
+     feuille qui n'était pas là. Nouvelle forme : DEUX rouges, la prémisse
+     ayant fait son travail.
+
      « waitFor({ state: 'hidden' }) » règle le premier : il rend la main dès
      que la feuille est cachée, et lève — donc rouge, et nommé — si elle ne
      l'est pas au bout du délai. La prémisse règle le second : on vérifie
