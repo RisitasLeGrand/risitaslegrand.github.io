@@ -489,6 +489,61 @@ console.log('\n\x1b[1m6. LES REVUES MANQUÉES ENTRENT VRAIMENT — PHASE 3\x1b[0
     v('aucune date brute n’apparaît', /\d{4}-\d{2}-\d{2}/.test(panneau), false);
     await B.page.click('#centre-bouton');
   }
+
+  /*
+     LA CLASSE DE LA MOLÉCULE N'ATTEINT PAS LE DISQUE — et il faut dire
+     précisément ce qui le garantit, parce que ce n'est pas une assertion
+     d'ici. J'ai d'abord écrit celle que j'avais promise, et elle était
+     fausse deux fois ; la corriger apprend plus que l'aurait fait sa
+     version juste.
+
+     Premier défaut : elle lisait `'classeMolecule' in e` sur ce que rend
+     `magasinDuCentre`, qui ne rend PAS les éléments mais
+     `{ champs, genre }`. Je mesurais l'emballage de la sonde et non la
+     chose — l'essai a répondu « obtenu ["champs"] », ce qui était la
+     bonne réponse à ma mauvaise question.
+
+     Second défaut, plus instructif : même bien câblée, elle n'aurait rien
+     prouvé. Le corps de l'élément est SCELLÉ. Les seuls champs en clair
+     sont `id`, `genre` et `scelle`, et la section 2 le vérifie déjà. Une
+     classe rangée dans le corps serait chiffrée, donc invisible à cette
+     sonde : l'assertion aurait été verte quoi qu'il arrive.
+
+     Ce qui garantit vraiment la séparation, de la plus forte à la plus
+     faible :
+
+     1. LE TYPE. `ElementDuCentre` est une interface FERMÉE. Écrire
+        `classeMolecule` dans l'élément que `synchroniser` construit est une
+        erreur de compilation — « Object literal may only specify known
+        properties ». Constaté en lançant `tsc` sur un élément truqué, pas
+        supposé : le sabotage ne tombe pas en rouge, il refuse de se
+        construire, et aucun essai n'a besoin d'y penser.
+     2. LA FORME DU CODE. Le contexte voyage dans une `Map` séparée, jamais
+        dans `attendus` : il n'existe aucun chemin d'affectation entre les
+        deux.
+     3. Les deux issues du filtre, mesurées purement dans
+        `essais:filtre-cycle`, avec leur sabotage.
+
+     CE QUI RESTE À MESURER, et que je laisse écrit faute de pouvoir le
+     faire ici : le chemin « classe connue et hors cycle » n'est pas encore
+     parcouru au navigateur, parce qu'aucun écran ne transmet de classe à ce
+     jour — `sante.astro` appelle avec des références nues, et c'est un
+     autre lot. Le jour où il la transmettra, l'assertion qui aura un sens
+     est une relecture par `elementsDuCentre()`, qui DESCELLE, et non une
+     lecture du disque.
+
+     L'assertion ci-dessous est donc celle qui manquait réellement : la
+     section 2 contrôle les champs en clair AVANT les dépôts de phase 3, et
+     ceux-ci écrivent des éléments qu'elle n'a jamais vus. On le recontrôle
+     après, sur les nouveaux.
+  */
+  const apresLesDepots = await magasinDuCentre(B);
+  vrai('des éléments de phase 3 sont là pour être mesurés', apresLesDepots.length > 1);
+  v(
+    'et eux aussi ne laissent en clair que les trois champs du § 4.1',
+    [...new Set(apresLesDepots.map((e) => JSON.stringify(e.champs)))],
+    [JSON.stringify(['genre', 'id', 'scelle'])],
+  );
 }
 
 console.log('\n\x1b[1m7. TRANCHER UNE QUESTION LA RETIRE — § 1 n° 8, L’AUTRE MOITIÉ\x1b[0m');

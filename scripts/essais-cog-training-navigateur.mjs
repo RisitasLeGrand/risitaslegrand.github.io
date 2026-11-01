@@ -40,12 +40,84 @@ import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { attendreLaBoite, repondreALaBoite } from './lib/boite-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreEnBase } from './lib/post-condition.mjs';
 
 const BASE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
 
 /** La tolérance que « zone-de-jeu.ts » se donne, reprise pour ne pas en inventer une autre. */
 const TOLERANCE_HAUT = 4;
+
+/**
+ * Attend que le défilement de la page se soit arrêté.
+ *
+ * Deux lectures égales de `scrollY` à une trame d'intervalle, dans une
+ * boucle bornée. Le défilement doux du navigateur n'est pas une animation
+ * déclarée : il ne se voit ni dans `getAnimations()` ni dans une
+ * transition, et la seule chose qu'il offre est sa propre position.
+ */
+const defilementFini = (page, { delai = 10000 } = {}) =>
+  page.evaluate(
+    (borne) =>
+      new Promise((fini) => {
+        const limite = performance.now() + borne;
+        let precedent = -1;
+        const regarder = () => {
+          const ici = Math.round(window.scrollY);
+          if (ici === precedent || performance.now() > limite) {
+            fini();
+            return;
+          }
+          precedent = ici;
+          requestAnimationFrame(regarder);
+        };
+        requestAnimationFrame(regarder);
+      }),
+    delai,
+  );
+
+/**
+ * Avance d'un pas dans une session, et attend le premier des DEUX FAITS
+ * possibles : la zone de jeu change, ou la session se termine.
+ *
+ * ## Pourquoi une course, et non une post-condition unique
+ *
+ * J'avais d'abord attendu le seul changement de zone, avec une borne de 8 s.
+ * Mesuré : l'essai est passé de 191 s à 231 s pour les mêmes 115 assertions.
+ * La raison est que le dernier clic d'une session ne change pas la zone — il
+ * la termine. L'attente allait donc au bout de sa borne à chaque fin de
+ * session, plusieurs fois par exécution.
+ *
+ * Une attente qui ralentit l'essai sans rien garantir de plus est un mauvais
+ * échange : le but du chantier est de supprimer des paris, pas d'en payer le
+ * prix deux fois. On attend donc le premier des deux faits, et la borne ne
+ * sert plus que de filet.
+ *
+ * La sortie est donnée comme un MOTIF cherché dans la page entière, parce que
+ * les témoins de fin sont des titres et des boutons reconnus par leur texte,
+ * ce qu'aucun sélecteur CSS honnête ne sait dire.
+ */
+const apresAvoirAvance = async (page, geste, motifDeSortie = null) => {
+  const lire = () =>
+    page
+      .locator('[data-zone-de-jeu]')
+      .first()
+      .textContent()
+      .catch(() => null);
+  const avant = (await lire()) ?? '';
+  await geste();
+  await page
+    .waitForFunction(
+      ({ a, m }) => {
+        const zone = document.querySelector('[data-zone-de-jeu]');
+        if (zone && (zone.textContent ?? '') !== a) return true;
+        return m ? new RegExp(m).test(document.body.textContent ?? '') : false;
+      },
+      { a: avant, m: motifDeSortie },
+      { timeout: 8000 },
+    )
+    .catch(() => {});
+};
 
 let echecs = 0;
 const v = (intitule, obtenu, attendu) => {
@@ -202,8 +274,19 @@ for (const taille of TAILLES) {
 
         const zone = page.locator('[data-zone-de-jeu]').first();
         await zone.waitFor({ state: 'visible', timeout: 30000 });
-        /* Le temps du défilement, que la mise en œuvre borne elle-même. */
-        await page.waitForTimeout(1500);
+        /*
+           LE DÉFILEMENT DOUX A UNE FIN OBSERVABLE, et ce n'est pas une
+           animation du Web Animations API : `scrollTo({ behavior: 'smooth' })`
+           n'apparaît pas dans `getAnimations()`, donc `apresLesAnimations` ne
+           le verrait pas. Ce qu'on peut observer, c'est que la POSITION
+           CESSE DE CHANGER.
+
+           On relit `scrollY` à chaque trame jusqu'à deux lectures égales de
+           suite. C'est une attente bouclée et bornée, pas un pari : elle
+           rend la main quand le défilement s'arrête, et l'assertion qui
+           suit mesure justement cette position.
+        */
+        await defilementFini(page);
 
         const { haut, hauteur, fenetre, entiere } = await positionDeLaZone(zone);
         const tient = hauteur <= fenetre;
@@ -455,7 +538,8 @@ for (const exercice of EXERCICES) {
     const reprendre = page.locator('dialog[open] button', { hasText: 'Reprendre' }).first();
     await reprendre.waitFor({ state: 'visible', timeout: 15000 });
     await reprendre.click();
-    await page.waitForTimeout(400);
+    /* La boîte était ouverte : son départ est la post-condition du clic. */
+    await page.waitForSelector('dialog[open]', { state: 'hidden', timeout: 30000 }).catch(() => {});
     v('la boîte se referme', await page.locator('dialog[open]').count(), 0);
 
     await contexte.close();
@@ -691,8 +775,17 @@ for (const cas of [
       const avancer = page
         .getByRole('button', { name: /^Valider$|^Question suivante$|^Essai suivant$|^Voir le bilan$/ })
         .first();
-      if (await avancer.count()) await avancer.click();
-      await page.waitForTimeout(150);
+      /*
+         AVANCER CHANGE LA ZONE DE JEU : c'est la post-condition du geste, et
+         elle vaut pour les quatre libellés possibles sans qu'on ait à savoir
+         lequel a été pressé. La borne est courte parce que la boucle re-teste
+         à chaque tour : si le changement n'arrive pas, le tour suivant
+         constatera que rien n'a bougé et la boucle finira par sa borne, au
+         lieu de s'arrêter trente secondes sur un seul geste.
+      */
+      if (await avancer.count()) {
+        await apresAvoirAvance(page, () => avancer.click(), 'Découverte terminée');
+      }
     }
 
     const titre = page.locator('h2', { hasText: 'Découverte terminée' }).first();
@@ -784,8 +877,9 @@ for (const cas of [
       for (let i = 0; i < combien; i += 1) await listes.nth(i).selectOption({ index: 1 });
     }
     const valider = page.getByRole('button', { name: /^Valider$/ }).first();
-    if (await valider.count()) await valider.click();
-    await page.waitForTimeout(300);
+    if (await valider.count()) {
+      await apresAvoirAvance(page, () => valider.click(), 'Arrêter');
+    }
 
     /* Puis « Arrêter », et la confirmation dit ce qui est gardé. */
     const arreter = page.getByRole('button', { name: /^← Arrêter$/ }).first();
@@ -894,8 +988,9 @@ console.log('\nP7 (SUITE) — UNE SESSION MENÉE AU BOUT N’EN ENREGISTRE QU’
         for (let i = 0; i < combien; i += 1) await listes.nth(i).selectOption({ index: 1 });
       }
       const valider = page.getByRole('button', { name: /^Valider$/ }).first();
-      if (await valider.count()) await valider.click();
-      await page.waitForTimeout(120);
+      if (await valider.count()) {
+        await apresAvoirAvance(page, () => valider.click(), 'Voir le bilan');
+      }
 
       const bilan = page.getByRole('button', { name: /^Voir le bilan$/ }).first();
       if (await bilan.count()) {
@@ -905,8 +1000,9 @@ console.log('\nP7 (SUITE) — UNE SESSION MENÉE AU BOUT N’EN ENREGISTRE QU’
         break;
       }
       const suivante = page.getByRole('button', { name: /^Question suivante$/ }).first();
-      if (await suivante.count()) await suivante.click();
-      await page.waitForTimeout(120);
+      if (await suivante.count()) {
+        await apresAvoirAvance(page, () => suivante.click(), 'Voir le bilan|Bilan de la session');
+      }
     }
     vrai('la dernière question a été atteinte', vu);
 
@@ -914,6 +1010,17 @@ console.log('\nP7 (SUITE) — UNE SESSION MENÉE AU BOUT N’EN ENREGISTRE QU’
       .locator('h2', { hasText: 'Bilan de la session' })
       .first()
       .waitFor({ state: 'visible', timeout: 20000 });
+    /*
+       DEUX FAITS DE NATURES OPPOSÉES, et les 600 ms les confondaient.
+
+       Une session DOIT être enregistrée : on l'attend en base, c'est une
+       post-condition. Une SECONDE ne doit pas l'être, malgré le second clic :
+       aucune post-condition ne décrit cela, puisque rien n'arrive. C'est une
+       fenêtre d'observation, et elle vient APRÈS la première écriture — donc
+       elle couvre bien l'intervalle où la seconde pourrait tomber, ce que
+       600 ms à partir du bilan ne garantissaient pas.
+    */
+    await attendreEnBase(page, 'relationnel', (tout) => tout.length >= avant + 1, { delai: 30000 });
     await page.waitForTimeout(600);
 
     const apres = await compter();

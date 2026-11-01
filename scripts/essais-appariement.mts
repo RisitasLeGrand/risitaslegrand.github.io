@@ -116,14 +116,22 @@ verifier('1.5 « VIR » seul ne produirait aucun motif', fragmentsDe('VIR DU 05'
 
 verifier('2.1 un montant exact le dit',
   critereDeMontant(78000, -78000, 200).phrase === 'Montant exact.');
+/*
+   LES BLANCS SONT NORMALISÉS dans les trois assertions en euros, et c'est la
+   leçon d'« essais:accords » : la phrase passe maintenant par « euros() », qui
+   rend une espace INSÉCABLE avant le signe. « 1,50 € » et « 1,50 € » sont
+   identiques à l'œil et différents pour « includes ». On normalise tous les
+   blancs plutôt que d'en nommer un, et le littéral reste lisible.
+*/
+const blancsNormalises = (t: string) => t.replace(/\s/g, ' ');
 verifier('2.2 un écart dans la tolérance est accepté, et chiffré',
   critereDeMontant(78000, -78150, 200).dans &&
-    critereDeMontant(78000, -78150, 200).phrase.includes('1,50 €'));
+    blancsNormalises(critereDeMontant(78000, -78150, 200).phrase).includes('1,50 €'));
 {
   const c = critereDeMontant(9500, -11240, 200);
   verifier('2.3 un écart hors tolérance est refusé', !c.dans);
   egal('2.4 et l’écart est conservé au centime', c.ecart, 1740);
-  verifier('2.5 la phrase le dit en euros', c.phrase.includes('17,40 €'), c.phrase);
+  verifier('2.5 la phrase le dit en euros', blancsNormalises(c.phrase).includes('17,40 €'), c.phrase);
 }
 
 verifier('2.6 une date dans la fenêtre le dit', critereDeDate(occ(), '2026-10-04').dans);
@@ -175,7 +183,7 @@ verifier('2.6 une date dans la fenêtre le dit', critereDeDate(occ(), '2026-10-0
   );
   egal('3.4 une régularisation reconnue reste probable, quel que soit l’écart', p.niveau, 'probable');
   verifier('3.5 et la phrase dit l’écart en euros, pour qu’on puisse refuser',
-    p.montant.phrase.includes('355,00 €'), p.montant.phrase);
+    blancsNormalises(p.montant.phrase).includes('355,00 €'), p.montant.phrase);
 }
 
 {

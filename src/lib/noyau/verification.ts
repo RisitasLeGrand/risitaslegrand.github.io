@@ -29,6 +29,8 @@
  */
 
 /** Les quatre verdicts de B.6.4. */
+import { accorde, pluriel } from './accords';
+
 export type Verdict = 'confirme' | 'approche' | 'non-retrouve' | 'non-verifiable';
 
 /** Écart relatif en deçà duquel la valeur est **confirmée**. */
@@ -253,7 +255,8 @@ export function controlerTri(
 
   if (adoptees.length + dejaActives > TRAJECTOIRES_ACTIVES) {
     motifs.push(
-      `${adoptees.length} proposition(s) adoptée(s) et ${dejaActives} trajectoire(s) déjà active(s) : ` +
+      `${pluriel(adoptees.length, 'proposition')} ${accorde(adoptees.length, 'adoptée')} et ` +
+        `${pluriel(dejaActives, 'trajectoire')} déjà ${accorde(dejaActives, 'active')} : ` +
         `le plafond est de ${TRAJECTOIRES_ACTIVES}.`,
     );
   }

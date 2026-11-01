@@ -160,8 +160,18 @@ console.log('\nRÉPONDRE, REPORTER, ET REVENIR AU MÊME ENDROIT');
      décision, passer outre n'en est pas une.
   */
   await page.click('#valider');
+  /*
+     LA BORNE AU TROISIÈME RANG, ET NON AU SECOND. Relevée par
+     « essais:bornes », qui vient d'entrer au socle : la signature est
+     `waitForFunction(fonction, valeur, options)`. Écrite au second rang,
+     « { timeout: 15000 } » partait comme VALEUR passée à la fonction — qui ne
+     la lit pas — et l'attente retombait sur les trente secondes par défaut.
+     La faute est invisible à la relecture, et une borne qu'on croit avoir
+     fixée est pire qu'une borne absente : absente, elle se voit.
+  */
   await page.waitForFunction(
     () => document.getElementById('question')?.textContent?.includes('année de naissance'),
+    null,
     { timeout: 15000 },
   );
   faux('un prénom vide n’est plus refusé', await page.locator('#erreur').isVisible());
@@ -179,6 +189,7 @@ await page.fill('#saisie-prenom', 'Alexis');
 await page.click('#valider');
 await page.waitForFunction(
   () => document.getElementById('question')?.textContent?.includes('année de naissance'),
+  undefined,
   { timeout: 15000 },
 );
 /*
@@ -206,6 +217,7 @@ vrai('et « Plus tard » apparaît', await page.locator('#plus-tard').isVisible(
 await page.click('#plus-tard');
 await page.waitForFunction(
   () => document.getElementById('question')?.textContent?.includes('heure de Paris'),
+  undefined,
   { timeout: 15000 },
 );
 v(
@@ -249,6 +261,7 @@ faux('« Continuer » s’efface devant un choix unique', await page.locator('#v
 await page.click('[data-valeur="Europe/Paris"]');
 await page.waitForFunction(
   () => document.getElementById('question')?.textContent?.includes('vous levez-vous'),
+  undefined,
   { timeout: 15000 },
 );
 v('un bouton de choix vaut validation', await question(), 'À quelle heure vous levez-vous, d’habitude ?');
@@ -257,6 +270,7 @@ v('un bouton de choix vaut validation', await question(), 'À quelle heure vous 
 await page.click('#plus-tard');
 await page.waitForFunction(
   () => document.getElementById('question')?.textContent?.includes('votre revue'),
+  undefined,
   { timeout: 15000 },
 );
 /* La question a changé de phrase avec la décision 4 du 56 : elle dit
@@ -281,6 +295,7 @@ await aller('/', '[data-branche="revisions"]');
 v('le menu s’affiche', new URL(page.url()).pathname, '/');
 await page.waitForFunction(
   () => document.getElementById('salutation')?.textContent?.includes('Alexis'),
+  undefined,
   { timeout: 15000 },
 );
 v('et il salue par le prénom donné', await page.locator('#salutation').textContent(), 'Bonjour Alexis.');

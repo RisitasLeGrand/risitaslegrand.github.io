@@ -187,6 +187,7 @@ if (await boutonFeminin.isVisible().catch(() => false)) {
   await page
     .waitForFunction(
       () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === false,
+      undefined,
       { timeout: 20000 },
     )
     .catch(() => {});

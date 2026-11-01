@@ -51,6 +51,7 @@ import {
   deposer,
   elementsDuCentre,
   oublier,
+  type ContexteDeDepot,
   type Depot,
 } from './donnees';
 import { idDeLElement, type ElementDuCentre, type GenreDElement } from './modele';
@@ -68,6 +69,86 @@ export interface Recensement {
   retires: number;
   /** Pourquoi rien n'a été fait, le cas échéant. */
   silence: 'coffre-ferme' | null;
+  /**
+   * CE QUI A ÉTÉ ÉCARTÉ, ET POURQUOI — et c'est la correction du 26 octobre.
+   *
+   * `deposer` rend `{ quoi: 'ecarte', pourquoi }` quand un élément est refusé :
+   * un identifiant mal formé, ou le filtre du cycle. Ce verdict n'était LU PAR
+   * PERSONNE — `synchroniser` ne comptait que les dépôts, et les appelants
+   * jettent le recensement.
+   *
+   * Conséquence mesurée : le rappel de prise de la santé n'entrait jamais au
+   * centre, et rien ne le disait. Il a fallu lire trois modules pour trouver
+   * que le filtre l'écarte faute de classe de molécule — ce qui est une
+   * décision, pas une panne, mais une décision qu'aucun journal n'annonçait.
+   *
+   * Un écart est donc rendu, nommé, et l'appelant peut le dire. Vide quand
+   * tout est passé.
+   */
+  ecartes: readonly { refSource: string; pourquoi: string }[];
+}
+
+/**
+ * LANCE UN RECENSEMENT SANS FAIRE TOMBER L'ÉCRAN, MAIS SANS RIEN AVALER.
+ *
+ * ## Le défaut que cette fonction corrige
+ *
+ * Les cinq appelants du recensement écrivaient tous la même chose :
+ *
+ *     void (async () => { await recenserLesOublis(refs); })().catch(() => {
+ *       // Le centre est hors d'atteinte : l'écran a déjà tout montré.
+ *     });
+ *
+ * La première moitié est juste — un signal qui ne part pas coûte un signal, un
+ * écran qui plante pour cela coûte la page entière. La seconde est le défaut :
+ * **toutes les pannes et tous les refus disparaissaient sans trace.**
+ *
+ * Conséquence mesurée le 26 octobre : le rappel de prise de la santé n'entrait
+ * jamais au centre, et il a fallu lire trois modules pour trouver que le
+ * filtre du cycle l'écarte faute de classe de molécule — ce qui est une
+ * DÉCISION, pas une panne, mais une décision qu'aucun journal n'annonçait. Un
+ * essai de navigateur restait rouge sans que rien n'explique pourquoi.
+ *
+ * ## Ce qu'elle dit, et à qui
+ *
+ * Trois cas, trois traitements, et la distinction est le cœur de l'affaire :
+ *
+ * - **une panne** — la base refuse, le coffre se referme en route — est
+ *   consignée avec son message. C'est le modèle d'`agir.ts`, à ceci près que
+ *   personne n'a demandé ce recensement : il n'y a donc pas de zone d'écran où
+ *   le dire, et l'écrire à la console est la seule façon de ne pas le perdre ;
+ * - **un écart** — le filtre du cycle, un identifiant mal formé — est consigné
+ *   avec sa raison, qui vient de `deposer`. Ce n'est pas une panne : c'est une
+ *   règle qui s'applique, et la dire à la personne serait du bruit sur un
+ *   signal qu'elle n'a pas demandé ;
+ * - **le silence du coffre fermé** est consigné aussi, en une ligne : il
+ *   explique à lui seul la moitié des « pourquoi rien n'est arrivé ».
+ *
+ * L'écran, lui, ne bouge dans aucun des trois cas. C'est tout l'intérêt.
+ *
+ * @param quoi ce qu'on recensait, en français, pour que la ligne se lise
+ * @param recenser l'appel à faire
+ * @returns le recensement, ou `null` si l'appel a levé
+ */
+export async function recenserEtConsigner(
+  quoi: string,
+  recenser: () => Promise<Recensement>,
+): Promise<Recensement | null> {
+  let bilan: Recensement;
+  try {
+    bilan = await recenser();
+  } catch (erreur) {
+    console.warn(`Centre : ${quoi} n’a pas pu être recensé.`, erreur);
+    return null;
+  }
+  if (bilan.silence === 'coffre-ferme') {
+    console.warn(`Centre : ${quoi} n’a pas été recensé — le coffre est fermé.`);
+    return bilan;
+  }
+  for (const ecart of bilan.ecartes) {
+    console.warn(`Centre : « ${ecart.refSource} » écarté de ${quoi} — ${ecart.pourquoi}`);
+  }
+  return bilan;
 }
 
 /**
@@ -84,6 +165,36 @@ export interface Intention {
   refSource: string;
   genre: GenreDElement;
   regroupement: string | null;
+  /**
+   * LA CLASSE DE LA MOLÉCULE, QUAND LE SIGNAL EN VISE UNE — ET ELLE NE SERA
+   * PAS ÉCRITE.
+   *
+   * ## Le chaînon qui manquait
+   *
+   * `donnees.ts` sait déjà recevoir une classe (`ContexteDeDepot`) et
+   * `deposer` la passe déjà au filtre. Mais `synchroniser` appelait
+   * `deposer(element)` sans contexte, et `Intention` n'avait rien à lui
+   * donner : le filtre voyait donc toujours une classe inconnue. Or
+   * `rappel-de-prise` est déclaré `exigeUneClasse`, et l'ignorance exclut.
+   * Résultat : aucun rappel de prise n'entrait au centre, et aucune panne
+   * nulle part — une règle s'appliquait, correctement, sur une donnée que
+   * personne ne lui transmettait.
+   *
+   * ## Pourquoi elle reste hors du magasin
+   *
+   * La classe d'une molécule est du CONTENU, et des plus sensibles :
+   * `ContexteDeDepot` est documenté « jamais stocké », et le § 2.3 veut un
+   * élément sans contenu. Elle voyage donc en mémoire, du producteur au
+   * filtre, et s'arrête là. L'élément construit plus bas ne la reprend pas,
+   * et ce n'est pas une discipline de relecture : `essais:centre:navigateur`
+   * vérifie qu'un élément déposé ne porte aucune classe, avec un sabotage
+   * qui mord si quelqu'un l'y remet un jour.
+   *
+   * Absente ou `null`, rien ne change pour les sources qui n'en ont pas :
+   * elles n'en avaient pas avant, et le filtre ne l'exige que là où il est
+   * déclaré.
+   */
+  classeMolecule?: string | null;
 }
 
 /**
@@ -105,7 +216,9 @@ export async function synchroniser(
   source: string,
   attendues: readonly Intention[],
 ): Promise<Recensement> {
-  if (!centreLisible()) return { deposes: 0, retires: 0, silence: 'coffre-ferme' };
+  if (!centreLisible()) {
+    return { deposes: 0, retires: 0, silence: 'coffre-ferme', ecartes: [] };
+  }
 
   const jour = jourLogique();
   /*
@@ -116,8 +229,25 @@ export async function synchroniser(
   const presents = new Map((await elementsDuCentre()).map((e) => [e.id, e]));
 
   const attendus = new Map<string, ElementDuCentre>();
+  /*
+     LE CONTEXTE VOYAGE À PART, ET C'EST DÉLIBÉRÉ À DEUX TITRES.
+
+     D'abord parce qu'il ne doit pas entrer dans l'élément : le ranger dans
+     une carte séparée rend l'oubli impossible plutôt qu'improbable — il n'y
+     a aucun chemin par lequel la classe atteigne `attendus`.
+
+     Ensuite parce que A travaille en ce moment sur cette même boucle, pour y
+     relever les verdicts d'écart de `deposer`. Nos deux changements se
+     composent — le sien relève le verdict, le mien fait que le verdict
+     change — et séparer le contexte me permet de ne toucher qu'une ligne de
+     la sienne au lieu d'en refondre la structure.
+  */
+  const contextes = new Map<string, ContexteDeDepot>();
   for (const intention of attendues) {
     const id = await idDeLElement(source, intention.refSource);
+    if (intention.classeMolecule != null) {
+      contextes.set(id, { classeMolecule: intention.classeMolecule });
+    }
     const dejaLa = presents.get(id);
     attendus.set(id, {
       id,
@@ -137,9 +267,18 @@ export async function synchroniser(
   }
 
   let deposes = 0;
+  const ecartes: { refSource: string; pourquoi: string }[] = [];
   for (const element of attendus.values()) {
-    const resultat: Depot = await deposer(element);
+    const resultat: Depot = await deposer(element, contextes.get(element.id) ?? {});
     if (resultat.quoi === 'depose') deposes += 1;
+    /*
+       L'ÉCART EST RELEVÉ, et non jeté. C'est ici que le verdict de `deposer`
+       se perdait : la boucle ne regardait que les dépôts, et un élément refusé
+       sortait du recensement sans laisser de trace.
+    */
+    if (resultat.quoi === 'ecarte') {
+      ecartes.push({ refSource: element.refSource, pourquoi: resultat.pourquoi });
+    }
   }
 
   let retires = 0;
@@ -150,7 +289,7 @@ export async function synchroniser(
     retires += 1;
   }
 
-  return { deposes, retires, silence: null };
+  return { deposes, retires, silence: null, ecartes };
 }
 
 /**
@@ -557,11 +696,51 @@ export const SOURCE_RAPPEL_DE_PRISE = 'rappel-de-prise';
  * un élément **neuf**. Recenser à chaque chargement de l'écran ne réémet
  * donc rien.
  */
-export const recenserLesOublis = (refs: readonly string[]): Promise<Recensement> =>
-  synchroniser(
-    SOURCE_RAPPEL_DE_PRISE,
-    refs.map((refSource) => ({ refSource, genre: 'a-savoir' as const, regroupement: null })),
-  );
+export interface OubliARappeler {
+  /** La référence toute faite, telle que `odyssee/rappels.ts` la calcule. */
+  refSource: string;
+  /**
+   * La classe de la molécule, quand elle est connue.
+   *
+   * Une CHAÎNE, et non un type de Santé : le centre ne doit pas savoir ce
+   * qu'est une molécule, et le commentaire ci-dessus le dit depuis le début.
+   * Une classe est un mot que le filtre compare à sa liste ; il ne l'ouvre
+   * pas davantage qu'il n'ouvre une référence.
+   */
+  classeMolecule?: string | null;
+}
+
+/**
+ * LE PRODUCTEUR PUR DES OUBLIS — ce qu'une intention porte, et ce qu'elle ne
+ * porte pas.
+ *
+ * Séparé de `recenserLesOublis` pour la raison que ce module donne partout
+ * ailleurs : un producteur pur se contrôle sans base, sans coffre et sans
+ * horloge. Avant ce lot il n'y en avait pas pour les oublis, et le seul essai
+ * qui en parlait vérifiait que `recenserLesOublis` était « une fonction » —
+ * ce qui est vrai de n'importe quoi et ne prouve rien.
+ *
+ * Accepte une chaîne nue autant qu'un objet. Ce n'est pas de la complaisance :
+ * `sante.astro` appelle aujourd'hui avec des chaînes, cet écran ne m'appartient
+ * pas dans ce lot, et casser son appel pour une classe qu'il ne sait pas encore
+ * fournir ferait tomber un écran de santé en échange de rien.
+ */
+export const intentionsDOubli = (
+  refs: readonly (string | OubliARappeler)[],
+): Intention[] =>
+  refs.map((brut) => {
+    const oubli: OubliARappeler = typeof brut === 'string' ? { refSource: brut } : brut;
+    return {
+      refSource: oubli.refSource,
+      genre: 'a-savoir' as const,
+      regroupement: null,
+      classeMolecule: oubli.classeMolecule ?? null,
+    };
+  });
+
+export const recenserLesOublis = (
+  refs: readonly (string | OubliARappeler)[],
+): Promise<Recensement> => synchroniser(SOURCE_RAPPEL_DE_PRISE, intentionsDOubli(refs));
 
 /**
  * La source du § 2.2 qu'on ne peut pas brancher, et pourquoi.
@@ -570,11 +749,24 @@ export const recenserLesOublis = (refs: readonly string[]): Promise<Recensement>
  * laisserait simplement de côté ferait croire à un oubli — ou, pire,
  * laisserait quelqu'un la brancher sans retrouver ce qui l'en empêche.
  *
- * `rappel-de-prise` y figurait et n'y est plus : sa condition de levée est
- * remplie (voir `recenserLesOublis` ci-dessus). Elle était « différée » et
- * non « impossible », et la distinction, qui avait l'air d'une nuance le
- * 16 octobre, est exactement ce qui permet de la brancher aujourd'hui sans
- * contredire personne.
+ * `rappel-de-prise` EST BRANCHÉE, mais rien n'en sort encore, et il faut le
+ * dire ici plutôt que de laisser deux modules se contredire.
+ *
+ * Ce commentaire affirmait que « sa condition de levée est remplie ». C'est
+ * faux, et mesuré le 31 octobre : `filtre-cycle.ts` déclare cette source avec
+ * `exigeUneClasse`, donc le filtre l'écarte tant qu'aucune molécule n'a de
+ * classe connue — « option (a), 19 octobre ». `recenserLesOublis` recense bien
+ * les créneaux oubliés, `deposer` rend « écarté », et le centre reste vide.
+ *
+ * Ce n'est pas une panne : c'est la décision du 19 octobre qui s'applique, et
+ * elle protège — une molécule sans classe déclarée pourrait toucher au cycle,
+ * et l'interdit 1 n° 3 le refuse. La branche est en place pour le jour où les
+ * classes existeront ; d'ici là, la ligne du filtre est l'autorité, et
+ * `recenserEtConsigner` écrit la raison de chaque écart plutôt que de la taire.
+ *
+ * `essais:sante:navigateur` attend aujourd'hui un dépôt, et il est donc rouge
+ * sur ce point. Le lever ou corriger l'essai est un arbitrage, pas une
+ * correction : il appartient au Pilote, à qui le constat a été remonté.
  *
  * - **`pointage-a-reporter`** existe exactement quand le coffre est
  *   **fermé** — c'est sa définition. Or le centre n'écrit rien coffre

@@ -290,6 +290,10 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
   import { iconeDuGabarit } from '../../lib/icone-gabarit';
   import { jourISO } from '../../lib/db';
   import { messageDUneErreur } from '../../lib/agir';
+  /* Depuis le noyau et non depuis « lib/ui » : cette page n'importe pas « ui »,
+     qui pose la zone des bulles à l'import. On ne tire pas un effet de bord
+     pour deux fonctions pures. */
+  import { accorde, nombreFr, pluriel } from '../../lib/noyau/accords';
   import { auDeverrouillage } from '../../lib/chargement';
   import { centimesDe, euros, type OperationBancaire } from '../../lib/odyssee/finances';
   import { reconcilier } from '../../lib/odyssee/finances';
@@ -521,11 +525,12 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       retenus = (await etatDesRapprochements()).retenus;
     }
 
-    $('titre-file').textContent =
-      `À rapprocher — ${file.probables.length + file.aClasser.length} opération(s)`;
+    const aVoir = file.probables.length + file.aClasser.length;
+    $('titre-file').textContent = `À rapprocher — ${pluriel(aVoir, 'opération')}`;
     $('compte-file').textContent =
-      `${file.certaines.length} certaine(s) (déjà appliquée(s)) · ` +
-      `${file.probables.length} probable(s) · ${file.aClasser.length} à classer`;
+      `${pluriel(file.certaines.length, 'certaine')} ` +
+      `(déjà ${accorde(file.certaines.length, 'appliquée')}) · ` +
+      `${pluriel(file.probables.length, 'probable')} · ${file.aClasser.length} à classer`;
 
     const rien = !file.certaines.length && !file.probables.length && !file.aClasser.length;
     $('file-vide').classList.toggle('hidden', !rien);
@@ -573,7 +578,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     $('annuler-certaines').classList.toggle('hidden', deCePassage.length === 0);
     if (combien) {
       $('pied-certaines').textContent =
-        `${combien} certaine(s) appliquée(s) automatiquement : même compte, montant dans la ` +
+        `${pluriel(combien, 'certaine')} ${accorde(combien, 'appliquée')} ` +
+        'automatiquement : même compte, montant dans la ' +
         'tolérance, date dans la fenêtre, et un libellé déjà vu sur la ligne.' +
         (deCePassage.length ? ` Dont ${deCePassage.length} à l’instant.` : '');
       const parOperation = new Map(operations.map((o) => [o.id, o]));
@@ -870,6 +876,15 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       montant.dataset.montantPartOccurrence = String(index);
       montant.className =
         'min-h-11 w-28 rounded-lg border border-slate-400 bg-white px-2 text-right text-sm tabular-nums dark:border-slate-600 dark:bg-slate-950';
+      /*
+         nombre non affiché : VALEUR D'UN CHAMP, relue par « centimesDe ».
+         « nombreFr » y mettrait une espace des milliers, que la lecture
+         n'attend pas.
+
+         (Le contraste de la bordure vient de main, où il a été relevé de
+         slate-300/700 à slate-400/600 ; la marque d'exemption vient du lot 9.
+         Les deux portent sur la même ligne et ne se contredisent pas.)
+      */
       montant.value = (part.centimes / 100).toFixed(2).replace('.', ',');
       montant.addEventListener('change', () => {
         const lu = centimesDe(montant.value);
@@ -1080,7 +1095,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       verdict.className = 'mt-3 text-sm text-emerald-800 dark:text-emerald-200';
       verdict.textContent =
         `Le compte boucle au centime : ${euros(r.calcule)} de part et d’autre, sur ` +
-        `${operations.length} opération(s).`;
+        `${pluriel(operations.length, 'opération')}.`;
       return;
     }
     verdict.className = 'mt-3 text-sm text-rose-800 dark:text-rose-200';
@@ -1150,7 +1165,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       const droite = document.createElement('span');
       droite.className = 'tabular-nums text-slate-600 dark:text-slate-300';
       const relatif =
-        e.ecartRelatif === null ? '—' : `${(e.ecartRelatif * 100).toFixed(1).replace('.', ',')} %`;
+        e.ecartRelatif === null ? '—' : `${nombreFr(e.ecartRelatif * 100, 1)} %`;
       droite.textContent =
         `prévu ${euros(e.prevu)} · réel ${euros(e.reel)} · écart ${euros(e.ecart)} (${relatif})` +
         (alerte ? ' — hors tolérance' : '');
@@ -1478,7 +1493,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     const titre = document.createElement('p');
     titre.className = 'font-medium text-slate-900 dark:text-white';
     titre.textContent =
-      `${g.net} — ${g.operationIds.length} opération(s) · ${euros(-g.cumule)} au total`;
+      `${g.net} — ${pluriel(g.operationIds.length, 'opération')} · ${euros(-g.cumule)} au total`;
 
     const variantes = document.createElement('p');
     variantes.className = 'mt-1 truncate text-xs text-slate-500 dark:text-slate-400';
@@ -1740,7 +1755,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       await creerDepuisLeBrouillon(g, b, false);
     });
     const creerEtAppliquer = bouton(
-      `Créer et appliquer à ${apercu.touchees.length} opération(s) passée(s)`,
+      `Créer et appliquer à ${pluriel(apercu.touchees.length, 'opération')} ` +
+        `${accorde(apercu.touchees.length, 'passée')}`,
       'creer-et-appliquer',
       async () => {
         await creerDepuisLeBrouillon(g, b, true);
@@ -1772,8 +1788,11 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     if (auPasse) {
       const { ecrits, protegees } = await appliquerLaRegleAuPasse(r, await toutesLesOperations());
       dire(
-        `${ecrits} opération(s) reclassée(s)` +
-          (protegees ? `, et ${protegees} que vous aviez pointée(s) vous-même n’ont pas bougé.` : '.'),
+        `${pluriel(ecrits, 'opération')} ${accorde(ecrits, 'reclassée')}` +
+          (protegees
+            ? `, et ${protegees} que vous aviez ${accorde(protegees, 'pointée')} vous-même ` +
+              `${accorde(protegees, 'n’a', 'n’ont')} pas bougé.`
+            : '.'),
       );
       $('erreur').className =
         'rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200';
@@ -1842,6 +1861,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       .filter((o) => {
         if (o.libelle.toLowerCase().includes(net)) return true;
         if (!chiffres) return false;
+        /* nombre non affiché : CLÉ de recherche, comparée par « startsWith ». */
         const montant = Math.abs(o.centimes / 100).toFixed(2);
         return montant.startsWith(chiffres) || montant === chiffres;
       })
@@ -1860,7 +1880,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     combien.textContent = !rechercheDOperation.trim()
       ? 'Tapez de quoi reconnaître l’opération : une opération se fractionne une par une.'
       : trouvees.length
-        ? `${trouvees.length} opération(s) trouvée(s)${trouvees.length === OPERATIONS_MONTREES ? ', les plus récentes' : ''}.`
+        ? `${pluriel(trouvees.length, 'opération')} ${accorde(trouvees.length, 'trouvée')}` +
+          `${trouvees.length === OPERATIONS_MONTREES ? ', les plus récentes' : ''}.`
         : 'Aucune opération ne correspond.';
 
     const liste = $('fractionnables');
@@ -1971,6 +1992,15 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       montant.dataset.montantDeLaPart = String(index);
       montant.className =
         'min-h-11 w-28 rounded-lg border border-slate-400 bg-white px-2 text-right text-sm tabular-nums dark:border-slate-600 dark:bg-slate-950';
+      /*
+         nombre non affiché : VALEUR D'UN CHAMP, relue par « centimesDe ».
+         « nombreFr » y mettrait une espace des milliers, que la lecture
+         n'attend pas.
+
+         (Le contraste de la bordure vient de main, où il a été relevé de
+         slate-300/700 à slate-400/600 ; la marque d'exemption vient du lot 9.
+         Les deux portent sur la même ligne et ne se contredisent pas.)
+      */
       montant.value = (part.centimes / 100).toFixed(2).replace('.', ',');
       /*
          Sur « change » et non sur « input » : relire à chaque frappe
@@ -1991,7 +2021,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       const pourcentage = document.createElement('span');
       pourcentage.dataset.pourcentage = String(index);
       pourcentage.className = 'w-14 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400';
-      pourcentage.textContent = part100 === null ? '—' : `${part100.toFixed(0)} %`;
+      pourcentage.textContent = part100 === null ? '—' : `${nombreFr(part100)} %`;
 
       ligne.append(choix, montant, pourcentage);
       ligne.appendChild(bouton('Le reste ici', 'poser-le-reste', async () => {
@@ -2110,7 +2140,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       droite.className = 'tabular-nums text-slate-600 dark:text-slate-300';
       const relatif = l.ecartRelatif === null
         ? '—'
-        : `${(l.ecartRelatif * 100).toFixed(1).replace('.', ',')} %`;
+        : `${nombreFr(l.ecartRelatif * 100, 1)} %`;
       /*
          LE MOT, ET PAS SEULEMENT LE SYMBOLE.
 
@@ -2165,7 +2195,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     zone.classList.remove('hidden');
     zone.dataset.combien = String(combien);
     zone.textContent = combien
-      ? `${combien} échéance(s) exportée(s), du ${options.depuis} au ${options.jusqua}.`
+      ? `${pluriel(combien, 'échéance')} ${accorde(combien, 'exportée')}, ` +
+        `du ${options.depuis} au ${options.jusqua}.`
       : 'Aucune échéance sur les douze prochains mois : il n’y a pas encore de ligne de budget.';
   }
 

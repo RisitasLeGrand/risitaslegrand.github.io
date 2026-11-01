@@ -43,7 +43,19 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
 ---
 
 <Base titre="Paramètres">
-  <div class="mx-auto max-w-3xl">
+  <!--
+    `data-monte` est un COMPTEUR, posé par le script une fois toutes les
+    commandes construites. Il sert aux essais, et il n'a pas d'équivalent dans
+    l'écran : les blocs sont rendus par le serveur, leurs commandes par le
+    script, et rien ne distinguait « la page est là » de « la page est prête ».
+
+    Un compteur et non un drapeau, pour la raison du § 3 de
+    « docs/cyclades/cadence-des-essais.md » : le montage se refait à chaque
+    ouverture ou fermeture du coffre, et attendre un drapeau déjà posé
+    n'attendrait rien. Un essai relève la valeur avant son geste et attend
+    qu'elle change.
+  -->
+  <div id="tous-les-reglages" class="mx-auto max-w-3xl">
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Paramètres</h1>
     <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
       Tous les réglages de Cyclades, avec ce qu’ils font et jusqu’où ils vont. Les changements
@@ -86,7 +98,7 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
     <!-- ── Les sections ──────────────────────────────────────────────── -->
     {
       SECTIONS.map((section) => (
-        <section id={section.id} class="mt-10 scroll-mt-24" data-section>
+        <section id={section.id} class="mt-10" data-section>
           <h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
             <Icone nom={section.icone} taille={20} />
             <span>{section.titre}</span>
@@ -115,7 +127,7 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
                 data-sert={r.aQuoiCaSert}
                 data-nature={r.nature.genre}
                 data-sous-coffre={r.sousCoffre ? 'oui' : 'non'}
-                class="scroll-mt-24 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
               >
                 <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                   <div class="min-w-0 flex-1">
@@ -198,7 +210,7 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
   import { coffreOuvert, surCoffre } from '../lib/coffre';
   import { ACCES } from '../lib/parametres/acces';
   import { REGLAGES } from '../lib/parametres/catalogue';
-  import { lien } from '../lib/ui';
+  import { accorde, lien, nombreFr, pluriel } from '../lib/ui';
 
   const par = new Map(REGLAGES.map((r) => [r.id, r]));
 
@@ -361,8 +373,16 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
     }
   }
 
+  let montages = 0;
+
   async function monterTout() {
     for (const r of REGLAGES) if (ACCES[r.id]) await monter(r.id);
+    /* Posé en DERNIER, et jamais avant : c'est ce qui en fait une
+       post-condition. Un réglage illisible ne bloque pas le compteur —
+       `monter` attrape sa propre erreur, la dit dans le bloc concerné, et
+       rend la main. */
+    montages += 1;
+    document.getElementById('tous-les-reglages')?.setAttribute('data-monte', String(montages));
   }
 
   /* ── La recherche ─────────────────────────────────────────────────────── */
@@ -393,8 +413,32 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
       );
       section.hidden = !reste;
     }
+    /*
+       FORMAT G : pas de « (s) ». Le compte s'accorde, et il passe par
+       « Intl » plutôt que par une concaténation — c'est la règle du socle, et
+       elle s'applique aussi au texte qu'un script écrit.
+
+       `essais:typographie` ne pouvait pas le voir : il lit le site CONSTRUIT,
+       et cette phrase n'existe qu'une fois le script passé. C'est le même
+       angle mort que celui des commentaires de « global.css ».
+    */
+    const compte = new Intl.NumberFormat('fr-FR').format(vus);
     resultat.textContent =
-      q === '' ? '' : vus === 0 ? 'Aucun réglage ne correspond.' : `${vus} réglage(s) trouvé(s).`;
+      q === ''
+        ? ''
+        : vus === 0
+          ? 'Aucun réglage ne correspond.'
+          : /*
+               NI L'UNE NI L'AUTRE DES DEUX VERSIONS — arbitrage du Pilote du
+               31 octobre. A écrivait un ternaire à deux phrases, B
+               « pluriel(vus, 'réglage') », et les deux rendaient le nombre
+               BRUT. « nombreFr » le met en forme — une espace des milliers —
+               et « accorde » porte alors l'accord du nom comme du participe.
+               C'est l'usage que l'en-tête de « accorde » décrit lui-même :
+               « un nombre mis en forme ne peut pas passer par pluriel, mais
+               son nom doit s'accorder quand même ».
+            */
+            `${nombreFr(vus)} ${accorde(vus, 'réglage')} ${accorde(vus, 'trouvé')}.`;
   });
 
   /* ── La version de publication (43, B4) ───────────────────────────────── */

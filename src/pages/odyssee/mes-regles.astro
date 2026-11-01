@@ -101,6 +101,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
   import { auDeverrouillage } from '../../lib/chargement';
   import { iconeDuGabarit } from '../../lib/icone-gabarit';
   import { messageDUneErreur } from '../../lib/agir';
+  import { accorde, pluriel } from '../../lib/noyau/accords';
   import { typeDe } from '../../lib/odyssee/taxonomie';
   import { jugerLaRegle } from '../../lib/odyssee/pointage';
   import { detecterLesContradictions } from '../../lib/odyssee/regles-pointage';
@@ -214,7 +215,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       gestes.append(
         bouton('Défaire ses pointages', 'defaire', async () => {
           const combien = await annulerLaRegle(r.motif);
-          dire(`${combien} pointage(s) défait(s).`);
+          dire(`${pluriel(combien, 'pointage')} ${accorde(combien, 'défait')}.`);
           $('erreur').className =
             'rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200';
           await peindre();
@@ -239,7 +240,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       const g = document.createElement('span');
       g.textContent =
         `${v.nom} — ${typeDe(v.typeId)?.libelle ?? v.typeId} · vu ${v.vu} fois · ` +
-        `${v.alias.length} libellé(s) connu(s)`;
+        `${pluriel(v.alias.length, 'libellé')} ${accorde(v.alias.length, 'connu')}`;
       const d = document.createElement('span');
       d.className = 'flex gap-2';
       d.append(
@@ -259,7 +260,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     /* ── Le dictionnaire ─────────────────────────────────────────────── */
     $('a-propos-dictionnaire').textContent =
       `${DICTIONNAIRE.length} entrées, version du ${VERSION_DU_DICTIONNAIRE}. ` +
-      `${masques.length} entrée(s) masquée(s) par vous.`;
+      `${pluriel(masques.length, 'entrée')} ${accorde(masques.length, 'masquée')} par vous.`;
     const zoneM = $('masques');
     zoneM.innerHTML = '';
     for (const m of masques) {

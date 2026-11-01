@@ -1168,8 +1168,110 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
    * après.
    */
   let registre: EntreeRegistre[] = [];
+  /**
+   * L'ENTRÉE DU REGISTRE CHOISIE DANS LE MENU, ou rien.
+   *
+   * ## Ce qui manquait, et ce que cela coûtait
+   *
+   * Choisir une molécule dans le menu ne remplissait que le champ du NOM :
+   * l'identifiant de l'entrée était jeté. `Traitement.moleculeId` existait
+   * donc depuis le début sans que rien ne l'écrive jamais — mesuré le
+   * 31 octobre, `ecrireTraitement` n'était appelé avec `moleculeId` nulle
+   * part. Le champ était un lien mort.
+   *
+   * Sa conséquence se voyait trois modules plus loin : la classe de la
+   * molécule se lit du registre PAR cet identifiant, et le filtre du cycle
+   * écarte du centre tout rappel dont la classe est inconnue. Sans
+   * identifiant, aucune classe ; sans classe, aucun rappel de prise au centre,
+   * jamais, même avec un registre entièrement classé.
+   *
+   * ## Pourquoi il s'efface dès que le nom est retouché
+   *
+   * Parce qu'une erreur ici est pire qu'une absence. Choisir « Testostérone »
+   * puis corriger le nom à la main laisserait l'identifiant de la première
+   * molécule attaché au traitement — donc la CLASSE de la première. Le filtre
+   * du cycle prendrait alors sa décision sur une molécule qui n'est pas celle
+   * que la personne a écrite, et dans le sens qui révèle : un rappel admis au
+   * centre parce qu'une autre molécule était hors cycle.
+   *
+   * Un lien mort n'affiche rien de faux. Un lien faux, sur des données de
+   * santé, affiche quelque chose de faux.
+   *
+   * ## ET LA LISTE SE PASSE EN ARGUMENT, pour une raison qui mérite d'être lue
+   *
+   * Ma première version fermait sur un `traitements` ambiant. Elle a levé
+   * « traitements.find is not a function » — et le typage n'avait rien dit.
+   *
+   * La cause : la page porte un `<ul id="traitements">`, et un élément
+   * identifié devient une propriété globale de `window`. Le nom `traitements`
+   * au niveau du module ne désigne donc pas une liste de traitements mais
+   * CETTE LISTE HTML, et la bibliothèque du DOM la type assez souplement pour
+   * que `tsc` l'accepte. La vraie liste, elle, est locale à `peindre`.
+   *
+   * Un identifiant d'élément peut ainsi masquer n'importe quel nom au niveau
+   * du module. La parade n'est pas de se méfier, c'est de ne pas fermer sur un
+   * nom ambiant : la liste arrive en argument, et le nom local en diffère.
+   *
+   * La panne a été nommée en une ligne par la trace posée le matin même —
+   * « Centre : les oublis de prise n'a pas pu être recensé. TypeError … ».
+   * Avant ce lot, le `catch` était vide : l'écran n'aurait rien dit, et le
+   * centre serait resté vide pour une raison introuvable.
+   */
+  let moleculeChoisie: string | null = null;
+  /** A-t-on tenté de charger le registre, quelle qu'ait été l'issue ? */
+  let registreTente = false;
+  /** Déjà dit une fois, pour ne pas inonder la console à chaque peinture. */
+  let classeIndisponibleDite = false;
+
+  /**
+   * LA CLASSE PHARMACOLOGIQUE D'UN TRAITEMENT, lue du registre.
+   *
+   * Le chemin est : identifiant du traitement → `moleculeId` → entrée du
+   * registre → `classe`. Trois maillons, et chacun peut manquer légitimement :
+   * un traitement saisi librement n'a pas de `moleculeId`, et une entrée du
+   * registre n'a pas de classe tant que la phase C ne l'a pas renseignée.
+   *
+   * **`null` se lit « non classée », et le filtre ÉCARTE alors le rappel.**
+   * C'est le sens voulu : refuser en attendant de savoir.
+   *
+   * ## Le cas qu'il ne faut pas confondre avec les autres
+   *
+   * Si le registre n'est pas encore chargé, cette fonction rendrait `null`
+   * pour une molécule qui porte peut-être une classe — et le rappel serait
+   * écarté pour une raison d'ordonnancement, non de prudence. L'issue est la
+   * même, donc elle est sûre ; mais elle ne serait pas la bonne, et elle
+   * serait muette. On le dit une fois, parce qu'un écart silencieux dont
+   * l'issue est bonne est exactement ce qui s'est caché ici du 19 au
+   * 31 octobre.
+   */
+  function classeDuTraitement(
+    lesTraitements: readonly Traitement[],
+    traitementId: string,
+  ): string | null {
+    const t = lesTraitements.find((x) => x.id === traitementId);
+    if (!t?.moleculeId) return null;
+    if (!registreTente && !classeIndisponibleDite) {
+      classeIndisponibleDite = true;
+      console.warn(
+        'Santé : la classe des molécules n’est pas lisible — le registre n’est pas encore ' +
+          'chargé. Les rappels de prise seront écartés du centre pour cette raison-là, et non ' +
+          'faute de classe.',
+      );
+    }
+    return registre.find((e) => e.id === t.moleculeId)?.classe ?? null;
+  }
 
   async function chargerLeMenu() {
+    /*
+       Le drapeau se pose APRÈS, dans les deux issues — d'où le `finally`.
+
+       Ce qui compte pour `classeDuTraitement` n'est pas que le registre soit
+       là, c'est qu'on ait CESSÉ DE L'ATTENDRE : un registre absent est un état
+       normal, un registre pas encore arrivé ne l'est pas, et les deux ne
+       doivent pas se dire de la même façon. Le poser avant l'attente le
+       rendrait vrai pendant tout le chargement, c'est-à-dire précisément
+       pendant la fenêtre qu'il sert à reconnaître.
+    */
     try {
       const brut = await chargerRegistreMolecules();
       registre = brut.map((e) => ({ ...e, alias: e.alias ?? [] }));
@@ -1190,6 +1292,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       $('etat-registre').textContent =
         'Aucun registre de molécules sur cet appareil : écrivez le nom directement. ' +
         '(« npm run molecules:registre » le construit, hors du dépôt.)';
+    } finally {
+      registreTente = true;
     }
   }
 
@@ -1224,6 +1328,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       bouton.append(nom, etat);
       bouton.addEventListener('click', () => {
         ($('t-nom') as HTMLInputElement).value = e.nom;
+        /* L'identifiant est retenu ICI, et nulle part ailleurs : c'est le seul
+           moment où l'on sait de quelle entrée du registre il s'agit. */
+        moleculeChoisie = e.id;
         ($('t-chercher') as HTMLInputElement).value = '';
         zone.innerHTML = '';
         ($('t-debut') as HTMLInputElement).focus();
@@ -1266,15 +1373,66 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
        limite que l'écran du réglage annonce.
     */
     const oublies = creneauxOublies(traitements, marques, new Date(), AUJOURDHUI);
-    peindreLesCreneaux(traitements, marques, oublies.map((o) => `${o.traitementId}|${o.jour}|${o.heure}`));
+    /*
+       `o.ref` ET NON UNE SECONDE COMPOSITION À LA MAIN.
+
+       Cette ligne recomposait « ${traitementId}|${jour}|${heure} » elle-même,
+       alors que `creneauxOublies` pose déjà `ref`, construite par
+       `refDuCreneau`. Deux copies d'un même format dérivent : le jour où
+       cette référence changerait de forme, celle-ci ne suivrait pas, et la
+       comparaison des créneaux peints échouerait sans que rien ne lève.
+
+       Le format de cette référence est aussi la seule porte par laquelle un
+       nom de molécule pourrait entrer au centre de notifications — un nom
+       composé à la place de l'identifiant. `essais:rappel-de-prise-muet` garde
+       `refDuCreneau` ; il ne pouvait pas garder cette copie-ci.
+    */
+    peindreLesCreneaux(traitements, marques, oublies.map((o) => o.ref));
     peindreLExport(traitements);
+    /*
+       LE SIGNAL PART SANS BLOQUER L'ÉCRAN, MAIS PLUS SANS TRACE.
+
+       L'écran a déjà tout montré : une notification qui ne part pas coûte un
+       signal, un écran qui plante pour cela coûte la page entière. Cette
+       moitié-là ne change pas.
+
+       Ce qui change, c'est que le `catch` vide est remplacé par
+       `recenserEtConsigner` : une panne, un écart du filtre ou un coffre
+       fermé sont désormais écrits à la console, avec leur raison. C'est ce
+       qui manquait le 26 octobre, quand le rappel de prise n'entrait jamais
+       au centre et qu'il a fallu lire trois modules pour comprendre pourquoi.
+    */
     void (async () => {
-      const { recenserLesOublis } = await import('../../lib/notifications/alimentation');
-      await recenserLesOublis(oublies.map((o) => o.ref));
-    })().catch(() => {
-      /* Le centre est hors d'atteinte : l'écran, lui, a déjà tout montré.
-         Une notification qui ne part pas coûte un signal ; un écran qui
-         plante pour cela coûte la page entière. */
+      const { recenserLesOublis, recenserEtConsigner } = await import(
+        '../../lib/notifications/alimentation'
+      );
+      /*
+         LA CLASSE DE LA MOLÉCULE VOYAGE AVEC LA RÉFÉRENCE, et elle s'arrête au
+         filtre.
+
+         `filtre-cycle.ts` écarte du centre tout rappel de prise dont la classe
+         est inconnue — option (a) du 19 octobre, et elle protège : une
+         molécule dont la classe est inconnue PEUT être liée au cycle. Jusqu'au
+         31 octobre, rien ne pouvait transmettre cette classe : ni `Intention`
+         ni le registre ne la portaient, donc TOUS les rappels étaient écartés.
+
+         Elle vaut `null` pour les cinq molécules du catalogue, et c'est
+         attendu : son renseignement vient des RCP, en phase C. L'infrastructure
+         est là, la donnée viendra.
+
+         Elle ne va pas plus loin que le filtre. `ElementDuCentre` est une
+         interface fermée : y écrire une classe est une erreur de compilation,
+         et c'est plus fort qu'une assertion.
+      */
+      await recenserEtConsigner('les oublis de prise', () =>
+        recenserLesOublis(
+          oublies.map((o) => ({ refSource: o.ref, classeMolecule: classeDuTraitement(traitements, o.traitementId) })),
+        ),
+      );
+    })().catch((erreur) => {
+      /* Le module lui-même n'a pas pu être chargé : hors ligne, ou paquet
+         absent. Rien à faire pour l'écran, mais on le dit. */
+      console.warn('Centre : le recensement des oublis est hors d’atteinte.', erreur);
     });
 
     const zoneT = $('traitements');
@@ -1464,13 +1622,27 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         });
       };
 
+      /*
+         LE NOM RETOUCHÉ À LA MAIN EFFACE LE CHOIX.
+
+         L'ordre importe : on écoute l'`input` du champ du nom, pas son
+         changement, parce qu'un nom à moitié réécrit ne désigne déjà plus
+         l'entrée choisie. Le menu, lui, repose l'identifiant juste après avoir
+         écrit le nom — il n'y a donc pas de course entre les deux.
+      */
+      ($('t-nom') as HTMLInputElement).addEventListener('input', () => {
+        moleculeChoisie = null;
+      });
+
       surEnvoi('form-traitement', async () => {
         await ecrireTraitement(valeur('t-nom'), valeur('t-debut'), {
+          moleculeId: moleculeChoisie,
           posologie: valeur('t-posologie'),
           origine: valeur('t-origine') as 'moi' | 'prescrit',
           prescripteur: valeur('t-prescripteur'),
           sporadique: ($('t-sporadique') as HTMLInputElement).checked,
         });
+        moleculeChoisie = null;
         ($('t-nom') as HTMLInputElement).value = '';
         ($('t-posologie') as HTMLInputElement).value = '';
         ($('t-prescripteur') as HTMLInputElement).value = '';

@@ -18,6 +18,7 @@ import {
   type QuestionDgfip,
   type QuestionQuiz,
 } from './contenu';
+import { accorde, pluriel } from './noyau/accords';
 import { marquerOption } from './ui';
 import { boutonAssistant } from '../features/assistant/monter';
 import {
@@ -178,9 +179,11 @@ export function montrer(
         const fin = document.createElement('p');
         fin.className = 'text-sm font-medium text-slate-700 dark:text-slate-200';
         fin.textContent =
-          `Reprise terminée : ${bilan.reussis} sur ${bilan.vus} retrouvé(s)` +
+          `Reprise terminée : ${bilan.reussis} sur ${bilan.vus} ` +
+          `${accorde(bilan.reussis, 'retrouvé')}` +
           (bilan.fermes
-            ? `, ${bilan.fermes} entrée(s) refermée(s) — il fallait deux reprises séparées.`
+            ? `, ${pluriel(bilan.fermes, 'entrée')} ${accorde(bilan.fermes, 'refermée')} — ` +
+              'il fallait deux reprises séparées.'
             : '. Une entrée se referme après deux reprises séparées.');
         panneau.appendChild(fin);
         terminer(bilan);
@@ -194,7 +197,8 @@ export function montrer(
       entete.className = 'text-xs font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-400';
       entete.textContent =
         `Reprise ${position + 1} / ${items.length} · ${item.source} · ` +
-        `${item.entree.reussites}/2 reprise(s) acquise(s)`;
+        `${item.entree.reussites}/2 ${accorde(item.entree.reussites, 'reprise')} ` +
+        `${accorde(item.entree.reussites, 'acquise')}`;
       const enonce = document.createElement('p');
       enonce.className = 'mt-2 font-medium text-slate-900 dark:text-white';
       enonce.textContent = item.question;

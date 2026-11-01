@@ -23,6 +23,7 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { apresLeChangementDeTexte, attendreEnBase } from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { repondreALaBoite } from './lib/boite-essais.mjs';
 
@@ -213,6 +214,37 @@ async function recevoir(appareil, chemin) {
 const A = await appareil('ordinateur');
 const B = await appareil('telephone');
 
+/**
+ * Avance d'un pas dans un QCM, en attendant le premier des DEUX FAITS :
+ * la question change, ou la session se termine.
+ *
+ * Même raison que dans `essais-cog-training` : le dernier geste d'une
+ * session ne change pas la question, il la termine. Attendre le seul
+ * changement irait au bout de sa borne à chaque fin de quiz, et une attente
+ * qui ralentit sans rien garantir de plus est un mauvais échange.
+ */
+const avancerDansLeQuiz = async (page, geste) => {
+  const lire = () =>
+    page
+      .locator('#quiz-options')
+      .textContent()
+      .catch(() => null);
+  const avant = (await lire()) ?? '';
+  await geste();
+  await page
+    .waitForFunction(
+      (a) => {
+        const zone = document.getElementById('quiz-options');
+        if (zone && (zone.textContent ?? '') !== a) return true;
+        const fini = document.getElementById('rejouer-quiz');
+        return Boolean(fini) && fini.getClientRects().length > 0;
+      },
+      avant,
+      { timeout: 8000 },
+    )
+    .catch(() => {});
+};
+
 console.log('\nUN QCM RÉELLEMENT PASSÉ ENTRE AU JOURNAL');
 
 await ouvrir(A, '/quiz/cours', '#quiz-matiere');
@@ -222,9 +254,18 @@ await A.page.waitForFunction(
   { timeout: 40000 },
 );
 await A.page.selectOption('#quiz-matiere', 'Économie');
-await A.page.waitForTimeout(800);
+/* Le bouton de lancement devient actif quand la matière est prise en compte. */
+await A.page.waitForFunction(
+  () => {
+    const b = document.getElementById('lancer-quiz');
+    return Boolean(b) && !b.disabled && b.getClientRects().length > 0;
+  },
+  null,
+  { timeout: 40000 },
+);
 await A.page.locator('#lancer-quiz').click();
-await A.page.waitForTimeout(2000);
+/* Et la première question rendue est la post-condition du lancement. */
+await A.page.locator('#quiz-options button').first().waitFor({ state: 'visible', timeout: 40000 });
 /*
  * Le résultat n'est enregistré qu'à la **fin** de la session : le QCM de cours
  * écrit une entrée par fiche couverte quand la dernière question est passée. Il
@@ -235,17 +276,20 @@ for (let i = 0; i < 40; i += 1) {
   if (await A.page.locator('#rejouer-quiz').isVisible().catch(() => false)) break;
   const option = A.page.locator('#quiz-options button').first();
   if (await option.isVisible().catch(() => false)) {
-    await option.click();
-    await A.page.waitForTimeout(350);
+    await avancerDansLeQuiz(A.page, () => option.click());
   }
   const suivant = A.page.locator('#quiz-suivant');
   if (await suivant.isVisible().catch(() => false)) {
-    await suivant.click();
-    await A.page.waitForTimeout(350);
+    await avancerDansLeQuiz(A.page, () => suivant.click());
   }
 }
 await A.page.waitForSelector('#resultat:not(.hidden)', { timeout: 40000 });
-await A.page.waitForTimeout(1000);
+/*
+   DEUX FAITS, et le second est en base. L'écran de résultat paraît ; les
+   entrées de QCM s'écrivent ensuite. C'est la base que l'assertion lit, donc
+   c'est la base qu'il faut attendre — l'écran ne dit rien de l'écriture.
+*/
+await attendreEnBase(A.page, 'quiz', (tout) => tout.length > 0, { delai: 40000 });
 
 /*
  * Un QCM de cours écrit **une entrée par fiche couverte** : un quiz tiré sur une
@@ -550,8 +594,15 @@ console.log('\nDEUX NOTES CONCURRENTES OUVRENT UN DÉSACCORD, ET LA RÉPONSE DÉ
   // « Garder celle-ci » sur la version de l'ordinateur.
   const bouton = E.page.locator(`.resoudre[data-retenue="${opD.id}"]`);
   await bouton.waitFor({ timeout: 20000 });
-  await bouton.click();
-  await E.page.waitForTimeout(2500);
+  /*
+     LA LISTE DES CONFLITS CHANGE : c'est la post-condition du geste, et elle
+     ne décide rien de ce que les deux assertions vérifient — l'une lit la
+     note retenue en base, l'autre cherche l'absence du conflit dans le
+     texte. Attendre l'une ou l'autre les aurait rendues vraies d'office.
+  */
+  await apresLeChangementDeTexte(E.page, '#liste-conflits', () => bouton.click(), {
+    delai: 30000,
+  });
 
   v(
     'la réponse décide de ce qui est écrit',

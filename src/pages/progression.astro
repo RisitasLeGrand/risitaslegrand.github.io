@@ -304,7 +304,13 @@ import LienReglages from '../components/LienReglages.astro';
   import { SauvegardeRefusee } from '../lib/sauvegarde/format';
   import { calculerNiveau } from '../lib/gamification';
   import { serieEtXpAffichees } from '../lib/serie-xp';
-  import { formaterDuree, lien, notifier, pluriel } from '../lib/ui';
+  import { formaterDuree, lien, notifier } from '../lib/ui';
+  /*
+     `pluriel` vient maintenant de `noyau/accords`, où le seuil « singulier
+     jusqu'à deux exclu » est codé une fois pour toutes, avec `accorde` et
+     `nombreFr` qui s'emploient dans la même phrase.
+  */
+  import { accorde, nombreFr, pluriel } from '../lib/noyau/accords';
   import {
     ecrireReglagesContenu,
     ecrireReglagesNiveau,
@@ -523,8 +529,18 @@ import LienReglages from '../components/LienReglages.astro';
      Sauvegarde
      ────────────────────────────────────────────────────────────────────── */
 
+  /*
+     UNE TAILLE S'ÉCRIT EN FRANÇAIS. `toFixed` posait un point décimal — « 1.5
+     Mo » — et collait les milliers. Les décimales restent exactes, une pour
+     les kilo-octets et deux pour les méga-octets : une décimale muette sur une
+     taille n'est pas du bruit, c'est l'ordre de grandeur qu'on annonce.
+  */
   const octets = (n: number) =>
-    n < 1024 ? `${n} o` : n < 1048576 ? `${(n / 1024).toFixed(1)} Ko` : `${(n / 1048576).toFixed(2)} Mo`;
+    n < 1024
+      ? `${nombreFr(n)} o`
+      : n < 1048576
+        ? `${nombreFr(n / 1024, 1)} Ko`
+        : `${nombreFr(n / 1048576, 2)} Mo`;
 
   function dire(id: string, texte: string, ton: 'succes' | 'echec' | 'neutre') {
     const e = $(id);

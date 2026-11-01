@@ -35,6 +35,8 @@
  * n'affiche rien, donc on n'a jamais besoin du cas où l'approximation ment.
  */
 
+import { nombreFr } from '../noyau/accords';
+
 /* ══════════════════════════════════════════════════════════════════════════
    Les seuils, déclarés
    ══════════════════════════════════════════════════════════════════════════ */
@@ -513,7 +515,8 @@ export function explorer(
       sorte: 'croisement',
       enonce:
         `« ${candidat.a.libelle} » et « ${candidat.b.libelle} » ${sens} ` +
-        `sur ${n} jours appariés (lien ${ampleur(r)}, de ${bas.toFixed(2)} à ${haut.toFixed(2)}).`,
+        `sur ${n} jours appariés (lien ${ampleur(r)}, de ${nombreFr(bas, 2)} ` +
+        `à ${nombreFr(haut, 2)}).`,
       reserve: reserveDe(candidat.a.libelle, candidat.b.libelle, candidat.decalage),
       series: [candidat.a.id, candidat.b.id],
       decalage: candidat.decalage,
@@ -552,7 +555,7 @@ export function tendance(serie: Serie): Piste | null {
     id: `tendance|${serie.id}`,
     sorte: 'tendance',
     enonce:
-      `« ${serie.libelle} » ${sens} d’environ ${parSemaine.toFixed(2)} par semaine ` +
+      `« ${serie.libelle} » ${sens} d’environ ${nombreFr(parSemaine, 2)} par semaine ` +
       `sur ${droite.n} jours mesurés.`,
     reserve:
       'Une pente décrit la période observée, pas la suite. Elle ne dit pas non plus pourquoi : ' +

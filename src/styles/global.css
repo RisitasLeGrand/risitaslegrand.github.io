@@ -117,6 +117,29 @@ html {
    « env() » rend zéro et rien ne bouge.
 */
 :root {
+  /*
+     CE QUI EST COLLÉ EN HAUT — E3. Les deux hauteurs sont MESURÉES par
+     `calerLaMargeDAncre` (`lib/defilement.ts`), qui les réécrit en style
+     d'élément sur la racine ; ce qui suit n'est donc que le repli, valable
+     entre la première image et la mesure, et sur un navigateur sans
+     `ResizeObserver`.
+
+       --haut-entete  l'en-tête seul : là où se pose une barre d'écran ;
+       --haut-colle   l'en-tête PLUS les barres d'écran visibles : jusqu'où la
+                      fenêtre est barrée.
+
+     Le repli vaut 7,5 rem, soit 120 px, c'est-à-dire un peu PLUS que les
+     119 px relevés sur le plus haut des deux en-têtes. Il penche ainsi du côté
+     qui laisse un peu de blanc plutôt que du côté qui couvre un titre : un
+     blanc se voit, un titre couvert se cherche.
+
+     Déclarées ici, et non répétées en valeur de repli à chaque `var()` : un
+     repli écrit à trois endroits est trois nombres à corriger, et le troisième
+     est celui qu'on oublie.
+  */
+  --haut-entete: 7.5rem;
+  --haut-colle: 7.5rem;
+
   --sur-haut: env(safe-area-inset-top, 0px);
   --sur-bas: env(safe-area-inset-bottom, 0px);
   --sur-gauche: env(safe-area-inset-left, 0px);
@@ -602,6 +625,110 @@ body {
   top: var(--sur-haut);
 }
 
+/*
+   LA MARGE D'ANCRE SOUS L'EN-TÊTE COLLANT — E3.
+
+   ## Ce que fait un saut d'ancre, et pourquoi l'en-tête le gâchait
+
+   Sauter à une ancre amène le haut de la cible au haut de la FENÊTRE. L'en-tête
+   complet est collant et occupe cette bande en permanence : la cible arrivait
+   donc derrière lui. Mesuré, à deux largeurs, avant correction :
+
+     ancre                                      barré jusqu'à   cible arrivait à
+     /planification/#planning                     103 / 119 px          0 px
+     /odyssee/veille/#ressources                  103 px                0 px
+     « Aller au contenu » (lien d'évitement)      103 / 119 px          0 px
+     /parametres/ une section                     103 / 119 px         96 px
+
+   Les trois premières n'avaient aucune marge : leur titre passait entièrement
+   derrière l'en-tête. La quatrième en avait une, de six rem, soit 96 px — et
+   96 px ne suffisent ni à 390 ni à 1280, puisque l'en-tête fait 103 px et
+   119 px. Le nombre était écrit à la main contre une hauteur qui change.
+
+   ## Une déclaration, et non sept
+
+   `scroll-padding-top` se pose sur le conteneur qui défile et vaut pour TOUTES
+   les cibles de la page, y compris celles qui n'existent pas encore. L'autre
+   voie se pose cible par cible : il y en avait sept dans le dépôt, et il en
+   manquait partout ailleurs. C'est la différence entre une règle et sept
+   rappels.
+
+   ## Pourquoi « data-entete », et non la bande pour tout le monde
+
+   Le gabarit porte DEUX en-têtes, et le léger n'est pas collant : il défile
+   avec le contenu. Réserver la bande sur ses pages ouvrirait un blanc au-dessus
+   de la cible — c'est exactement ce que faisaient les quatre marges en dur de
+   `/profil/`, qui porte l'en-tête léger : 96 px de vide, contre un en-tête qui
+   n'était plus là. La règle ne vaut donc que pour `data-entete='complet'`, et
+   cet attribut est écrit au rendu, donc juste dès la première image.
+
+   ## Les trois termes, et pourquoi chacun est nécessaire
+
+     --sur-haut     la bande réservée de l'appareil, sur laquelle l'en-tête est
+                    posé (voir `.entete-sur` juste au-dessus) ;
+     --haut-colle   la hauteur MESURÉE de tout ce qui est collé en haut —
+                    l'en-tête, PLUS la barre propre à l'écran quand il en a une
+                    (`calerLaMargeDAncre`, dans `lib/defilement.ts`) ;
+     0.5rem         le jeu, pour qu'un titre ne vienne pas toucher le bord.
+
+   C'est `--haut-colle` et non `--haut-entete`, et la différence a coûté un
+   rouge : deux écrans posent une barre sous l'en-tête — l'index du glossaire et
+   la bascule cours / fiche simplifiée — et sur téléphone cette dernière tient
+   sur plusieurs rangées et descend à 171 px. Un saut vers un titre de cours
+   atterrissait derrière elle. Un écran n'a donc rien à mesurer lui-même : il
+   lui suffit de déclarer sa barre `sous-entete`, et la bande suit.
+
+   Le repli de `--haut-colle` est déclaré avec elle, en tête de cette feuille :
+   il sert avant que le script ait mesuré — un lien partagé vers une ancre saute
+   au chargement — et sur un navigateur sans `ResizeObserver`.
+
+   Enfin, cette propriété ne déplace RIEN à l'écran : elle n'intervient qu'au
+   moment d'un défilement vers une cible. L'écrire, et la corriger après le
+   premier rendu, ne peut pas décaler la page.
+*/
+:root[data-entete='complet'] {
+  scroll-padding-top: calc(var(--sur-haut) + var(--haut-colle) + 0.5rem);
+}
+
+/*
+   UNE BARRE PROPRE À UN ÉCRAN, POSÉE SOUS L'EN-TÊTE.
+
+   Deux écrans en ont une, et toutes deux étaient calées sur un nombre : la
+   barre d'index du glossaire par un « style.top » écrit en JavaScript à la
+   hauteur de l'en-tête SEULE — sans la bande réservée de l'appareil, qu'elle
+   recouvrait donc sur un téléphone à encoche — et la bascule d'une fiche par
+   un « top-[57px] » écrit à la main, alors que l'en-tête en fait 103 et 119 :
+   ses quarante-six premiers pixels passaient derrière lui, onglets et boutons
+   compris.
+
+   Ici les deux termes y sont, et la classe sert de DÉCLARATION : c'est elle que
+   `calerLaMargeDAncre` relève pour ajouter la hauteur de la barre à la bande
+   d'ancre. Un écran qui pose une barre collante sous l'en-tête n'a donc rien à
+   mesurer, et rien à soustraire : il la déclare.
+
+   Deux barres sur un même écran se superposeraient — aucun écran n'en a deux
+   aujourd'hui, et le jour où l'un en aura, c'est ici qu'il faudra les empiler.
+*/
+.sous-entete {
+  top: calc(var(--sur-haut) + var(--haut-entete));
+}
+
+/*
+   CE QUI SE POSE SOUS TOUTE LA BANDE, barre d'écran comprise.
+
+   Le panneau « Sommaire » d'une fiche en est le seul cas aujourd'hui. Il était
+   collé à `top-32`, soit 128 px écrits à la main : à 1280, l'en-tête fait 119 et
+   la bascule 58, donc la bande s'arrête à 177, et le panneau commençait 49 px
+   TROP HAUT — sa première ligne passait derrière la bascule.
+
+   `--haut-colle` est exactement la hauteur de cette bande, mesurée. La
+   différence avec `sous-entete` est tout le sujet : une barre d'écran se pose
+   sous l'EN-TÊTE, et ce qui vient après se pose sous la BANDE, barre comprise.
+*/
+.sous-la-bande {
+  top: calc(var(--sur-haut) + var(--haut-colle));
+}
+
 .feuille-sure {
   padding-bottom: calc(1rem + var(--sur-bas));
 }
@@ -790,7 +917,7 @@ dfn.terme-glossaire:focus-visible {
 /* --- Contenu de cours ---------------------------------------------------- */
 .contenu {
   @apply prose prose-slate max-w-none dark:prose-invert
-         prose-headings:scroll-mt-24 prose-headings:font-semibold
+         prose-headings:font-semibold
          prose-a:text-indigo-600 dark:prose-a:text-indigo-400
          prose-table:text-sm;
 }

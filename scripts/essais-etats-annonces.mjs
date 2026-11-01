@@ -26,6 +26,7 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -64,10 +65,24 @@ const deverrouiller = async () => {
   }
 };
 
-const aller = async (chemin) => {
+/**
+ * Va sur un écran, le déverrouille, et attend son TÉMOIN.
+ *
+ * Le témoin est demandé à l'appelant, et ce n'est pas une commodité : les
+ * 500 ms d'avant précédaient, selon l'appel, des assertions radicalement
+ * différentes — dont deux NÉGATIVES (« aucun tablist », « aucun
+ * aria-selected »). Une assertion négative devant un écran pas encore peint
+ * est vraie d'avance : elle aurait été verte sur une page blanche, ce qui
+ * est le contraire de ce qu'elle prétend établir.
+ *
+ * On attend donc quelque chose dont la présence prouve que l'écran est
+ * rendu, et qui ne soit PAS ce que l'assertion vérifie — sinon l'attente
+ * décide du verdict.
+ */
+const aller = async (chemin, temoin) => {
   await page.goto(`${RACINE}${chemin}`, { waitUntil: 'networkidle' });
   await deverrouiller();
-  await page.waitForTimeout(500);
+  if (temoin) await page.locator(temoin).first().waitFor({ state: 'visible', timeout: 30000 });
 };
 
 /** Ouvre le coffre depuis l'écran courant, s'il le demande. */
@@ -76,8 +91,44 @@ const ouvrirLeCoffre = async () => {
   if (!(await champ.isVisible().catch(() => false))) return true;
   await champ.fill(MDP);
   await page.locator('#ouvrir-coffre').click().catch(() => {});
-  await page.waitForTimeout(1200);
-  return !(await champ.isVisible().catch(() => false));
+  /*
+     LE DÉPART DU CHAMP EST LE TÉMOIN, et il faut remarquer que cette
+     fonction REND le verdict que l'assertion affiche — « prémisse : le
+     coffre s'ouvre ». Une attente qui garantirait ce verdict le rendrait
+     vrai d'office.
+
+     `devientVisible` ne le garantit pas : elle rend `false` quand la borne
+     est atteinte. Le champ parti, on rend `true` ; le champ resté, on rend
+     `false` et la prémisse tombe — ce qu'elle doit faire, puisque rien de ce
+     qui suit n'aurait alors de sens.
+  */
+  return devientVisible(page, '#mdp-coffre', false, { delai: 30000 });
+};
+
+/**
+ * Les clés dont l'état annoncé est « pressé », triées.
+ *
+ * Sert à attendre un CHANGEMENT d'état sans dire lequel : les assertions
+ * disent quelle clé doit être pressée après le clic, et une attente qui le
+ * dirait aussi les empêcherait d'échouer.
+ */
+const pressees = async (selecteur) =>
+  (await etats(selecteur))
+    .filter((x) => x.presse === 'true')
+    .map((x) => x.cle)
+    .sort()
+    .join('|');
+
+/** Attend que l'ensemble des pressés DIFFÈRE de ce qu'il était. */
+const apresLeChangementDEtat = async (selecteur, geste) => {
+  const avant = await pressees(selecteur);
+  await geste();
+  const fin = Date.now() + 30000;
+  for (;;) {
+    if ((await pressees(selecteur)) !== avant) return true;
+    if (Date.now() > fin) return false;
+    await page.waitForTimeout(50);
+  }
 };
 
 /** Les boutons d'un groupe, avec leur état annoncé. */
@@ -96,7 +147,8 @@ try {
   console.log('\nE7 — « À RAPPROCHER » : DEUX FAUX ONGLETS');
   await aller('/odyssee/rapprocher/');
   vrai('prémisse : le coffre s’ouvre', await ouvrirLeCoffre());
-  await page.waitForTimeout(800);
+  /* Les filtres rendus : c'est ce que les assertions vont compter. */
+  await page.locator('.filtre').first().waitFor({ state: 'visible', timeout: 30000 });
 
   v('aucun « tablist » ne subsiste sur l’écran', await page.locator('[role="tablist"]').count(), 0);
   v('aucun « tab » orphelin non plus', await page.locator('[role="tab"]').count(), 0);
@@ -122,8 +174,9 @@ try {
 
   /* L'état SUIT le geste : un attribut posé une fois au rendu et jamais
      remis à jour serait vert au premier contrôle et faux ensuite. */
-  await page.locator('[data-filtre="a-revoir"]').click().catch(() => {});
-  await page.waitForTimeout(500);
+  await apresLeChangementDEtat('.filtre', () =>
+    page.locator('[data-filtre="a-revoir"]').click().catch(() => {}),
+  );
   const apres = await etats('.filtre');
   v(
     'le pressé a suivi le clic',
@@ -136,7 +189,14 @@ try {
   v('un seul axe est pressé', axes.filter((a) => a.presse === 'true').length, 1);
 
   console.log('\nE7 — LES ACTUALITÉS : « aria-selected » SANS ONGLET');
-  await aller('/actualites/');
+  /*
+     Le témoin est `.onglet-vue`, et non `[role="tablist"]` : les deux
+     assertions qui suivent sont négatives, et attendre leur objet serait
+     attendre qu'il n'arrive pas — c'est-à-dire ne rien attendre du tout.
+     Un bouton de vue présent prouve que l'écran est rendu, et laisse les
+     deux assertions dire ce qu'il ne porte pas.
+  */
+  await aller('/actualites/', '.onglet-vue');
   v('aucun « tablist »', await page.locator('[role="tablist"]').count(), 0);
   v('aucun « aria-selected » nulle part', await page.locator('[aria-selected]').count(), 0);
   v(
@@ -147,8 +207,9 @@ try {
   const vues = await etats('.onglet-vue');
   v('les cinq vues annoncent leur état', vues.length, 5);
   v('une seule est pressée', vues.filter((x) => x.presse === 'true').length, 1);
-  await page.locator('[data-vue="mois"]').click().catch(() => {});
-  await page.waitForTimeout(600);
+  await apresLeChangementDEtat('.onglet-vue', () =>
+    page.locator('[data-vue="mois"]').click().catch(() => {}),
+  );
   v(
     'le pressé a suivi le clic',
     (await etats('.onglet-vue')).find((x) => x.presse === 'true')?.cle,
@@ -158,7 +219,8 @@ try {
   console.log('\nE7 — PSYCHÉ : QUATRE FOIS « NOTER », ET MAINTENANT QUATRE NOMS');
   await aller('/odyssee/psyche/');
   vrai('prémisse : le coffre s’ouvre', await ouvrirLeCoffre());
-  await page.waitForTimeout(800);
+  /* Les quatre cases rendues : c'est sur elles que portent les assertions. */
+  await page.locator('[data-active]').first().waitFor({ state: 'visible', timeout: 30000 });
 
   for (const libelle of ['Humeur', 'Énergie', 'Stress', 'Motivation']) {
     v(

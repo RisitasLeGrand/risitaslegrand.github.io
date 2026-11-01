@@ -11,6 +11,7 @@
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { repondreALaBoite, repondreALaRedemande } from './lib/boite-essais.mjs';
+import { attendreEnBase, devientVisible, travailFini } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -36,7 +37,9 @@ const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(3000);
+    /* La post-condition du déverrouillage est le DÉPART du champ, une vraie
+       transition : on ne vient ici que lorsqu'il est visible. */
+    await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
   }
 };
 
@@ -115,7 +118,9 @@ await page.evaluate(
 // Passer par un écran qui lit la base, pour qu'elle soit créée au bon schéma.
 await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
 await connecter();
-await page.waitForTimeout(2500);
+/* L'écran de progression est debout : c'est tout ce qu'il faut avant d'écrire
+   nous-mêmes en base. */
+await page.waitForSelector('#etat-sauvegarde-titre', { timeout: 30000 });
 
 await page.evaluate(
   () =>
@@ -217,7 +222,6 @@ console.log('\n« COMPTER » NE TOUCHE À RIEN');
 await page.goto(`${RACINE}/stockage/`, { waitUntil: 'networkidle' });
 await connecter();
 await page.waitForSelector('#stockage', { state: 'visible', timeout: 60000 });
-await page.waitForTimeout(1500);
 
 await page.check('input[name="groupe-effacement"][value="cog-training"]');
 await page.fill('#depuis', '2025-01-01');
@@ -266,7 +270,14 @@ v(
   true,
 );
 await repondreALaBoite(page, 'Je ne le trouve pas', { delai: 30000 });
-await page.waitForTimeout(2500);
+/*
+   Cet écran annonce « Sauvegarde en cours… » AVANT de travailler : attendre un
+   simple changement de texte rendrait la main sur l'annonce. `travailFini`
+   attend le verdict — non vide et ne disant plus « en cours » —, et il ne
+   présume ni du refus ni de la réussite, ce qui est exactement ce qu'il faut
+   ici puisque le refus est l'objet du contrôle.
+*/
+v('l’écran rend son verdict', Boolean(await travailFini(page, '#message-effacement')), true);
 v('un « je ne le trouve pas » n’efface rien', await compter('nback'), 20);
 v('et la session de 2025 est toujours là', await compter('relationnel'), 1);
 const refusDit = (await page.locator('#message-effacement').textContent()) ?? '';
@@ -284,15 +295,36 @@ v(
 );
 await repondreALaBoite(page, 'Je l’ai retrouvé', { delai: 30000 });
 
-await page.waitForTimeout(4000);
+/*
+   Ce que les constats lisent est la BASE, mais l'écran dit quand il a fini, et
+   c'est plus exact qu'un sondage : il rend la main une fois l'effacement
+   écrit. Le compte attendu dépend de la période effacée, donc on s'arrête au
+   verdict de l'écran plutôt que de décrire un état final en base.
+*/
+v('l’écran rend son verdict', Boolean(await travailFini(page, '#message-effacement')), true);
 v('les dix sessions de 2025 sont parties', await compter('nback'), 10);
 v('la session relationnelle de 2025 aussi', await compter('relationnel'), 0);
 v('le seuil Veridical est intact', await compter('vmSeuils'), 1);
 v('la carte d’un autre domaine est intacte', await compter('cartes'), 1);
 
 const message = (await page.locator('#message-effacement').textContent()) ?? '';
-v('le message donne le compte effacé', /11 enregistrement\(s\) effacés/.test(message), true);
-v('et signale le magasin laissé entier', /laissés entiers/.test(message), true);
+console.log(`      le message dit : « ${message.slice(0, 120)} »`);
+/*
+   CES DEUX EXPRESSIONS ATTENDAIENT LA FAUTE, et le lot 9 leur a retiré leur
+   objet. Il faut le leur rendre, pas les affaiblir.
+
+   La première exigeait « 11 enregistrement(s) effacés » — la forme
+   parenthésée que la règle G proscrit. Elle ne décrivait donc pas le français
+   attendu mais le français écrit, et elle aurait empêché toute correction.
+
+   La seconde est plus instructive : elle exigeait « laissés entiers », au
+   pluriel, alors que son propre intitulé dit « LE magasin laissé entier », au
+   singulier — et qu'un seul magasin est refusé dans ce cas. Elle attendait une
+   faute d'accord, et l'accordement l'a révélée. Le compte vaut un, donc le
+   singulier est la bonne réponse, et c'est lui qu'on exige maintenant.
+*/
+v('le message donne le compte effacé', /11 enregistrements effacés/.test(message), true);
+v('et signale le magasin laissé entier', /1 magasin laissé entier/.test(message), true);
 
 /* ── Sans période, tout le domaine part ───────────────────────────────── */
 
@@ -328,7 +360,9 @@ await page.click('#effacer-sans');
    ne nommait pas la cause.
 */
 await repondreALaRedemande(page, MDP);
-await page.waitForTimeout(3000);
+/* Le magasin passe de dix sessions à zéro : c'est une vraie transition,
+   donc une post-condition honnête. */
+await attendreEnBase(page, 'nback', (tout) => tout.length === 0);
 v('le domaine est vide : n-back', await compter('nback'), 0);
 v('les seuils aussi', await compter('vmSeuils'), 0);
 v('et la carte d’un autre domaine est toujours là', await compter('cartes'), 1);
@@ -340,11 +374,15 @@ console.log('\nUNE PÉRIODE À L’ENVERS EST REFUSÉE');
 await page.check('input[name="groupe-effacement"][value="revisions"]');
 await page.fill('#depuis', '2026-12-31');
 await page.fill('#jusqua', '2026-01-01');
+/*
+   `recompter()` ne convient pas ici : il attend « Compté », et une période à
+   l'envers n'est jamais comptée. `annonceDe` attend qu'une annonce SOIT
+   ÉCRITE, quelle qu'elle soit — c'est la post-condition du refus.
+*/
 await page.click('#compter');
-await page.waitForTimeout(1000);
 v(
   'le message explique le problème',
-  /à l’envers/.test((await page.locator('#message-effacement').textContent()) ?? ''),
+  /à l’envers/.test(await annonceDe('#message-effacement')),
   true,
 );
 v('et le décompte reste fermé', await page.locator('#decompte').isVisible(), false);
@@ -375,8 +413,7 @@ v('le fichier commence par un BOM', contenu.charCodeAt(0), 0xfeff);
 v('le séparateur est le point-virgule', contenu.includes('id;ficheId'), true);
 v('les colonnes imbriquées sont aplaties', contenu.includes('fsrs.stability'), true);
 
-await page.waitForTimeout(1200);
-const msgExport = (await page.locator('#message-export').textContent()) ?? '';
+const msgExport = await annonceDe('#message-export');
 v('le message rappelle que ce n’est pas une sauvegarde', /ne se réimportent pas/.test(msgExport), true);
 
 /* ── Un magasin scellé dont la date est dedans ────────────────────────── */
@@ -436,9 +473,13 @@ await page.click('#traitements details button[type="submit"]');
 await page.waitForSelector('#creneaux-du-jour li', { timeout: 20000 });
 
 await page.click('#creneaux-du-jour li button:has-text("Pris")');
-// Le bandeau d'annulation retarde l'écriture de six secondes.
-await page.waitForTimeout(8000);
-
+/*
+   LE BANDEAU D'ANNULATION RETARDE L'ÉCRITURE DE SIX SECONDES, et huit
+   secondes étaient le pari qui les couvrait. Mais ce délai n'est pas ce qu'on
+   veut mesurer : ce qu'on veut, c'est l'écriture. On l'attend donc là où elle
+   arrive, et le pari sur la durée du bandeau disparaît avec.
+*/
+await attendreEnBase(page, 'odysseeCreneaux', (tout) => tout.length >= 1);
 v('un créneau est scellé en base', await compter('odysseeCreneaux'), 1);
 /*
    Et il n'expose AUCUNE date en clair : c'est la condition qui rend le
@@ -468,7 +509,6 @@ console.log('\nUNE PÉRIODE QUI NE LE CONTIENT PAS L’ÉPARGNE');
 await page.goto(`${RACINE}/stockage/`, { waitUntil: 'networkidle' });
 await connecter();
 await page.waitForSelector('#stockage', { state: 'visible', timeout: 60000 });
-await page.waitForTimeout(1500);
 
 const compterLaPeriode = async (depuis, jusqua) => {
   /*
@@ -514,7 +554,8 @@ console.log('\nLA PÉRIODE DU JOUR LE VISE, ET L’EFFACEMENT L’EMPORTE');
 
   await page.click('#effacer-sans');
   await repondreALaRedemande(page, MDP);
-  await page.waitForTimeout(3000);
+  /* Un créneau scellé passe à zéro : transition, donc attente légitime. */
+  await attendreEnBase(page, 'odysseeCreneaux', (tout) => tout.length === 0);
   v('le créneau est parti', await compter('odysseeCreneaux'), 0);
 }
 
@@ -541,7 +582,8 @@ console.log('\nCOFFRE FERMÉ : LAISSÉ ENTIER, ET L’ÉCRAN DIT POURQUOI');
   await page.waitForSelector('#coffre-ouvert', { state: 'visible', timeout: 40000 });
   await page.waitForSelector('#creneaux-du-jour li button:has-text("Pris")', { timeout: 20000 });
   await page.click('#creneaux-du-jour li button:has-text("Pris")');
-  await page.waitForTimeout(8000);
+  /* Le même bandeau, la même post-condition : l'écriture, et non sa durée. */
+  await attendreEnBase(page, 'odysseeCreneaux', (tout) => tout.length >= 1);
   v('un créneau est de nouveau scellé', await compter('odysseeCreneaux'), 1);
 
   // La clé du coffre vit dans `sessionStorage` : la retirer ferme le coffre.
@@ -549,7 +591,6 @@ console.log('\nCOFFRE FERMÉ : LAISSÉ ENTIER, ET L’ÉCRAN DIT POURQUOI');
   await page.goto(`${RACINE}/stockage/`, { waitUntil: 'networkidle' });
   await connecter();
   await page.waitForSelector('#stockage', { state: 'visible', timeout: 60000 });
-  await page.waitForTimeout(1500);
 
   const d = await compterLaPeriode(HIER, AUJOURDHUI);
   v('le magasin est annoncé laissé entier', /odysseeCreneaux/.test(d.refus), true);
@@ -625,7 +666,9 @@ v('quatre exceptions scellées sont en base', await compter('odysseeExceptionsSc
 
   await page.click('#effacer-sans');
   await repondreALaRedemande(page, MDP);
-  await page.waitForTimeout(3000);
+  /* Ici le constat lit la BASE et attend un compte PRÉCIS : c'est donc la base
+     qu'on sonde, et non le verdict de l'écran. */
+  await attendreEnBase(page, 'odysseeExceptionsScellees', (tout) => tout.length === 1);
   v('les trois sont parties', await compter('odysseeExceptionsScellees'), 1);
   /*
      Et c'est bien celle de 2024 qui reste. Compter les survivants ne suffit
@@ -672,7 +715,17 @@ console.log('\nUNE CLÉ ILLISIBLE FAIT LAISSER LE MAGASIN ENTIER, ET NON À MOIT
 
   await page.click('#effacer-sans');
   await repondreALaRedemande(page, MDP);
-  await page.waitForTimeout(3000);
+  /*
+     ICI LE PIÈGE EST INVERSE, et c'est la leçon qu'A vient de me donner sur
+     les onglets : le constat dit que RIEN n'a été effacé — trois
+     enregistrements avant, trois après. Sonder la base pour « trois » serait
+     satisfait dans l'instant, avant même que l'écran ait refusé, et
+     l'assertion passerait sans rien garantir.
+
+     C'est donc le VERDICT DE L'ÉCRAN qu'on attend : il dit que le magasin
+     scellé a été laissé entier, et il ne peut pas l'avoir dit d'avance.
+  */
+  await travailFini(page, '#message-effacement');
   v('et rien n’a été effacé de ce magasin', await compter('odysseeExceptionsScellees'), 3);
 }
 

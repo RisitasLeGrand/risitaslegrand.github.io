@@ -43,7 +43,12 @@
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { quandCelaSeFixe } from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+/* La borne des attentes : la limite au-delà de laquelle on cesse d'attendre,
+   et non la mesure. */
+const DELAI = 30_000;
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -141,12 +146,29 @@ async function tournee() {
     if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
       await page.fill('#champ-mdp', MDP);
       await page.click('#bouton-verrou');
-      await page.waitForTimeout(1000);
+      /* La marque du site : `signalerDeverrouillage` l'écrit sur `<html>`. */
+      await page.waitForFunction(
+        () => document.documentElement.dataset.verrou === 'ouvert',
+        undefined,
+        { timeout: DELAI },
+      );
     }
-    await page.waitForTimeout(500);
+    /*
+       CE QUI EST MESURÉ EST UNE HAUTEUR DE PAGE, et elle se pose en plusieurs
+       temps : le contenu déchiffré s'ajoute après l'ouverture, et les polices
+       changent les hauteurs de texte. On relit donc jusqu'à ce qu'elle cesse
+       de bouger, plutôt que de parier 500 ms.
+    */
+    await page.evaluate(() => document.fonts.ready.then(() => undefined)).catch(() => {});
+    await quandCelaSeFixe(() => page.evaluate(() => document.documentElement.scrollHeight));
     /* On descend : c'est collé en haut que l'en-tête coûte sa hauteur. */
     await page.evaluate(() => window.scrollTo(0, 1200));
-    await page.waitForTimeout(250);
+    /*
+       Et le défilement se pose lui aussi en deux temps : la position demandée,
+       puis celle que la page accorde si elle est plus courte. C'est `scrollY`
+       que la ligne suivante relève, donc c'est `scrollY` qu'on laisse se fixer.
+    */
+    await quandCelaSeFixe(() => page.evaluate(() => Math.round(window.scrollY)));
     const m = await page.evaluate(releverLesBarres);
     releve.push({ route, defile: await page.evaluate(() => Math.round(window.scrollY)), ...m });
   }
@@ -220,7 +242,21 @@ verifier(
 
 console.log('\nCE QUI NE DOIT PAS AVOIR ÉTÉ SACRIFIÉ');
 await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(600);
+/*
+   Ce relevé-ci demande que des éléments soient VUS — hauteur et largeur non
+   nulles, visibilité calculée. C'est donc leur présence qu'on laisse se fixer,
+   et non une durée : un écran qui ajoute ses blocs en deux fois serait mesuré
+   à moitié.
+*/
+await page.waitForFunction(
+  () => document.documentElement.dataset.verrou === 'ouvert',
+  undefined,
+  { timeout: DELAI },
+).catch(() => {});
+await page.evaluate(() => document.fonts.ready.then(() => undefined)).catch(() => {});
+await quandCelaSeFixe(() =>
+  page.evaluate(() => document.querySelectorAll('main *').length),
+);
 const garde = await page.evaluate(() => {
   const vu = (e) => {
     if (!e) return false;

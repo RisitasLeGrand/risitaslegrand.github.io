@@ -322,6 +322,7 @@
         aria-label="Écart médian sur {courbe.length} session{courbe.length > 1 ? 's' : ''}">
         <line x1={MARGE.gauche} y1={ordonnee(0)} x2={LARGEUR - MARGE.droite} y2={ordonnee(0)}
           class="stroke-slate-200 dark:stroke-slate-700" stroke-width="1" />
+        <!-- nombre non affiché en phrase : libellé d'AXE, où la place manque. -->
         <text x="4" y={ordonnee(maximum) + 4} class="fill-slate-400 text-xs">{maximum.toFixed(0)}</text>
         <text x="4" y={ordonnee(0) + 4} class="fill-slate-400 text-xs">0</text>
         {#if courbe.length > 1}

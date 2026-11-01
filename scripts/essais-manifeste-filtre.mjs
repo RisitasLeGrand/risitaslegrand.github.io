@@ -139,7 +139,17 @@ for (const abs of fichiersDe(path.join(racine, 'src'))) {
      « essais:erreurs-dites », qui s'est fait prendre par la même chose le
      matin. Une règle recopiée finit par diverger.
   */
-  const texte = sansCommentaires(readFileSync(abs, 'utf8')).join('\n');
+  /*
+     LE GENRE, depuis le 26 octobre : ce balayage lit des « .astro », et sans
+     lui ils se lisaient comme du JavaScript. L'apostrophe d'un
+     « Aujourd'hui » de balisage ouvrait alors une chaîne qui ne se refermait
+     plus, et les commentaires suivants n'étaient plus blanchis — c'est-à-dire
+     que ce balayage pouvait de nouveau voir un appel dans un commentaire qui
+     dit qu'il n'appelle plus. Exactement le défaut que les lignes ci-dessus
+     racontent, revenu par la porte du blanchiment.
+  */
+  const genre = /\.(astro|svelte)$/.test(abs) ? 'astro' : 'js';
+  const texte = sansCommentaires(readFileSync(abs, 'utf8'), genre).join('\n');
   const complet = APPEL_COMPLET.test(texte);
   /*
      « chargerManifesteComplet( » contient « chargerManifeste » : on retire

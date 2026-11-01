@@ -329,3 +329,82 @@ export function defilerVers(cible: Element | null, bloc: ScrollLogicalPosition =
 export function defilerEnHaut(): void {
   window.scrollTo({ top: 0, behavior: allureDuDefilement() });
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CE QUI EST COLLÉ EN HAUT, MESURÉ (E3)
+   ══════════════════════════════════════════════════════════════════════════
+
+   `global.css` réserve une bande en haut de la fenêtre pour qu'une ancre
+   n'atterrisse pas derrière ce qui y est collé. Il lui faut deux hauteurs, et
+   aucune des deux ne s'écrit en dur.
+
+   L'EN-TÊTE, d'abord. Relevé au pixel : 103 px à 390 et 119 px à 1280 — celui
+   de l'ORDINATEUR est le plus haut des deux, contrairement à ce qu'on suppose.
+   Il change encore avec la taille de police du système et la longueur des
+   libellés de branche. Les nombres écrits à la main qu'on a trouvés dans le
+   dépôt — 6 rem pour les marges d'ancre, 57 px pour la bascule d'une fiche —
+   étaient faux à l'une des deux largeurs, et souvent aux deux.
+
+   LES BARRES PROPRES À UN ÉCRAN, ensuite. Deux écrans en ont une, collée sous
+   l'en-tête : l'index alphabétique du glossaire et la bascule
+   cours / fiche simplifiée. Elles portent la classe `sous-entete`, qui les
+   pose au bas de l'en-tête, et leur hauteur s'ajoute à la bande réservée —
+   sans quoi un saut vers une lettre ou vers un titre de cours atterrirait
+   derrière elles. Sur téléphone, la bascule d'une fiche tient sur plusieurs
+   rangées et descend à 171 px : ce n'est pas un détail.
+
+   DEUX PROPRIÉTÉS, ET NON UNE, parce qu'elles ne répondent pas à la même
+   question. `--haut-entete` dit où se pose une barre d'écran ; `--haut-colle`
+   dit jusqu'où la fenêtre est barrée. Une seule aurait obligé chaque barre à
+   se soustraire elle-même de la somme, ce qui est la façon la plus sûre de se
+   tromper d'un cran.
+
+   Ce réglage ne déplace rien à l'écran : `scroll-padding` n'intervient qu'au
+   moment d'un défilement vers une cible. L'écrire, et le corriger après le
+   premier rendu, ne peut donc pas décaler la page.
+*/
+
+/**
+ * Mesure l'en-tête et les barres d'écran, et publie les deux hauteurs.
+ *
+ * À appeler une fois, dans la mise en page. Sans en-tête — `entete="aucun"` —
+ * rien n'est écrit et la feuille de style garde ses valeurs de repli, ce qui ne
+ * coûte rien puisqu'aucune règle d'ancre ne s'applique alors.
+ */
+export function calerLaMargeDAncre(): void {
+  if (typeof document === 'undefined') return;
+  const entete = document.getElementById('entete-principal');
+  if (!entete) return;
+  const barres = [...document.querySelectorAll<HTMLElement>('.sous-entete')];
+
+  const mesurer = () => {
+    const hautEntete = Math.round(entete.getBoundingClientRect().height);
+    if (hautEntete <= 0) return;
+    /* `getClientRects()` et non `offsetParent` : une barre peut être en
+       `position: fixed`, auquel cas `offsetParent` est nul alors qu'elle est
+       bien là. Et une barre cachée — l'index du glossaire l'est tant qu'aucun
+       terme n'est rendu — ne barre rien et ne doit rien ajouter. */
+    const hautBarres = barres
+      .filter((b) => b.getClientRects().length > 0)
+      .reduce((somme, b) => somme + Math.round(b.getBoundingClientRect().height), 0);
+    const racine = document.documentElement.style;
+    racine.setProperty('--haut-entete', `${hautEntete}px`);
+    racine.setProperty('--haut-colle', `${hautEntete + hautBarres}px`);
+  };
+
+  /* Les polices arrivent après le premier rendu, l'en-tête se réorganise quand
+     la fenêtre se resserre, et l'index du glossaire change de hauteur à chaque
+     filtre : une mesure unique au chargement serait vraie une seconde. Sans
+     `ResizeObserver`, on se rabat sur `resize`, qui rattrape le changement de
+     largeur mais pas le reste — c'est mieux que rien, et les valeurs de repli
+     couvrent l'écart. */
+  if ('ResizeObserver' in window) {
+    const oeil = new ResizeObserver(mesurer);
+    oeil.observe(entete);
+    for (const b of barres) oeil.observe(b);
+  } else {
+    addEventListener('resize', mesurer);
+  }
+
+  mesurer();
+}

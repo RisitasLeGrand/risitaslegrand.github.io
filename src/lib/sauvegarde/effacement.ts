@@ -26,6 +26,7 @@ import {
   type ClefsVisees,
 } from './groupes';
 import { cibleDe, magasinJournalise } from '../noyau/enregistrements';
+import { accorde, nombreFr } from '../noyau/accords';
 
 /** Le filtre d'un effacement. Un groupe, et éventuellement une période. */
 export interface Cible {
@@ -260,8 +261,21 @@ export function direLesGroupes(comptes: readonly CompteDeGroupe[]): string {
   if (!pleins.length) return 'aucun enregistrement';
   return (
     pleins.map((c) => `${c.libelle} ${c.vises.toLocaleString('fr-FR')}`).join(', ') +
-    ` — soit ${total.toLocaleString('fr-FR')} ` +
-    `${total > 1 ? 'enregistrements' : 'enregistrement'} en tout`
+    /*
+       LE NOMBRE EST MIS EN FORME, DONC IL NE PASSE PAS PAR `pluriel`. C'est
+       exactement le cas qui a fait naître `accorde` : un total de quatre
+       mille enregistrements s'écrit « 4 128 » et non « 4128 », et son nom
+       doit s'accorder quand même.
+
+       MAIN AVAIT CORRIGÉ CETTE LIGNE DE SON CÔTÉ, et sa correction était
+       juste : `total > 1 ? 'enregistrements' : 'enregistrement'`, avec le bon
+       seuil. Je garde pourtant celle-ci, parce que la différence est l'objet
+       même du lot : un seuil recopié est un seuil qu'on peut recopier mal, et
+       « singulier jusqu'à deux exclu » est codé une fois pour toutes dans
+       `noyau/accords.ts`. Le ternaire était la troisième copie de ce seuil
+       dans le dépôt.
+    */
+    ` — soit ${nombreFr(total)} ${accorde(total, 'enregistrement')} en tout`
   );
 }
 

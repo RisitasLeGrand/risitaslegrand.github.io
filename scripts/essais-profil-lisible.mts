@@ -217,9 +217,20 @@ console.log('\n8. LES DEUX UNITÉS NE SE CONTREDISENT PAS');
 for (const [champ, bornes] of Object.entries(BORNES)) {
   const unite = champDeclare(champ)?.unite;
   vrai(`« ${champ} » porte une unité de phrase`, Boolean(unite));
+  /*
+     LES DEUX FORMES, depuis le lot 9 : l'unité du curseur portait une seule
+     chaîne, et `saisies.ts` rattrapait son pluriel à la main avec un `n > 1`
+     et une liste en dur des unités qui s'accordent. Elle en déclare deux
+     maintenant, comme le catalogue — donc l'invariant se tient sur les deux,
+     et non plus sur le singulier seul.
+  */
   vrai(
-    `et elle commence par celle du curseur (« ${bornes.unite} »)`,
-    (unite?.un ?? '').startsWith(bornes.unite),
+    `et son singulier commence par celui du curseur (« ${bornes.unite.un} »)`,
+    (unite?.un ?? '').startsWith(bornes.unite.un),
+  );
+  vrai(
+    `et son pluriel par celui du curseur (« ${bornes.unite.plusieurs} »)`,
+    (unite?.plusieurs ?? '').startsWith(bornes.unite.plusieurs),
   );
 }
 

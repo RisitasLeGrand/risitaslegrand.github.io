@@ -26,6 +26,12 @@
  * seconde sans la première laisserait une feuille qui ne s'ouvre pas.
  */
 import { chromium } from 'playwright-core';
+
+import { apresLesAnimations } from './lib/post-condition.mjs';
+
+/* La borne des attentes de cet essai. Généreuse : elle n'est pas la mesure,
+   elle est la limite au-delà de laquelle on cesse d'attendre. */
+const DELAI = 30_000;
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
@@ -97,7 +103,24 @@ const nav = await chromium.launch({
 /** Ouvre la confirmation destructrice de « Tout effacer », et la décrit. */
 async function ouvrirLaBoite(page) {
   await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1500);
+  /*
+     POURQUOI ATTENDRE ICI, ET QUOI EXACTEMENT.
+
+     L'écouteur de « #reinitialiser » n'est pas posé au chargement : il l'est
+     dans le rappel de `auDeverrouillage`, donc après l'ouverture du coffre.
+     Cliquer avant ne fait RIEN — et le clic de Playwright n'y voit pas
+     d'anomalie, puisque le bouton existe et qu'il est actif. C'est ce que
+     couvraient les 1 500 ms, sans le dire.
+
+     La marque exacte est le `href` de « #lien-stockage » : il est posé dans
+     le même rappel, et aucun `await` ne sépare cette ligne de la pose de
+     l'écouteur. Quand il porte le chemin, le bouton est branché.
+  */
+  await page.waitForFunction(
+    () => (document.getElementById('lien-stockage')?.getAttribute('href') ?? '').includes('/stockage/'),
+    undefined,
+    { timeout: DELAI },
+  );
   /* La prémisse : si une fenêtre native était encore appelée, elle bloquerait
      le navigateur sans rien dire. On la compte plutôt que de l'ignorer. */
   await page.evaluate(() => {
@@ -112,7 +135,16 @@ async function ouvrirLaBoite(page) {
   });
   await page.locator('#reinitialiser').scrollIntoViewIfNeeded();
   await page.click('#reinitialiser');
-  await page.waitForTimeout(500);
+  /*
+     La feuille MONTE : `.boite-feuille` porte `animation: boite-monte`, qui
+     la fait glisser de 1,5 rem. « colleEnBas » mesure son bord inférieur à un
+     pixel près, et serait donc faux en cours d'animation — c'est exactement
+     la leçon du bandeau d'annulation, qui se lisait 24 px trop bas.
+
+     On attend donc l'ouverture du dialogue, puis la FIN de ses animations.
+  */
+  await page.waitForSelector('dialog.boite[open]', { timeout: DELAI });
+  await apresLesAnimations(page, 'dialog.boite');
 }
 
 const decrire = () =>
@@ -191,7 +223,13 @@ console.log('\nLA FEUILLE, À 360 × 740');
      prétendre mesurée au doigt serait l'enjoliver.
   */
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(400);
+  /*
+     Ce que le geste fait : « Annuler » a le focus, Entrée l'active, et
+     `boite.close()` RETIRE le dialogue du document — `boite.remove()`. Le
+     détachement est donc la post-condition, et c'est la première chose que
+     l'assertion lit.
+  */
+  await page.waitForSelector('dialog.boite', { state: 'detached', timeout: DELAI });
   verifier(
     'Entrée, à l’ouverture, referme sans effacer',
     await page.evaluate(() => ({
@@ -206,8 +244,29 @@ console.log('\nLA FEUILLE, À 360 × 740');
     const e = document.activeElement;
     if (e instanceof HTMLElement) e.blur();
   });
+  /*
+     LE CAS DIFFICILE DU LOT : la post-condition est que RIEN n'arrive.
+
+     Aucun changement n'est observable, puisque l'assertion affirme justement
+     qu'il n'y en a pas. Attendre « le dialogue est encore là » serait le
+     premier piège : c'est déjà vrai avant la frappe, et l'attente rendrait la
+     main sans que le navigateur ait rien reçu.
+
+     On attend donc LA MARQUE DU GESTE et non son effet : la frappe a été
+     livrée au document — un compteur en phase de capture le dit, et il est
+     posé avant la frappe, donc aucun passage antérieur ne peut l'avoir
+     incrémenté —, puis deux images ont été peintes. Si un gestionnaire
+     existait, il aurait eu la main avant nous.
+  */
+  await page.evaluate(() => {
+    window.__frappes = 0;
+    document.addEventListener('keydown', () => { window.__frappes += 1; }, true);
+  });
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => (window.__frappes ?? 0) > 0, undefined, { timeout: DELAI });
+  await page.evaluate(
+    () => new Promise((fini) => requestAnimationFrame(() => requestAnimationFrame(fini))),
+  );
   verifier(
     'et sans focus sur un bouton, Entrée ne fait rien du tout',
     await page.evaluate(() => ({
@@ -216,14 +275,38 @@ console.log('\nLA FEUILLE, À 360 × 740');
     })),
     { restante: true, efface: false },
   );
+  /*
+     J'AI CRU POUVOIR RETIRER CELLE-CI SANS RIEN METTRE À LA PLACE, et un
+     passage à vitesse NORMALE m'a détrompé : le `goto` qui suit tombait en
+     `net::ERR_ABORTED`. La leçon est que « une temporisation suivie d'une
+     navigation ne garde aucune lecture » est vrai, et insuffisant — elle
+     gardait une COURSE.
+
+     Fermer la feuille passe par `calqueFerme`, qui appelle `history.back()`
+     pour ranger l'entrée empilée à l'ouverture (M5). C'est une navigation, et
+     elle est asynchrone : le `goto` lancé aussitôt la concurrence, et l'un des
+     deux est abandonné. Attendre le seul détachement du dialogue ne suffit pas
+     non plus — `calqueFerme` est appelé AVANT `boite.remove()`, donc le
+     détachement précède le rangement.
+
+     La post-condition est donc la marque d'historique rangée : `calques.ts`
+     pose `cycladesCalque` dans `history.state` à l'ouverture, et le retour la
+     retire. Quand elle n'y est plus, la navigation est finie et la place est
+     libre.
+  */
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(300);
+  await page.waitForFunction(
+    () =>
+      !(typeof history.state === 'object' && history.state && 'cycladesCalque' in history.state),
+    undefined,
+    { timeout: DELAI },
+  );
 
   /* Le retour arrière referme la feuille, et ne quitte pas l'écran (M5). */
   await ouvrirLaBoite(page);
   const avant = new URL(page.url()).pathname;
   await page.goBack();
-  await page.waitForTimeout(500);
+  await page.waitForSelector('dialog.boite', { state: 'detached', timeout: DELAI });
   verifier(
     'le retour arrière referme la feuille sans quitter l’écran',
     {
@@ -236,7 +319,20 @@ console.log('\nLA FEUILLE, À 360 × 740');
   /* Échap referme, et rend le focus à ce qui l'avait. */
   await ouvrirLaBoite(page);
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(400);
+  /*
+     DEUX CHOSES, DANS CET ORDRE, et les confondre serait le troisième piège :
+     attendre l'une et lire l'autre. Le dialogue se retire d'abord ; le focus
+     ne revient qu'ensuite, `showModal` le rendant à son origine à la
+     fermeture. On attend donc le détachement, puis qu'un élément IDENTIFIÉ
+     ait le focus — sans dire lequel, car c'est précisément ce que l'assertion
+     a la charge de vérifier.
+  */
+  await page.waitForSelector('dialog.boite', { state: 'detached', timeout: DELAI });
+  await page.waitForFunction(
+    () => (document.activeElement?.id ?? '') !== '',
+    undefined,
+    { timeout: DELAI },
+  );
   verifier(
     'Échap referme et rend le focus au bouton d’origine',
     await page.evaluate(() => ({

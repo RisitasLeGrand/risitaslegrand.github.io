@@ -49,6 +49,33 @@ gardes sont satisfaites sans qu'on touche à rien.
 faire de la place. Ces essais le suppriment en fin de course, il n'est pas
 dans Git, et toute perte de donnée réelle est réservée à Alexis.
 
+### Et tout sabotage se fait dans un arbre séparé
+
+*Règle commune, posée par B le 26 octobre, à appliquer par tous.*
+
+Un sabotage éprouve un contrôle en cassant ce qu'il surveille : on retire une
+ligne du site ou d'une aide, et l'on vérifie que l'essai rougit. C'est la seule
+façon de savoir qu'un vert dit quelque chose — mais c'est aussi une
+modification qu'on ne veut ni commiter, ni oublier, ni voir écraser par le
+travail d'un autre agent sur le même dépôt.
+
+Il se fait donc dans un **`git worktree --detach`** sur le commit en cours,
+avec `node_modules` lié plutôt que réinstallé, et l'arbre est retiré à la fin.
+L'arbre de travail principal ne bouge pas, et un `git status` oublié ne montre
+jamais un sabotage.
+
+    git worktree add --detach /tmp/labo-sabotage HEAD
+    ln -s "$PWD/node_modules" /tmp/labo-sabotage/node_modules
+    # … casser, lancer l'essai, lire le rouge …
+    git worktree remove --force /tmp/labo-sabotage
+
+Mesuré sur `essais:post-condition` le 26 octobre : trois sabotages, trois
+rouges nommés. `travailFini` réduit à « non vide » rend « Fusion en cours… »
+au lieu du verdict ; `boutonRendu` qui ne lit plus l'état du bouton rend vrai
+sur un bouton resté désactivé ; et le sondage de la base qui ne referme plus
+sa connexion fait répondre « bloquée » à la montée de version. Sans ces trois
+passages, les trois aides seraient vertes sur parole.
+
 **Une batterie lancée dans un laboratoire n'en crée pas un second.** Le signe
 est que `.git` y est un *fichier* et non un dossier. Une première version
 regardait seulement s'il existait : il existe des deux côtés, et la détection
@@ -223,6 +250,40 @@ Chercher le défaut dans l'élément attendu n'aurait rien donné. **L'attente
 doit porter sur ce qu'on va LIRE**, pas sur ce qui annonce que quelque chose
 s'est passé.
 
+### Le quatrième piège : une post-condition que le NAVIGATEUR pose
+
+*Ajouté le 26 octobre, après une conversion fausse du chantier des
+temporisations.*
+
+Les trois premiers pièges se voient dans l'essai : le moment de l'attente, puis
+son objet. Celui-ci se voit ailleurs — dans le **partage du travail entre le
+navigateur et le script**. La marque attendue est propre au geste, elle ne peut
+pas rester d'un passage antérieur, elle a tout d'une post-condition. Elle est
+seulement posée par quelqu'un d'autre que celui dont on attend la peinture.
+
+Le dépliant d'une carte d'actualité est un `<details>`. J'ai converti sa
+temporisation en attente de `details[open]`, et les deux assertions qui
+suivaient sont tombées à la mesure. **`open` est posé par le navigateur au
+clic** — donc avant que le gestionnaire `toggle` n'ait tourné. Le résumé qui
+perd sa coupe à trois lignes et le bouton « Préparer une question » sont peints
+après lui. La post-condition juste est le bouton visible, qui est écrit en
+dernier ; `scripts/essais-actualites-navigateur.mjs` porte le cas en clair, à
+l'endroit où je m'étais trompé.
+
+La mise en garde vaut pour tout ce que le navigateur tient lui-même : `open`
+d'un `<details>`, `checked` d'une case, la valeur d'un champ, le focus, le
+fragment de l'adresse. Tous changent avant le gestionnaire, et aucun ne dit que
+l'écran a été repeint.
+
+Le contrôle tient en une question : **qui écrit cette marque ?** Le navigateur,
+et elle date du geste et non de la peinture. Le script, et il reste à vérifier
+qu'il l'écrit en DERNIER — ce qui ramène au troisième piège.
+
+Autrement dit : **une post-condition plausible n'est pas une post-condition.**
+Celle-ci l'était assez pour que je la croie sans la mesurer. C'est la mesure
+qui a tranché, et c'est elle qu'il faut faire avant d'annoncer une conversion,
+pas après.
+
 ### `aria-busy` ou un compteur : ce qui les sépare
 
 `aria-busy` posé avant le premier `await` et retiré dans un `finally` est une
@@ -322,6 +383,486 @@ resserrements successifs, chacun sur une classe de faux positifs constatée :
 Il reste **dix** cas, qu'on lit à la main en vérifiant (b) dans l'écran. Neuf
 étaient sains. Un relevé de 73 entrées n'aurait rien appris : *un contrôle qui
 ne contrôle rien finit par rassurer, ce qui est pire que son absence.*
+
+## 4. Le chantier des temporisations
+
+*Ouvert le 26 octobre. Le § 3 dit pourquoi une attente peut n'attendre rien ;
+celui-ci dit ce qu'on fait des temporisations à l'aveugle qui restent, et ce
+que le pilote de trois essais a appris.*
+
+### Le chiffre, ce qu'il vaut, et deux corrections
+
+`scripts/relever-temporisations.mjs` en tient le compte, et il est au dépôt
+pour que le chiffre soit vérifiable plutôt qu'annoncé. Sur l'arbre d'avant le
+pilote : **576 temporisations, dont 458 — réparties sur 112 essais — ont une
+lecture derrière**, un `isVisible`, un `textContent`, un `count()`, un
+`evaluate`, une assertion. Ce sont celles-là qui comptent : une temporisation
+suivie de rien ne ment pas sur l'écran, elle ne fait que ralentir la batterie.
+Après le pilote : 546 et 433 dans 110 essais.
+
+**C'est une estimation, et il faut savoir de quoi elle dépend.** La fenêtre de
+douze lignes est un choix. À vingt, le même script rend **478** sites au lieu
+de 433 sur le même arbre : l'élargir ramasse des lectures qui appartiennent au
+geste suivant, la rétrécir manque celles qu'un bloc `waitForFunction` sépare de
+leur temporisation. *Deux relevés qui ne disent pas leur fenêtre ne sont pas
+comparables.*
+
+**Première correction : le motif sous-comptait d'un quart.** Il cherchait
+`isVisible`, `textContent`, `getAttribute`, `$$eval`, `count()` et les appels
+d'assertion — mais pas **`evaluate(`**, qui est la façon la plus courante de
+lire l'écran dans ces essais. Trois sites d'un seul fichier passaient dessous,
+et je ne les ai vus qu'en comptant les restes après conversion. *Un motif de
+mesure se vérifie sur un fichier déjà traité, où le reste doit être zéro.*
+
+**Seconde correction, sur la première : le « 488 dans 116 essais » que j'ai
+annoncé au Pilote ne se reproduisait pas.** Il venait d'une mesure à la main
+dont je n'avais pas noté la fenêtre — la valeur s'explique par une fenêtre
+large, celle de vingt lignes en rendant 478. L'ordre de grandeur et la charge
+de travail n'en bougent pas ; ce qui change, c'est qu'un chiffre de ce chantier
+se donne désormais avec le script et la fenêtre qui le produisent.
+
+### Une temporisation légitime existe, et elle est rare
+
+Une sur vingt-six, dans le pilote. Deux séries de 8 répétitions à 60 kg portent
+exactement les mêmes données : le **repos de 600 ms** du site les prend pour un
+seul geste, et c'est l'objet de son empreinte. L'essai attend 700 ms pour
+franchir ce repos.
+
+Elle ne se remplace pas par une post-condition, et la raison est de principe :
+ce qu'on attend est précisément **qu'il ne se passe rien**. Donner une marque à
+ce non-événement reviendrait à faire annoncer par l'écran une déduplication
+qu'il rend invisible — on ajouterait à la page une trace pour l'essai seul.
+
+### Comment la reconnaître — et l'erreur que j'ai failli laisser
+
+Je l'ai d'abord écrit ainsi : « elle se reconnaît à un `setTimeout` dans un
+gestionnaire d'entrée côté site ». **C'est faux, et c'est faux sur l'exemple
+même qui a servi à l'énoncer.** Le repos de 600 ms du sport n'a aucun minuteur :
+`src/lib/geste.ts` garde l'instant du dernier geste et refuse le suivant s'il
+arrive trop tôt — `performance.now() - derniere < repos`. Un relevé des
+`setTimeout` ne le voit pas, et il y en a 32 qui auraient donné l'illusion d'un
+relevé complet.
+
+Un délai du site a donc **deux formes**, et la seconde est celle qui compte :
+
+- **un minuteur** diffère une action. Trente-deux dans `src/`. Il se cherche par
+  son nom, et c'est la forme à laquelle on pense.
+- **un repos comparé à l'horloge** n'a rien à chercher : aucun timer, une
+  soustraction dans une condition. **Trois** dans tout `src/` —
+  `geste.ts` (le rebond des gestes), l'échange en arrière-plan (son plancher
+  entre deux synchronisations), et le compteur d'inactivité.
+
+Le premier des trois gouverne **les 31 appels à `unSeulGeste`** du site : tout
+geste répété à données identiques en moins de 600 ms y est pris pour un rebond.
+C'est la portée réelle de la classe légitime, et elle se dit en une phrase —
+beaucoup mieux qu'un relevé de 32 minuteurs dont aucun n'était en cause.
+
+`node scripts/relever-temporisations.mjs --amortissements` rend les trois
+groupes, les repos d'abord.
+
+Et il nomme les **quinze écrans** que ce rebond gouverne : dix d'Odyssée
+(agenda, corps, échelles, molécule, Psyché, quêtes, santé, tâches, tendances,
+l'accueil), quatre du sport, et le QCM DGFiP. La classe légitime se concentre
+donc là, et nulle part ailleurs — ce qui dit par avance dans quel lot y faire
+attention.
+
+### Trois choses apprises au pilote
+
+**Les écritures en base sans marque à l'écran** — l'amorce de calibrage, le
+décochage d'une source — se tiennent en interrogeant **la base elle-même**
+jusqu'à ce qu'elle réponde, et non l'écran. `attendreEnBase(magasin,
+estSatisfait, delai)` de `essais-niveau-navigateur.mjs` fait cela par le `lire()`
+que l'essai possède déjà.
+
+**Les invariants négatifs ne s'attendent pas.** « Refuser la confirmation ne
+supprime rien » est vrai tout de suite, et le resterait si la suppression
+arrivait une seconde plus tard. On attend la post-condition du GESTE — la boîte
+qui se referme —, après quoi la lecture a un sens.
+
+**Certains essais ont des préalables.** `essais:actualites` exige
+`npm run actualites:dist`, et son propre garde le dit. Une batterie lancée sans
+eux rend des rouges qui n'en sont pas : à connaître avant de conclure quoi que
+ce soit d'un lot.
+
+### Et ce que le second lot a ajouté
+
+*Cinq essais de plus le 26 octobre — « redemande » (10 sites), « invitation »
+(10), « copie-navigateur » (9), « bascule-branchement » (7), « echecs-dits »
+(12). Quatre leçons, et la dernière n'a rien à voir avec les post-conditions.*
+
+**Une aide qui sert aux DEUX issues doit attendre les deux.** `saisirLeCoffre`
+de « bascule-branchement » ouvre le coffre à six endroits — et à trois d'entre
+eux, le refus est précisément ce qu'on mesure : « le mot de passe du site ne
+l'ouvre plus » est tout l'objet de la bascule. Attendre « le cadenas s'en va »
+consommait donc la borne entière trois fois, et l'essai arrivait ensuite dans
+un état qu'il n'avait pas mesuré. On attend la PREMIÈRE des deux issues — le
+cadenas parti, ou le refus écrit —, et l'assertion dit laquelle est venue.
+
+**Un message d'avant fait rendre la main trop tôt.** Le même refus reste
+affiché d'une tentative à l'autre : l'essai efface donc la zone lui-même avant
+le geste, et ce qu'il y lit ensuite ne peut venir que de lui. C'est la parade
+du § 3, et il a fallu la payer pour s'en souvenir.
+
+**Un verdict se distingue de l'annonce de travail.** L'étape de la preuve
+écrit « Ouverture du fichier… », puis son verdict. Attendre un texte non vide
+rend la main sur l'annonce ; attendre le motif du succès laisse un refus
+consommer la borne entière. On attend un texte qui n'est pas l'annonce : vrai
+pour les deux issues, et indépendant de ce qu'on affirme.
+
+**Et trois passages, trois jeux de rouges différents : c'est la signature d'une
+post-condition manquante.** Le scellé du coffre n'est pas écrit au chargement
+mais quand l'écran scelle son premier enregistrement, et six secondes le
+couvraient sans le dire. Aucune marque à l'écran pour cela : c'est la base
+qu'on interroge. *Un rouge qui change de place à chaque passage ne dit pas que
+l'essai est fragile — il dit qu'on attend la mauvaise chose.*
+
+**Enfin, celle qui ne parle pas d'attentes du tout.** En remplaçant les trois
+lignes « attendre, cliquer, attendre » d'un bloc, je n'ai remis que les deux
+attentes : **le geste avait disparu.** L'essai a rendu un rouge parfaitement
+cohérent — « le refus n'est pas dit » — sur un refus que personne n'avait
+demandé, et j'ai cherché le défaut dans le site. Deux lignes de diagnostic
+l'ont montré en disant que rien ne s'opposait au geste. **Quand on remplace un
+bloc, on vérifie que le geste y est encore** ; et un rouge cohérent n'est pas
+pour autant un rouge du site.
+
+### Et ce que le troisième lot a ajouté
+
+*« rapprocher-ecran » (16 sites), « coffre-session » (6), « voile-et-fiche »
+(7), « consommateurs-ecran » (6), « initialisation-sans-defaut » (7). Trois
+cent deux sites restent, contre 458 au départ.*
+
+**Le premier motif revient déguisé, et il faut l'attendre à chaque fois.** Une
+attente à deux issues compare souvent la seconde à un état, non à un
+changement : « le refus est affiché », « l'erreur est visible ». Or un message
+d'erreur qui reste d'un écran à l'autre rend cette condition vraie AVANT le
+geste — c'est le motif 1 du § 3, et il reprend la main aussitôt. Mesuré sur le
+parcours d'initialisation : cinq questions distinctes au lieu de la dizaine,
+l'essai relisant deux fois le même écran. La forme juste relève l'état
+d'avant — la question affichée ET l'erreur déjà visible — et attend qu'il
+diffère.
+
+**Un invariant négatif a souvent un complément positif, et c'est lui qu'on
+attend.** « Le coffre n'est pas redemandé » ne s'attend pas ; « l'écran du
+coffre ouvert est là » dit la même chose dans l'autre sens, et c'est une vraie
+transition. Quatre des six attentes de « coffre-session » tenaient à cela.
+
+**Et une aide se pose avant son premier usage.** Un `const` fléché employé
+plus haut dans le fichier ne lève pas à la lecture mais à l'exécution —
+« Cannot access before initialization » —, et l'essai s'arrête après ses
+premières assertions vertes, ce qui ressemble à tout sauf à une erreur de
+rangement.
+
+### Deux leçons du quatrième lot, et l'une n'était pas la cause
+
+*« pretest » (6 sites), « parcours-validation » (6), « consentement-ecran »
+(5), « calendrier-occurrences » (5), « migration-fsrs » (5),
+« piles-navigateur » (5). Deux cent quatre-vingts sites restent.*
+
+**L'ORDRE DE DEUX POST-CONDITIONS COMPTE.** `essais:migration` déverrouille la
+session, puis attend que la base ait migré. J'ai remplacé les 2 500 ms par la
+seule attente de la migration — or le magasin des cartes se lit SANS la clé :
+la condition était donc satisfaite pendant que le déverrouillage courait
+encore. L'essai partait sur « /flashcards » avant que la session n'existe, et
+retombait sur l'écran d'entrée. Rouge : « aucune session de flashcards à
+démarrer », sur une application saine, et huit assertions non mesurées
+derrière. Il faut les deux attentes, dans l'ordre : le verrou qui s'en va, puis
+la migration.
+
+**ET UNE CORRECTION QUI N'ÉTAIT PAS LA CAUSE, mais qu'il fallait faire.** En
+cherchant le défaut, j'ai vu que `attendreEnBase` ouvrait une connexion à la
+base à chaque tour de sondage et **ne la refermait jamais**. Or une connexion
+ouverte BLOQUE un changement de version : un sondage de ce genre peut empêcher
+la migration qu'il est censé attendre. Corrigé — et mesuré : cela ne
+réparait pas ce rouge-ci. Les deux faits valent d'être dits ensemble, parce que
+la tentation est de s'arrêter à la première explication plausible.
+
+**Enfin, le diagnostic muet.** La branche « rien à démarrer » de cet essai ne
+disait pas ce qu'elle avait vu : deux passages pour découvrir que l'écran
+montrait le cadenas. Elle liste maintenant les appuis visibles et le chemin.
+*Un rouge qui ne dit pas ce qu'il a vu se cherche à l'aveugle.*
+
+### Le cinquième lot : un magasin scellé, et le rebond une seconde fois
+
+*« positionnement-navigateur » (5 sites), « psyche-navigateur » (5),
+« bascule-coffre » (4).*
+
+**UN MAGASIN SCELLÉ NE S'INTERROGE PAS PAR SES CHAMPS.** La Psyché range ses
+points du jour chiffrés : un `getAll` n'en rend que l'identifiant, le jour et
+un bloc scellé. Attendre « un point du jour dont l'humeur vaut 9 » ne pouvait
+donc jamais aboutir, et la condition était fausse sans être absurde — c'est le
+genre d'erreur qu'on ne voit pas en relisant.
+
+Ce qu'on peut lire sans la clé, c'est que **le bloc a CHANGÉ** : réécrire
+scelle un nouveau contenu avec un nouveau vecteur. La post-condition est
+exacte, et elle n'ouvre rien — on ne lit pas ce qui a été écrit, seulement
+qu'il l'a été.
+
+**ET LE REBOND UNE SECONDE FOIS.** « Enregistrer » de la Psyché passe par
+`unSeulGeste`, et le même point du jour se corrige par un second appui sur le
+même bouton. Les 1 500 ms d'avant franchissaient le repos de 600 ms sans le
+savoir ; mes post-conditions, plus rapides, l'ont ramené dans la fenêtre. Le
+second appui était avalé, la correction n'atteignait jamais la base, et l'essai
+la relisait à sa valeur d'avant deux navigations plus loin — un rouge juste,
+sur une application saine. *Deux occurrences font une règle : avant de refaire
+le même geste sur le même contrôle, franchir le repos.*
+
+**Deux essais hors de portée du banc, et il faut le dire.**
+`essais:bibliographie:navigateur` refuse de tourner ici : le paquet
+« bibliographie.bin » n'est pas construit, et le construire demande une source
+que ce conteneur n'a pas. Sa conversion a donc été ANNULÉE plutôt que livrée
+sans mesure. Et `essais-bascule-coffre.mjs` n'a **aucun script dans
+`package.json`** : la batterie énumérant les scripts, ce fichier n'est jamais
+lancé par personne. Lancé à la main, il passe — quatorze constats, zéro rouge.
+
+### Avant de sonder la base, regarder si l'écran dit qu'il a fini
+
+*Règle ajoutée le 26 octobre, après le relevé de B.*
+
+Dix messages dans six écrans — appareils, apparier, progression, statistiques,
+stockage, veille — suivent la même convention : « … en cours… », puis un
+verdict. `travailFini` les couvre tous, et il vaut mieux qu'un sondage de la
+base : il rend la main à la seconde où l'écran parle, et il ne présume ni du
+refus ni de la réussite.
+
+La base ne se sonde donc que **lorsque l'écran ne dit rien** — une tâche
+rangée, un rappel retiré du centre, une migration, un réglage enregistré sans
+annonce. L'ordre de recherche est : ce que l'assertion lit ; sinon la marque du
+geste ; sinon le verdict de l'écran ; sinon la base.
+
+**Et une attente bouclée et bornée n'est pas une temporisation à l'aveugle.**
+Elle relève, attend un pas, relit, et ne rend la main que lorsque la condition
+est vraie — ou à la borne, ce qui est rendu comme un faux. Les cent
+millisecondes de `attendreEnBase` ne sont pas une durée supposée nécessaire :
+c'est l'intervalle entre deux lectures. Ni `relever-temporisations.mjs` ni
+`--bornes` ne les comptent.
+
+### Deux portes, deux aides, une seule copie de chacune
+
+Le coffre et le verrou du site sont deux portes différentes, et chacune a son
+aide, tenue par l'agent qui l'a écrite : **`sauvegarde-essais.mjs`** de B pour
+le verrou du site, la sauvegarde et la restauration, et **`coffre-essais.mjs`**
+de C pour l'ouverture du coffre et `#coffre-ouvert`. Les attentes de ce § 4
+sont tenues dans **`scripts/lib/post-condition.mjs`**, que je suis seul à
+modifier : qui a besoin d'une forme nouvelle la demande plutôt que de la
+recopier.
+
+### Ce que coûte une conversion, mesuré
+
+Le pilote : **2 h 01 d'horloge pour 26 sites**, trois essais, un socle. À ce
+rythme exact, les 458 demanderaient 36 heures — mais le pilote a payé trois
+passages individuels PLUS un socle pour trois essais seulement. En lot, la
+vérification se mutualise : une batterie pour trente essais convertis, et non
+une par essai. L'estimation tenable est **20 à 22 heures**, dont 3 à 4 de
+batteries et 20 % de marge pour les conversions fausses — il y en aura, le § 3
+dit lesquelles.
+
+`scripts/lib/post-condition.mjs` tient les formes qui reviennent :
+`apresLaPeinture` pour une action répétable sur une zone qui compte ses
+peintures, `apresLeRemplacement` quand la zone refait ses enfants,
+`apresLeChangementDeTexte` quand une phrase est réécrite, `attendreLeCompte`
+pour une liste qui grandit, `apresLesAnimations` avant toute lecture de
+géométrie, et `devientVisible` pour le « il part / il paraît » qui occupait la
+moitié des sites. Quand rien de tout cela ne s'applique — l'écriture n'a
+aucune marque à l'écran —, c'est la base qu'on interroge : l'idiome
+`attendreEnBase`.
+
+### Ce que le premier lot a appris, et qui ne s'invente pas
+
+*Trois essais convertis le 26 octobre — « parametres-navigateur » (19 sites),
+« sante-navigateur » (25), « gestes » (11). Chacune de ces quatre leçons vient
+d'une assertion tombée, et aucune n'était prévisible depuis la source.*
+
+**Une animation se lit par sa FIN, jamais par une durée.** Deux fois dans ce
+lot. Une ancre défile par animation : `scrollend` le dit. Le bandeau
+d'annulation monte : son bas passe de 708 à 684 px en cent cinquante
+millisecondes, et trois constats de géométrie tombent si on le lit dès qu'il
+est visible. `apresLesAnimations` attend les promesses `finished` de
+`getAnimations()`, ce qui est exact et ne suppose aucune durée.
+
+**Une conversion ACCÉLÈRE l'essai, et peut le faire tomber dans le repos du
+site.** C'est la leçon la moins attendue, et la plus utile pour la suite.
+« Abandonner » passe par `unSeulGeste` ; l'empreinte d'un bouton sans champ
+est vide, donc deux appuis sur ce bouton portent la même empreinte, et le
+second est pris pour un rebond s'il arrive moins de 600 ms après le premier.
+Les temporisations d'avant franchissaient ce repos sans le savoir. Les
+post-conditions, plus rapides, l'ont ramené dans la fenêtre : deux assertions
+sont tombées sur du code sain. **Avant de refaire le même geste sur le même
+contrôle, il faut franchir le repos** — et c'est une des rares temporisations
+légitimes.
+
+**Un rouge ne doit pas en cacher vingt-trois.** Le dépôt au centre de
+notifications manque — défaut du site, présent avant ce lot, mesuré sur la
+version d'avant comme sur la nouvelle. La lecture qui suivait faisait une
+panne sur « undefined », et l'essai s'arrêtait là : les vingt-trois assertions
+des deux dernières sections n'étaient pas mesurées, ce qui se lisait comme
+leur absence. Elles tournent désormais.
+
+**Une page visitée pour son EFFET DE BORD a besoin de sa post-condition.**
+`essais:gestes` passe par l'écran des exercices uniquement pour que la
+bibliothèque se déchiffre, puis s'en va. J'ai retiré les 2 200 ms de ce
+passage en croyant que l'attente du sélecteur, sur l'écran suivant, suffisait :
+à ×15 de bridage, le sélecteur restait vide et l'essai tombait avant sa
+première assertion. « networkidle » dit que le réseau se tait, pas que le
+travail est fini. `#vue` ne paraît qu'une fois la bibliothèque lue : c'est la
+marque, et elle était là depuis le début.
+
+**Au passage, une borne qu'on croit avoir fixée.** Le même essai écrivait
+`waitForFunction(fn, { timeout: 20000 })` — or le second argument de
+`waitForFunction` est la VALEUR passée à la fonction, pas les options. Les
+vingt secondes annoncées n'en étaient pas, et la borne réelle était celle par
+défaut. À vérifier partout : c'est une erreur qui ne se voit jamais, puisque
+les deux valeurs se ressemblent.
+
+**Et un vert à vide se dit « non mesuré ».** Dans la même section, deux
+constats restaient verts sans l'élément déposé — « rien d'autre n'est lisible »
+est vrai d'un objet vide. Ce n'est pas un assouplissement : l'essai échoue
+toujours, pour la seule cause réelle, et les constats qui ne peuvent rien
+prouver le disent au lieu de rassurer.
+
+## 5. Un balayage de source qui ne trouve rien a deux raisons de se taire
+
+Cette section est écrite le 31 octobre, après que le garde-fou des bornes de
+`waitForFunction` est entré au socle. Elle ne parle pas des temporisations :
+elle parle de **ce que vaut un balayage de source**, et elle vaut pour les
+vingt-huit qui sont au socle.
+
+### La faute que le balayage cherchait
+
+`waitForFunction(fonction, valeur, options)`. Le second argument est la valeur
+passée à la fonction ; les options — dont `timeout` — sont au troisième. Une
+borne écrite au second rang part donc comme valeur, la fonction ne la lit pas,
+et l'attente retombe sur les **trente secondes par défaut** de Playwright.
+
+Une borne qu'on croit avoir fixée est **pire qu'une borne absente**. Absente,
+elle se voit à la relecture ; au mauvais rang, elle se lit comme fixée. Et son
+effet n'est pas seulement une durée : un essai annoncé « vingt secondes au
+plus » fait durer son rouge trente secondes, et l'on cherche la cause dans le
+site.
+
+### Le trou, et comment il a été trouvé
+
+Le balayage du 26 octobre annonçait **seize** sites, et il les avait tous
+corrigés. Le 31, en lui écrivant un essai, il en est apparu **trente-quatre
+autres**, dans huit essais — `suivi` en portait quatorze, `tendances` huit,
+`initialisation` cinq.
+
+La cause tient en une virgule. Un appel écrit sur plusieurs lignes porte, après
+son dernier argument, la virgule que le formateur pose partout dans ce dépôt :
+
+```js
+await page.waitForFunction(
+  () => document.getElementById('x') !== null,
+  { timeout: 20000 },   // ← la virgule finale
+);
+```
+
+Le découpage rendait donc **trois** arguments, dont un vide. La condition
+« exactement deux arguments » ne s'appliquait plus, et la faute passait. Le
+balayage ne voyait que la forme écrite sur une ligne — c'est-à-dire la moins
+courante des deux.
+
+### Ce qu'il faut en retenir, et qui dépasse ce cas
+
+**Un analyseur cassé ne lève pas : il rend zéro.** Et zéro est exactement ce
+que rend un dépôt propre. Les deux verdicts sont indiscernables à la lecture de
+la sortie, ce qui place ce genre de défaut dans la même famille que les trois
+pannes du chemin du navigateur (§ 1 de la doctrine du socle) : *ne rien
+trouver ne levait pas*.
+
+Trois règles en découlent, pour tout balayage de source qui entre au socle.
+
+1. **Son essai éprouve les deux sens.** Ce qu'il doit voir, et ce qu'il ne doit
+   pas voir. Un essai qui ne vérifie que l'absence de faux positifs reste vert
+   avec un analyseur qui ne trouve plus jamais rien. Dans `essais-bornes.mjs`,
+   le premier contrôle de la liste est la forme exacte de la faute, parce que
+   c'est le seul qui prouve que les autres mesurent encore quelque chose.
+2. **Il refuse quand il n'a rien lu.** Zéro faute et zéro appel rencontré se
+   rendaient de la même façon. Un dossier renommé, une extension oubliée, un
+   argument mal orthographié rendraient donc le vert d'une mesure qui n'a rien
+   mesuré — devant un `&&` que personne ne relit. `--bornes` refuse maintenant
+   avec le code 2 lorsqu'il ne rencontre aucun appel, et son essai éprouve les
+   **trois** codes de sortie sur des dossiers d'essai.
+3. **Une exclusion se garde.** L'essai d'un balayage contient par nature la
+   faute écrite exprès, donc le balayage doit passer ce fichier. Une tache
+   aveugle non gardée s'élargit : l'essai vérifie qu'elle ne compte qu'un
+   fichier, et que **sans** l'exclusion le balayage signale bien ces exemples
+   — faute de quoi elle cacherait autre chose.
+
+### Et ce que les sabotages ont appris, qui n'était pas prévu
+
+Quatre sabotages, chacun dans un arbre de travail détaché sur le commit (§ 2) :
+une borne remise au mauvais rang dans un vrai essai ; la virgule finale cessant
+d'être traitée ; le refus du balayage muet retiré ; l'analyseur cessant de
+suivre les chaînes. Les quatre ont rougi, et chacun a nommé son site.
+
+Le second est le plus parlant : avec le trou remis, **la ligne de commande
+seule annonce « 0 borne au mauvais rang » et sort avec le code 0**. C'est
+précisément le faux vert qui a vécu cinq jours, et c'est l'essai — non le
+balayage — qui l'attrape.
+
+Le premier a appris autre chose. Deux contrôles ont rougi au lieu d'un : celui
+qui gardait l'exclusion affirmait que, sans elle, *toutes* les fautes vues
+appartiennent au fichier d'exemples. Une vraie faute ailleurs le rendait faux
+lui aussi, et il **désignait donc l'exclusion là où le défaut était dans le
+dépôt**. Un garde-fou qui rougit pour la mauvaise cause coûte le temps qu'il
+prétend économiser ; il ne parle plus que de son propre fichier.
+
+## 6. Deux leçons du lot « boîte » et « mobile »
+
+### Une attente peut garder une COURSE, et non une lecture
+
+Le relevé ne retient que les temporisations suivies d'une **lecture**, et
+j'ai cru pouvoir en retirer une au motif que ce qui la suivait était un
+`goto`. C'est faux, et un passage à vitesse normale l'a dit en une ligne :
+`net::ERR_ABORTED`.
+
+Fermer la feuille de confirmation passe par `calqueFerme`, qui appelle
+`history.back()` pour ranger l'entrée empilée à l'ouverture (M5). C'est une
+**navigation asynchrone**. Un `goto` lancé aussitôt la concurrence, et l'un
+des deux est abandonné.
+
+Attendre le détachement du dialogue n'aurait pas suffi non plus :
+`calqueFerme` est appelé **avant** `boite.remove()`, donc le détachement
+précède le rangement. C'est le troisième piège — attendre une chose et en
+lire une autre — avec une navigation à la place de la lecture.
+
+La post-condition exacte est la marque rangée : `calques.ts` pose
+`cycladesCalque` dans `history.state`, et le retour la retire.
+
+**À retenir pour les lots suivants.** Avant de retirer une temporisation
+qu'aucune lecture ne suit, se demander ce qui la suit *vraiment* : une
+navigation, une fermeture d'onglet, un `goBack`, l'ouverture d'un autre
+écran. Le critère « suivie d'une lecture » sert à TROUVER les sites, pas à
+décider qu'un site est inoffensif.
+
+### Le bridage cache les courses ; seule la vitesse pleine les montre
+
+Le même défaut est passé **vert à ×6 et à ×12**, et rouge à ×1. Bridé, le
+`goto` partait après la fin de la navigation d'historique ; à vitesse pleine
+il la perd.
+
+Un lot se mesure donc dans les deux sens, et c'est contre-intuitif : **bridé**
+pour les attentes trop courtes, et **plusieurs fois à vitesse pleine** pour
+les courses que la lenteur sérialise. Trois passages à ×1 ont suffi ici ; un
+seul, par chance, aurait validé le défaut.
+
+### Une marque qui manque au site, et qui rendrait exactes quinze attentes
+
+Quatre passages de `essais-mobile-navigateur.mjs` portaient le même couple :
+900 ms après le clic sur le verrou, puis 300 ou 400 ms de plus. Le premier a
+une marque exacte — `signalerDeverrouillage` écrit `data-verrou="ouvert"` sur
+`<html>`, et c'est ce que les écrans guettent pour charger leur contenu
+déchiffré.
+
+Le second n'en a aucune. « Le contenu déchiffré de cet écran est peint » n'est
+signalé par personne : chaque écran peint dans son propre rappel de
+`auDeverrouillage`, et aucun ne le dit. Faute de marque, on sonde la stabilité
+de ce que la mesure lit — attente bornée par relecture, non durée pariée.
+
+**Ce serait exact si chaque écran posait un compteur à la fin de son rappel**,
+comme `parametres.astro` le fait avec `data-monte`. C'est une quinzaine
+d'écrans, donc une proposition au pilote et non une initiative : elle
+toucherait des fichiers qui ne sont pas de ce chantier.
 
 ## Ce qui reste hors d'atteinte ici
 

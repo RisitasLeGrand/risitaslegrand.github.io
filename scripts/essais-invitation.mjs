@@ -67,6 +67,48 @@ const simulerAndroid = (page, issue) =>
     return demandee;
   }, issue);
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI IL N'EN FAUT PRESQUE PAS
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Dix temporisations à
+   l'aveugle vivaient ici, et la lecture de la source les rend presque toutes
+   inutiles : `observerLInstallation` décide de façon SYNCHRONE —
+   `dejaInstallee()`, `installationRefusee()`, `estIOS()` ne cèdent jamais la
+   main. La décision est donc prise à l'exécution du module, c'est-à-dire
+   AVANT l'événement « load », donc avant que « networkidle » ne rende la
+   main. Il n'y a rien à attendre après.
+
+   C'est le § 3 pris dans l'autre sens : sans « await » dans le gestionnaire,
+   rien ne peut être surpris à mi-chemin, et une temporisation ne protège de
+   rien. Les trois constats NÉGATIFS de cet essai — « rien ne s'affiche »,
+   « elle reste cachée », « elle ne revient pas » — s'en trouvent mieux : un
+   invariant négatif ne s'attend pas, et ici il n'y a pas à l'attendre.
+
+   Restent les apparitions et les disparitions, qu'on attend bornées : c'est
+   ce que les assertions lisent, l'expiration est rendue comme un faux, et la
+   seule exigence qui disparaît est celle d'arriver en moins d'une seconde et
+   demie.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
+/** Attend qu'un élément de l'invitation paraisse, ou s'en aille. */
+const attendreLInvitation = (p, id, montre) =>
+  p
+    .waitForFunction(
+      ([identifiant, veutVisible]) => {
+        const e = document.getElementById(identifiant);
+        const vu = Boolean(e) && e.getBoundingClientRect().height > 0;
+        return vu === veutVisible;
+      },
+      [id, montre],
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
 /* ── 1. iOS ─────────────────────────────────────────────────────────── */
 console.log('\nSUR IOS, LE CHEMIN EST EXPLIQUÉ FAUTE DE POUVOIR ÊTRE AUTOMATISÉ');
 {
@@ -80,7 +122,7 @@ console.log('\nSUR IOS, LE CHEMIN EST EXPLIQUÉ FAUTE DE POUVOIR ÊTRE AUTOMATIS
   const page = await ctx.newPage();
   await franchirInitialisation(page, BASE, MDP);
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1500);
+  await attendreLInvitation(page, 'invitation-installation', true);
   verifier('l’invitation paraît', await visible(page, 'invitation-installation'), true);
   verifier('avec les trois gestes de Safari', await visible(page, 'invitation-ios'), true);
   verifier(
@@ -119,7 +161,8 @@ console.log('\nUNE FOIS INSTALLÉE, ON NE PROPOSE PLUS DE L’INSTALLER');
   const page = await ctx.newPage();
   await franchirInitialisation(page, BASE, MDP);
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
+  /* Rien à attendre : « déjà installée » est décidé synchroniquement, donc
+     avant « load ». Attendre ici n'aurait fait que ralentir la batterie. */
   verifier(
     'prémisse : l’appareil se dit déjà installé',
     await page.evaluate(() => navigator.standalone === true),
@@ -136,7 +179,7 @@ console.log('\nSUR ANDROID, L’INVITE NATIVE EST REPRISE PAR UN BOUTON À NOUS'
   const page = await ctx.newPage();
   await franchirInitialisation(page, BASE, MDP);
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
+  /* Même raison : sans l'événement du navigateur, il n'y a rien à attendre. */
   verifier(
     'sans événement, rien ne s’affiche',
     await visible(page, 'invitation-installation'),
@@ -144,13 +187,19 @@ console.log('\nSUR ANDROID, L’INVITE NATIVE EST REPRISE PAR UN BOUTON À NOUS'
   );
 
   await simulerAndroid(page, 'accepted');
-  await page.waitForTimeout(500);
+  await attendreLInvitation(page, 'invitation-installation', true);
   verifier('l’événement fait paraître l’invitation', await visible(page, 'invitation-installation'), true);
   verifier('avec son bouton', await visible(page, 'invitation-installer'), true);
   verifier('et sans le chemin d’iOS', await visible(page, 'invitation-ios'), false);
 
   await page.click('#invitation-installer');
-  await page.waitForTimeout(800);
+  /*
+     LE SEUL « await » DU FICHIER EST ICI : `installer()` attend l'invite
+     native puis le choix, et ne cache la zone qu'après. La disparition est
+     donc la peinture la plus tardive, et l'attendre couvre aussi le constat
+     sur `__invitePosee`, posé avant elle.
+  */
+  await attendreLInvitation(page, 'invitation-installation', false);
   verifier(
     'le bouton déclenche bien l’invite native',
     await page.evaluate(() => window.__invitePosee === true),
@@ -171,19 +220,22 @@ console.log('\n« NON MERCI » TIENT, Y COMPRIS APRÈS RECHARGEMENT');
   const page = await ctx.newPage();
   await franchirInitialisation(page, BASE, MDP);
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
   await simulerAndroid(page, 'dismissed');
-  await page.waitForTimeout(500);
+  await attendreLInvitation(page, 'invitation-installation', true);
   verifier('prémisse : l’invitation est là avant qu’on la refuse', await visible(page, 'invitation-installation'), true);
 
   await page.click('#invitation-refuser');
-  await page.waitForTimeout(400);
+  await attendreLInvitation(page, 'invitation-installation', false);
   verifier('elle disparaît au refus', await visible(page, 'invitation-installation'), false);
 
   await page.reload({ waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
+  /*
+     ET APRÈS LE RECHARGEMENT, RIEN À ATTENDRE NON PLUS : le refus est relu
+     synchroniquement, `observerLInstallation` rend la main tout de suite, et
+     l'événement réémis ne trouve plus personne pour l'écouter. Le constat
+     négatif est donc vrai dès que le module a tourné.
+  */
   await simulerAndroid(page, 'dismissed');
-  await page.waitForTimeout(600);
   verifier('et ne revient pas, même si le navigateur réémet son événement', await visible(page, 'invitation-installation'), false);
   await ctx.close();
 }

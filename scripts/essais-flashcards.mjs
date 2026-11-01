@@ -16,6 +16,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { apresLeChangementDeTexte, devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 
@@ -57,10 +58,33 @@ await page.goto('http://localhost:4321/flashcards', { waitUntil: 'networkidle' }
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
-  await page.waitForTimeout(3000);
+  await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
 }
 await page.locator('#accueil-session').waitFor({ state: 'visible', timeout: 30000 });
-await page.waitForTimeout(1500);
+/*
+   L'ATTENTE D'UNE ASSERTION NÉGATIVE SE PREND PAR SON COMPLÉMENT POSITIF,
+   et ici le complément est l'opération même qu'on surveille.
+
+   Les deux assertions qui suivent disent qu'AUCUNE fiche n'a été ouverte,
+   et que les compteurs sont pourtant remplis. La première est négative :
+   trop tôt, elle est vraie d'avance — et pour la pire des raisons, puisque
+   le remplissage des compteurs, qui est précisément ce qui ne doit
+   déchiffrer aucune fiche, n'a pas encore eu lieu. L'essai mesurerait
+   l'absence d'un travail qui n'a pas commencé.
+
+   On attend donc que le remplissage ait EU LIEU : le gabarit écrit « 0 »
+   dans `#nb-neuves` (flashcards.astro:52), et `rafraichirCompteurs` y met
+   le vrai nombre. Attendre qu'il dépasse zéro est un changement réel, et
+   la fenêtre d'observation du négatif contient alors l'opération à
+   surveiller.
+*/
+const compteursRemplis = (delai = 30000) =>
+  page.waitForFunction(
+    () => Number(document.getElementById('nb-neuves')?.textContent ?? '0') > 0,
+    undefined,
+    { timeout: delai },
+  );
+await compteursRemplis();
 v('aucune fiche ouverte', compteur(), 0);
 /*
    LE COMPTEUR REGARDÉ A CHANGÉ DE SENS (prompt 43, F5), ET CET ESSAI SUIT.
@@ -83,15 +107,40 @@ console.log('\nCHANGEMENT DE MENU — pas davantage');
 compteur = depuis();
 const matieres = await page.locator('#choix-matiere option').count();
 if (matieres > 1) {
+  /*
+     LA PARADE, parce que les compteurs sont DÉJÀ remplis : les attendre
+     tels quels les trouverait remplis d'avance, et l'assertion négative
+     retomberait dans le travers d'au-dessus. On les efface donc soi-même
+     AVANT le geste — effacer, agir, attendre —, puis on attend celui que
+     `rafraichirCompteurs` réécrit.
+
+     Un changement de matière appelle `majFascicules()` puis
+     `rafraichirCompteurs()` (flashcards.astro:651). Rien d'autre n'est
+     observable : le nombre peut légitimement être le même d'une matière à
+     l'autre, donc attendre qu'il DIFFÈRE expirerait sans défaut. Ce qu'on
+     peut affirmer, c'est qu'il est RÉÉCRIT.
+  */
+  await page.evaluate(() => {
+    for (const id of ['nb-dues', 'nb-retard', 'nb-neuves', 'nb-acquises']) {
+      const e = document.getElementById(id);
+      if (e) e.textContent = '';
+    }
+  });
   await page.locator('#choix-matiere').selectOption({ index: 1 });
-  await page.waitForTimeout(1500);
+  await compteursRemplis();
 }
 v('aucune fiche ouverte', compteur(), 0);
 v('les compteurs ont suivi la sélection', await compteurRempli(), true);
 
 console.log('\nDÉMARRAGE — seulement ce qui est servi');
+await page.evaluate(() => {
+  for (const id of ['nb-dues', 'nb-retard', 'nb-neuves', 'nb-acquises']) {
+    const e = document.getElementById(id);
+    if (e) e.textContent = '';
+  }
+});
 await page.locator('#choix-matiere').selectOption({ index: 0 });
-await page.waitForTimeout(800);
+await compteursRemplis();
 await page.locator('#choix-taille').selectOption('20');
 /*
    LE PLAFOND NE PEUT PAS SERVIR PLUS QUE CE QUI EXISTE.
@@ -129,11 +178,20 @@ v(
 
 console.log('\nUNE CARTE NOTÉE, PUIS UNE SECONDE SESSION');
 await page.locator('#carte').click();
-await page.waitForTimeout(500);
-await page.getByRole('button', { name: /^Correct/ }).first().click();
-await page.waitForTimeout(1200);
+const correct = page.getByRole('button', { name: /^Correct/ }).first();
+await correct.waitFor({ state: 'visible', timeout: 30000 });
+/*
+   NOTER UNE CARTE FAIT AVANCER LE COMPTEUR DE SESSION : « 1/20 » devient
+   « 2/20 ». C'est la post-condition de la note, et elle est strictement
+   plus forte qu'un délai — si la note n'était pas prise, le compteur ne
+   bougerait pas et l'attente accuserait ici, au lieu de laisser la seconde
+   session mesurer autre chose que ce qu'elle croit.
+*/
+await apresLeChangementDeTexte(page, '#compteur', () => correct.click(), { delai: 30000 });
+/* Quitter ramène à l'accueil, dont `#lancer` est le témoin : il n'existe
+   pas pendant une session, donc son retour est un changement. */
 await page.locator('#quitter').click();
-await page.waitForTimeout(800);
+await devientVisible(page, '#lancer', true, { delai: 30000 });
 compteur = depuis();
 const debut2 = Date.now();
 await page.locator('#lancer').click();
@@ -145,7 +203,7 @@ v('et rapide', ms2 < 5000, true);
 
 console.log('\nRÉVISION HORS ÉCHÉANCE');
 await page.locator('#quitter').click();
-await page.waitForTimeout(800);
+await devientVisible(page, '#lancer-libre', true, { delai: 30000 });
 compteur = depuis();
 await page.locator('#lancer-libre').click();
 await page.locator('#carte').waitFor({ state: 'visible', timeout: 60000 });

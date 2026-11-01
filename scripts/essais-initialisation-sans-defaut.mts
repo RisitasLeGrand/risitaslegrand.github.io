@@ -124,6 +124,71 @@ const ETAT_ECRAN = `(() => {
   };
 })()`;
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CES DEUX PARCOURS, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Sept temporisations à
+   l'aveugle, de 220 et 300 ms, et toutes au même endroit : entre un appui et
+   la lecture de l'écran SUIVANT. Deux cent vingt millisecondes pour peindre
+   une question : c'est la moyenne qui tient sur une machine au repos, et un
+   parcours de quarante écrans la paie quarante fois.
+
+   La post-condition est la QUESTION, qui change d'un écran à l'autre. On la
+   relève avant l'appui et l'on attend qu'elle diffère — indépendant de ce que
+   les assertions comptent ensuite, et impossible à satisfaire par un passage
+   antérieur.
+
+   Et « Continuer » a DEUX issues : l'écran avance, ou il refuse et montre son
+   erreur. On attend donc la première des deux, faute de quoi un refus
+   consommerait la borne entière avant que l'essai ne le voie.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
+/** L'état de l'écran dont un appui va nous faire sortir. */
+const avantLAppui = (page: import('playwright-core').Page) =>
+  page.evaluate(() => {
+    const erreur = document.getElementById('erreur');
+    return {
+      question: document.getElementById('question')?.textContent ?? '',
+      erreurVue: erreur instanceof HTMLElement && !erreur.classList.contains('hidden'),
+    };
+  });
+
+/**
+ * Attend que l'écran ait avancé — ou qu'il ait refusé.
+ *
+ * Trois sorties, et la deuxième demande une précaution. La question change,
+ * c'est le cas ordinaire. L'erreur PARAÎT, et il faut qu'elle n'ait pas été
+ * déjà là : ma première version se contentait de « l'erreur est visible », et
+ * une erreur restée affichée d'un écran à l'autre faisait rendre la main
+ * aussitôt — le parcours lisait alors deux fois le même écran, et n'avançait
+ * plus. Mesuré : cinq questions distinctes au lieu de la dizaine attendue.
+ * Ou le parcours se termine, et « Aller au menu » paraît.
+ */
+const apresLAppui = (
+  page: import('playwright-core').Page,
+  avant: { question: string; erreurVue: boolean },
+) =>
+  page
+    .waitForFunction(
+      ([questionDAvant, erreurDejaLa]) => {
+        const question = document.getElementById('question')?.textContent ?? '';
+        if (question !== questionDAvant) return true;
+        const erreur = document.getElementById('erreur');
+        const vue = erreur instanceof HTMLElement && !erreur.classList.contains('hidden');
+        if (vue && !erreurDejaLa) return true;
+        const menu = document.getElementById('aller-menu');
+        return menu instanceof HTMLElement && menu.offsetParent !== null;
+      },
+      [avant.question, avant.erreurVue] as [string, boolean],
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
 /**
  * Traverse le parcours en ne répondant que ce qui est obligatoire.
  *
@@ -152,8 +217,9 @@ async function traverser(page: Page, branche: string | null) {
     { timeout: 40000 },
   );
   if (await page.locator('#commencer').isVisible().catch(() => false)) {
+    const avant = await avantLAppui(page);
     await page.click('#commencer');
-    await page.waitForTimeout(300);
+    await apresLAppui(page, avant);
   }
 
   const questions: string[] = [];
@@ -179,8 +245,9 @@ async function traverser(page: Page, branche: string | null) {
     questions.push(etat.question);
 
     if (await page.locator('#valider').isVisible().catch(() => false)) {
+      const avant = await avantLAppui(page);
       await page.click('#valider');
-      await page.waitForTimeout(220);
+      await apresLAppui(page, avant);
       const bloque = await page.evaluate(
         `(() => {
           const e = document.getElementById('erreur');
@@ -200,16 +267,18 @@ async function traverser(page: Page, branche: string | null) {
         );
         if (!nom) break;
         obligatoires.push(nom as string);
+        const avantReponse = await avantLAppui(page);
         await page.click('#valider');
-        await page.waitForTimeout(220);
+        await apresLAppui(page, avantReponse);
       }
     } else if (await page.locator('#plus-tard').isVisible().catch(() => false)) {
       /* Les écrans à choix unique n'ont pas de « Continuer » : cliquer une
          réponse EST une réponse. « Plus tard » enregistre un report, qui
          n'est pas une valeur de profil — c'est le bouton de qui ne veut
          rien dire, et c'est donc lui qu'il faut éprouver. */
+      const avant = await avantLAppui(page);
       await page.click('#plus-tard');
-      await page.waitForTimeout(220);
+      await apresLAppui(page, avant);
     } else {
       break;
     }
@@ -229,6 +298,9 @@ console.log('\n\x1b[1mUNE SAISIE VIDE PART VIDE, ET N’ÉCRIT RIEN\x1b[0m\n');
   const revisions = await traverser(page, 'revisions');
 
   const questions = new Set([...socle.questions, ...revisions.questions]);
+  /* Dites, et non seulement comptées : un rouge ici doit montrer OÙ le
+     parcours s'est arrêté, faute de quoi on cherche le défaut à l'aveugle. */
+  console.log(`      questions vues : ${[...questions].map((q) => q.slice(0, 40)).join(' | ')}`);
   v('le parcours a vraiment défilé (questions distinctes)', questions.size > 5, true);
 
   const vides = [...new Set([...socle.vides, ...revisions.vides])];
@@ -287,8 +359,9 @@ console.log('\n\x1b[1mET EN RÉPONDANT, L’ÉCRAN ÉCRIT BIEN\x1b[0m\n');
     { timeout: 40000 },
   );
   if (await page.locator('#commencer').isVisible().catch(() => false)) {
+    const avant = await avantLAppui(page);
     await page.click('#commencer');
-    await page.waitForTimeout(300);
+    await apresLAppui(page, avant);
   }
 
   const repondus: string[] = [];
@@ -296,8 +369,9 @@ console.log('\n\x1b[1mET EN RÉPONDANT, L’ÉCRAN ÉCRIT BIEN\x1b[0m\n');
     if (await page.locator('#aller-menu').isVisible().catch(() => false)) break;
     if (!(await page.locator('#valider').isVisible().catch(() => false))) {
       if (!(await page.locator('#plus-tard').isVisible().catch(() => false))) break;
+      const avant = await avantLAppui(page);
       await page.click('#plus-tard');
-      await page.waitForTimeout(220);
+      await apresLAppui(page, avant);
       continue;
     }
     const touche = await page.evaluate(
@@ -313,8 +387,9 @@ console.log('\n\x1b[1mET EN RÉPONDANT, L’ÉCRAN ÉCRIT BIEN\x1b[0m\n');
       })()`,
     );
     if (touche) repondus.push(touche as string);
+    const avant = await avantLAppui(page);
     await page.click('#valider');
-    await page.waitForTimeout(220);
+    await apresLAppui(page, avant);
   }
 
   const ecrits = (await page.evaluate(CHAMPS_ECRITS)) as string[];

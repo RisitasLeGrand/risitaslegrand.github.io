@@ -1,0 +1,555 @@
+/**
+ * G4 — jamais « jour(s) » à l'écran, et un outil pour l'éviter.
+ *
+ *   npm run essais:accords
+ *
+ * ## La règle, et pourquoi elle n'est pas une coquetterie
+ *
+ * « 3 jour(s) », « 2 carte(s) suivie(s) », « 1 base(s) annexe(s) » : la forme
+ * parenthésée écrit les deux accords pour n'en choisir aucun. Elle demande à
+ * la personne de faire le travail que le code refuse de faire, et elle le
+ * demande au pire moment — dans une confirmation d'effacement, dans un relevé
+ * de restauration, là où l'on compte ce qu'on va perdre.
+ *
+ * Le site a `pluriel()` depuis longtemps pour le nom. Il lui manquait le
+ * compagnon pour ce qui SUIT le nom, et c'est pour cela que la forme
+ * interdite survivait : faute d'`accorde()`, il fallait écrire six fois le
+ * même ternaire à la main, ou céder.
+ *
+ * ## Deux moitiés, et la seconde est celle qui tient dans le temps
+ *
+ * D'abord les deux fonctions, **par exécution** : c'est la première fois
+ * qu'elles sont éprouvées. `pluriel()` vivait dans `lib/ui.ts`, qui appelle
+ * `zoneDesNotifications()` à l'import — donc jette hors navigateur —, et
+ * personne ne pouvait l'importer ici. Elle est passée dans
+ * `noyau/accords.ts`, et `ui.ts` la réexporte.
+ *
+ * Ensuite le BALAYAGE. La relecture ne tient rien : 229 occurrences vivaient
+ * dans 41 fichiers au 26 octobre, et la deux-cent-trentième s'écrirait un
+ * jour sans que personne y pense.
+ *
+ * ## Ce que le balayage regarde, et ce qu'il laisse tranquille
+ *
+ * Il ne regarde que les **chaînes de caractères**, hors commentaires :
+ *
+ * - un commentaire qui PARLE de la forme interdite — comme celui-ci — n'est
+ *   pas une infraction. C'est la leçon de `essais:erreurs-dites`, et la règle
+ *   de blanchiment vit une fois dans `lib/sans-commentaires.mjs` ;
+ * - du code n'est pas du texte. `tableau.filter((s) => …)` porte « (s) » et
+ *   ne dit rien à personne. Exiger du balayage qu'il comprenne la différence
+ *   par le contexte l'aurait fait crier au loup, et un contrôle qui accuse à
+ *   tort se fait désactiver — c'est ainsi qu'on perd un garde-fou.
+ *
+ * Deux motifs, et le second ferme un contournement :
+ *
+ * 1. une lettre suivie de « (s) » ou « (es) » : `jour(s)`, `écrit(es)` ;
+ * 2. une chaîne qui ne contient QUE « (s) » ou « (es) ». Sans elle,
+ *    `` `${mot}${plusieurs ? '(s)' : ''}` `` passerait : la forme interdite
+ *    serait assemblée à l'exécution, et le premier motif ne verrait rien.
+ *
+ * ## Et la troisième moitié : ce que le balayage fait quand il se perd
+ *
+ * Elle est née d'une anomalie de L'INVENTAIRE, pas d'un rouge :
+ * `planification/index.astro` déclarait un site à la ligne 211, où il n'y
+ * avait rien ; la faute était quatre lignes plus bas. En tirant ce fil :
+ * l'apostrophe d'un « Aujourd'hui » de BALISAGE, ligne 96, ouvrait une chaîne
+ * qui ne se refermait plus, et le fichier se lisait de travers à partir de là.
+ *
+ * Le vrai dégât n'était pas la ligne fausse. `echelles.astro` sortait à ZÉRO
+ * site alors qu'il en portait sept, dont trois dans une phrase affichée : un
+ * fichier entier devenu invisible, et un compteur à zéro qui ressemblait à une
+ * bonne nouvelle. Un balayage qui se perd en silence est pire qu'un balayage
+ * absent, parce qu'on lui fait confiance.
+ *
+ * Trois causes, toutes de la même famille — lire du balisage comme du
+ * JavaScript : l'apostrophe du balisage ; `/['’]/g`, qui porte un guillemet
+ * dans un motif ; `{/* … *\/}`, dont le commentaire n'était pas blanchi. Et
+ * une quatrième, de découpage : `<style … />` autoporteur, pris pour
+ * l'ouverture d'une feuille de style.
+ *
+ * Toutes corrigées. Mais la correction qui tient dans le temps, c'est la
+ * dernière : la machine rend ses DÉSYNCHRONISATIONS, et cet essai REFUSE de
+ * mesurer quand il y en a une. Il ne peut plus affirmer « aucune forme
+ * parenthésée » sur un fichier qu'il n'a pas lu en entier.
+ */
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { accorde, nombreFr, pluriel } from '../src/lib/noyau/accords.ts';
+import { sitesDeToFixed, sitesInterdits } from './lib/accords-balayage.mjs';
+import { nonMesurable } from './lib/non-mesurable.mjs';
+
+let echecs = 0;
+const v = (titre: string, obtenu: unknown, attendu: unknown) => {
+  const ok = JSON.stringify(obtenu) === JSON.stringify(attendu);
+  if (!ok) echecs += 1;
+  console.log(`  ${ok ? '\u001b[32m✓\u001b[0m' : '\u001b[31m✗\u001b[0m'} ${titre}`);
+  if (!ok) console.log(`      obtenu ${JSON.stringify(obtenu)}, attendu ${JSON.stringify(attendu)}`);
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. Les deux fonctions, par exécution
+   ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\n\u001b[1mLE NOMBRE ET SON NOM\u001b[0m');
+v('zéro prend le singulier, comme en français', pluriel(0, 'jour'), '0 jour');
+v('un aussi', pluriel(1, 'jour'), '1 jour');
+v('deux prend le pluriel', pluriel(2, 'jour'), '2 jours');
+v('et la forme irrégulière se donne', pluriel(3, 'principal', 'principaux'), '3 principaux');
+/*
+   LE DÉCIMAL, et c'est lui qui a corrigé le seuil. « pluriel » s'écrivait
+   « n > 1 », donc mettait au pluriel dès 1,0001. Trouvé en accordant
+   « 1,25 sortie(s) par jour » sur l'écran du budget : une cadence est un
+   décimal, et le français garde le singulier jusqu'à deux exclu.
+*/
+v('un décimal sous deux reste au singulier', pluriel(1.25, 'sortie'), '1.25 sortie');
+v('et à deux il passe au pluriel', pluriel(2, 'sortie'), '2 sorties');
+v('accorde suit le même seuil', accorde(1.25, 'sortie'), 'sortie');
+
+console.log('\n\u001b[1mLE MOT QUI SUIT LE NOM\u001b[0m');
+/*
+   Le cas qui a fait naître la fonction : un nombre mis en forme à la
+   française ne peut pas passer par `pluriel`, qui rend le nombre brut — et
+   « 4 128 » arrête une main que « 4128 » n'arrête pas. Son nom doit pourtant
+   s'accorder.
+*/
+v('accorde ne rend que le mot, sans le nombre', accorde(2, 'suivie'), 'suivies');
+v('au singulier aussi', accorde(1, 'suivie'), 'suivie');
+v('zéro reste au singulier', accorde(0, 'suivie'), 'suivie');
+v('et la forme irrégulière se donne', accorde(2, 'principal', 'principaux'), 'principaux');
+v(
+  'les deux se composent, et c’est l’usage visé',
+  `${pluriel(2, 'carte')} ${accorde(2, 'suivie')}`,
+  '2 cartes suivies',
+);
+/*
+   L'ESPACE DES MILLIERS N'EST PAS UNE ESPACE ORDINAIRE, et c'est l'assertion
+   elle-même qui me l'a appris : « obtenu "4 128 enregistrements", attendu
+   "4 128 enregistrements" », deux chaînes identiques à l'œil. Le moteur rend
+   une espace fine insécable et non une insécable ordinaire. On normalise donc
+   tous les blancs plutôt que d'en nommer un.
+*/
+v(
+  'y compris avec un nombre mis en forme',
+  `${(4128).toLocaleString('fr-FR')} ${accorde(4128, 'enregistrement')}`.replace(/\s/g, ' '),
+  '4 128 enregistrements',
+);
+
+console.log('\n\u001b[1mLE NOMBRE ÉCRIT EN FRANÇAIS\u001b[0m');
+/*
+   `nombreFr` remplace des `toFixed`, et c'est pour cela que les décimales
+   sont EXACTES et non maximales : « 12,50 € » ne doit pas devenir « 12,5 € ».
+   Les blancs sont normalisés dans chaque comparaison — l'espace des milliers
+   rendue par `Intl` est une espace fine insécable, et deux chaînes identiques
+   à l'œil ne le sont pas pour « === ».
+*/
+const sansBlancs = (t: string) => t.replace(/\s/g, ' ');
+v('les milliers prennent une espace', sansBlancs(nombreFr(4128)), '4 128');
+v('un entier n’invente pas de décimale', sansBlancs(nombreFr(12)), '12');
+v('la décimale est une virgule, jamais un point', sansBlancs(nombreFr(1234.5, 1)), '1 234,5');
+v('et la décimale muette est gardée', sansBlancs(nombreFr(12.5, 2)), '12,50');
+v('aucun point décimal ne sort d’ici', nombreFr(12.5, 2).includes('.'), false);
+/*
+   LE CAS QUI A FAIT NAÎTRE LA FONCTION : le dépôt écrivait
+   « toFixed(2).replace('.', ',') », qui met la virgule et laisse les milliers
+   collés — à moitié faux, donc plus difficile à voir qu'une faute franche.
+*/
+v(
+  'le contournement « toFixed puis replace » laissait les milliers collés',
+  sansBlancs(nombreFr(4128.5, 2)) === (4128.5).toFixed(2).replace('.', ','),
+  false,
+);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. Le balayage se trompe-t-il ? Les deux sens
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   ON ÉPROUVE L'INSTRUMENT AVANT DE S'EN SERVIR, et dans les deux sens : un
+   balayage qui accuse à tort se fait désactiver, un balayage qui se taît à
+   tort fait croire que c'est propre. Les sources sont fabriquées ici ; le nom
+   du fichier décide de la lecture, donc il fait partie du contrôle.
+*/
+const combien = (source: string, fichier = '') => sitesInterdits(source, fichier).sites.length;
+const perdu = (source: string, fichier = '') => sitesInterdits(source, fichier).anomalies.length;
+
+console.log('\n\u001b[1mLE BALAYAGE SE TROMPE-T-IL ? — DU JAVASCRIPT\u001b[0m');
+v(
+  'un commentaire qui PARLE de la forme interdite n’est pas une infraction',
+  combien('/* on n’écrit jamais « jour(s) » ici */\nconst n = 1;'),
+  0,
+);
+v('du code n’est pas du texte : « .filter((s) => … ) » passe', combien('const a = b.filter((s) => s.length);'), 0);
+v('mais une chaîne fautive est bien vue', combien("const t = 'il reste 3 jour(s)';"), 1);
+v('y compris dans un gabarit sur plusieurs lignes', combien('const t = `voici\n  3 jour(s) de plus`;'), 1);
+v('et la forme assemblée à l’exécution ne passe pas', combien("const t = `${mot}${plusieurs ? '(s)' : ''}`;"), 1);
+v(
+  'du vrai code après la fermeture d’un commentaire est bien vu',
+  combien("/* un commentaire */ const t = 'reste 2 jour(s)';"),
+  1,
+);
+/*
+   LA LIGNE RENDUE EST CELLE DE LA FAUTE. C'est l'anomalie qui a tout ouvert :
+   l'inventaire désignait la ligne où le MORCEAU commençait, et l'on allait
+   chercher quatre lignes trop haut un « (s) » qui n'y était pas.
+*/
+v(
+  'la ligne rendue est celle de la faute, non celle du début du morceau',
+  sitesInterdits('const t = `voici\n  une phrase\n  et 3 jour(s) au bout`;').sites[0]?.ligne,
+  3,
+);
+/*
+   UNE EXPRESSION RÉGULIÈRE PORTANT UN GUILLEMET : le cas de `moteur-veille.ts`
+   et de treize autres. La chaîne qui SUIT doit encore être vue — c'est elle
+   qui dit que la machine ne s'est pas perdue en route.
+*/
+v(
+  'une expression régulière portant un guillemet ne désynchronise rien',
+  perdu(`const a = x.replace(/['’]/g, "'");\nconst t = 'reste 2 jour(s)';`),
+  0,
+);
+v(
+  'et la chaîne qui la suit est toujours vue',
+  combien(`const a = x.replace(/['’]/g, "'");\nconst t = 'reste 2 jour(s)';`),
+  1,
+);
+
+console.log('\n\u001b[1mLE BALAYAGE SE TROMPE-T-IL ? — DU BALISAGE\u001b[0m');
+/*
+   LE CAS FONDATEUR : dans un `.astro`, hors frontmatter et hors `<script>`,
+   l'apostrophe est une lettre. Lue comme un guillemet, elle emportait le reste
+   du fichier — et avec lui les sites qu'il portait.
+*/
+v(
+  'l’apostrophe du balisage n’ouvre aucune chaîne',
+  perdu("<p>Aujourd'hui</p>\n<p>Rien</p>", 'x.astro'),
+  0,
+);
+v(
+  'et un site qui vient après elle est toujours vu',
+  combien("<p>Aujourd'hui</p>\n<p>il reste 3 jour(s)</p>", 'x.astro'),
+  1,
+);
+v('le texte du balisage est du texte', combien('<p>il reste 3 jour(s)</p>', 'x.astro'), 1);
+/*
+   UNE VALEUR D'ATTRIBUT EST LUE PAR QUELQU'UN : `title`, `aria-label`,
+   `placeholder`. La faute y est aussi visible qu'ailleurs.
+*/
+v('une valeur d’attribut est du texte', combien('<p title="3 jour(s)">x</p>', 'x.astro'), 1);
+v(
+  'le code d’une expression n’est pas du texte',
+  combien('<p>{liste.filter((s) => s.length)}</p>', 'x.astro'),
+  0,
+);
+/*
+   DU BALISAGE DANS UNE EXPRESSION : c'est ainsi que vit la phrase du PHQ-9,
+   sous un `{e.id === 'phq9' && (<fieldset>…)}`. La traiter comme du pur code
+   était la raison du « zéro site » d'`echelles.astro`.
+*/
+v(
+  'du balisage dans une expression redevient du texte',
+  combien("{ok && (<p>il reste 3 jour(s)</p>)}", 'x.astro'),
+  1,
+);
+v(
+  'un commentaire de JavaScript dans du balisage ne désynchronise rien',
+  perdu("{/* ce qui suit n'est pas affiché */}\n<p>Rien</p>", 'x.astro'),
+  0,
+);
+v(
+  'et il ne cache pas le site qui le suit',
+  combien("{/* ce qui suit n'est pas affiché */}\n<p>il reste 3 jour(s)</p>", 'x.astro'),
+  1,
+);
+/*
+   UN ÉLÉMENT AUTOPORTEUR : `<style is:inline set:html={…} />` de `Base.astro`.
+   Pris pour l'ouverture d'une feuille de style, il faisait classer « à
+   ignorer » tout ce qui suivait.
+*/
+v(
+  'un élément autoporteur n’avale pas ce qui le suit',
+  combien('<style is:inline set:html={CSS} />\n<p>il reste 3 jour(s)</p>', 'x.astro'),
+  1,
+);
+v('une feuille de style, en revanche, est ignorée', combien('<style>.a::after { content: "3 jour(s)"; }</style>', 'x.astro'), 0);
+/*
+   LE `<script>` D'UN `.astro` EST DU JAVASCRIPT FRANC. Y voir du balisage
+   prendrait ses `a < b` pour des balises, et son `.filter((s) =>` pour une
+   phrase.
+*/
+v(
+  'le script d’un .astro se lit comme du JavaScript',
+  combien('<p>Rien</p>\n<script>\n  const a = b.filter((s) => s.length);\n</script>', 'x.astro'),
+  0,
+);
+/*
+   ET LE CONTRÔLE DU CONTRÔLE : une pile qui ne se referme pas doit être DITE.
+   Sans ce dernier, les quatre corrections ci-dessus ne protègeraient que des
+   quatre causes connues, et la cinquième se ferait de nouveau en silence.
+*/
+v(
+  'une expression jamais refermée est signalée, non avalée',
+  perdu('<p>{ok && (<span>texte</span>)</p>', 'x.astro') > 0,
+  true,
+);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. Le balayage des sources
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Les sources du site, récursivement. */
+const fichiersDe = (dossier: string): string[] =>
+  readdirSync(dossier, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory()
+      ? fichiersDe(join(dossier, e.name))
+      : /\.(ts|astro|svelte)$/.test(e.name)
+        ? [join(dossier, e.name)]
+        : [],
+  );
+
+console.log('\n\u001b[1mLE BALAYAGE DES SOURCES\u001b[0m');
+{
+  const trouves: { fichier: string; ligne: number; texte: string }[] = [];
+  const perdus: { fichier: string; ligne: number; quoi: string }[] = [];
+  for (const fichier of fichiersDe('src')) {
+    const { sites, anomalies } = sitesInterdits(readFileSync(fichier, 'utf8'), fichier);
+    for (const s of sites) trouves.push({ fichier, ...s });
+    for (const a of anomalies) perdus.push({ fichier, ...a });
+  }
+
+  const parFichier = new Map<string, number>();
+  for (const t of trouves) parFichier.set(t.fichier, (parFichier.get(t.fichier) ?? 0) + 1);
+  const tableau = () => {
+    console.log(
+      `      ${trouves.length} ${accorde(trouves.length, 'site')} dans ` +
+        `${pluriel(parFichier.size, 'fichier')} :`,
+    );
+    for (const [f, n] of [...parFichier.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
+      console.log(`      ${String(n).padStart(3)}  ${f}`);
+    }
+  };
+
+  /*
+     D'ABORD : le balayage s'est-il perdu ? Si oui, le compte qui suit ne vaut
+     rien, et le dire vert serait un mensonge — même à zéro, surtout à zéro.
+  */
+  if (perdus.length) {
+    if (trouves.length) tableau();
+    console.log(`      ${pluriel(perdus.length, 'endroit')} où la lecture a décroché :`);
+    for (const p of perdus.slice(0, 12)) console.log(`      ${p.fichier}:${p.ligne}  ${p.quoi}`);
+    nonMesurable(
+      'une lecture de source qui se referme : ' +
+        `${pluriel(perdus.length, 'désynchronisation')} ${accorde(perdus.length, 'relevée')}`,
+      'un fichier lu de travers peut rendre ZÉRO site en en portant sept — ' +
+        'c’était le cas d’« echelles.astro » le 26 octobre',
+      'corrigez la machine de « scripts/lib/accords-balayage.mjs » — le libellé ci-dessus ' +
+        'donne le fichier et la ligne où l’état est resté ouvert',
+    );
+  }
+
+  v(`aucune forme parenthésée dans une chaîne de « src/ »`, trouves.length, 0);
+  if (trouves.length) {
+    tableau();
+    console.log(
+      `      Le remède : « pluriel(n, 'jour') » pour le nom, « accorde(n, 'suivie') »\n` +
+        `      pour ce qui le suit, tous deux dans « lib/noyau/accords.ts ».`,
+    );
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. « toFixed » — l'autre façon de mal écrire un nombre
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   MÊME FAMILLE QUE LES « (s) », MÊME TRAITEMENT. « toFixed » écrit un POINT
+   décimal — « 12.50 € » dans une phrase française — et n'espace pas les
+   milliers. Le dépôt portait le contournement « toFixed(2).replace('.', ',') »,
+   qui met la virgule et laisse les milliers collés : à moitié faux, donc plus
+   difficile à voir qu'une faute franche.
+
+   LA DIFFÉRENCE AVEC LES « (s) », et elle commande la forme de l'exemption :
+   un « (s) » se juge sur ce qu'il écrit, un « toFixed » sur l'USAGE qu'on en
+   fait. La même expression est une faute dans une phrase et la seule écriture
+   juste dans la valeur d'un champ que le code relit. Rien dans la ligne ne le
+   dit : il faut que quelqu'un l'ait su et l'ait écrit.
+
+   D'où une marque au site plutôt qu'une liste de lignes — qui aurait vieilli
+   au premier déplacement et rangé la raison loin du code qu'elle excuse.
+*/
+console.log('\n\u001b[1mLE BALAYAGE SE TROMPE-T-IL ? — « toFixed »\u001b[0m');
+const combienFixed = (source: string, fichier = '') => sitesDeToFixed(source, fichier).length;
+v('un « toFixed » affiché est vu', combienFixed('const t = `${n.toFixed(2)} €`;'), 1);
+v(
+  'un commentaire qui PARLE de « toFixed() » n’est pas une infraction',
+  combienFixed('/* on n’écrit plus n.toFixed(2) dans une phrase */\nconst n = 1;'),
+  0,
+);
+v(
+  'une marque sur la ligne même exempte',
+  combienFixed('const k = n.toFixed(2); // nombre non affiché : clé de recherche'),
+  0,
+);
+/*
+   LA MARQUE VIT DANS LE COMMENTAIRE ATTACHÉ, aussi long soit-il. La première
+   version admettait « la ligne ou l'une des trois précédentes », et elle ne
+   voyait pas une marque posée au style du dépôt — un `/*` seul, puis le texte.
+*/
+v(
+  'une marque dans le commentaire attaché exempte, même à cinq lignes',
+  combienFixed(
+    '    /*\n       nombre non affiché : valeur d’un champ que le code relit, et\n' +
+      '       « nombreFr » y mettrait une espace des milliers.\n    */\n' +
+      "    champ.value = n.toFixed(2);",
+  ),
+  0,
+);
+/*
+   ET C'EST LE CONTRÔLE QUI EMPÊCHE LA MARQUE DE VOYAGER : une ligne de CODE
+   entre la marque et le site arrête la remontée. Sans lui, une exemption
+   posée pour un site finirait par excuser son voisin, et le balayage se
+   viderait tout seul.
+*/
+v(
+  'une marque séparée du site par du code n’exempte pas',
+  combienFixed('/* nombre non affiché : clé */\nconst a = 1;\nconst t = `${n.toFixed(2)} €`;'),
+  1,
+);
+/*
+   UNE LIGNE VIDE DANS LE COMMENTAIRE NE DOIT PAS ROMPRE L'ATTACHE, et cette
+   assertion garde un faux positif que j'ai provoqué moi-même.
+
+   La remontée traitait une ligne vide comme une ligne de code — blanche des
+   deux côtés, donc « pas un commentaire », donc fin de la remontée. Or un
+   commentaire de plusieurs paragraphes en contient forcément. Constaté en
+   résolvant une fusion : j'avais ajouté un paragraphe SOUS la marque, avec une
+   ligne vide entre les deux, et la marque a cessé d'exempter un site
+   parfaitement déclaré. C'est la pire sorte de faux positif, celle qui pousse
+   à défaire une bonne chose.
+*/
+v(
+  'une ligne vide dans le commentaire ne rompt pas l’attache',
+  combienFixed(
+    '/*\n   nombre non affiché : clé de recherche.\n\n   (une seconde remarque, après une ligne vide)\n*/\nconst t = `${n.toFixed(2)} €`;',
+  ),
+  0,
+);
+/*
+   ET CE QUI DOIT ARRÊTER ARRÊTE TOUJOURS. L'élargissement ci-dessus ne vaut
+   que pour les lignes vides : du code entre la marque et le site rompt
+   l'attache, même si des lignes vides l'entourent.
+*/
+v(
+  'mais du code entre les deux rompt l’attache, lignes vides comprises',
+  combienFixed(
+    '/* nombre non affiché : clé */\n\nconst a = 1;\n\nconst t = `${n.toFixed(2)} €`;',
+  ),
+  1,
+);
+v(
+  'et un commentaire de balisage se lit avec le genre du fichier',
+  combienFixed("<p>Aujourd’hui</p>\n<!-- on n’écrit plus n.toFixed(2) ici -->", 'x.astro'),
+  0,
+);
+
+console.log('\n\u001b[1mLES « toFixed » AFFICHÉS DE « src/ »\u001b[0m');
+{
+  const trouves: { fichier: string; ligne: number; texte: string }[] = [];
+  for (const fichier of fichiersDe('src')) {
+    for (const t of sitesDeToFixed(readFileSync(fichier, 'utf8'), fichier)) {
+      trouves.push({ fichier, ...t });
+    }
+  }
+  v('aucun « toFixed » qui ne déclare pourquoi il n’est pas affiché', trouves.length, 0);
+  if (trouves.length) {
+    const parFichier = new Map<string, number>();
+    for (const t of trouves) parFichier.set(t.fichier, (parFichier.get(t.fichier) ?? 0) + 1);
+    console.log(
+      `      ${trouves.length} ${accorde(trouves.length, 'site')} dans ` +
+        `${pluriel(parFichier.size, 'fichier')} :`,
+    );
+    for (const [f, n] of [...parFichier.entries()].sort((a, b) => b[1] - a[1])) {
+      console.log(`      ${String(n).padStart(3)}  ${f}`);
+    }
+    console.log(
+      `      Le remède : « nombreFr(n, décimales) » pour un nombre, « euros(c) » pour un\n` +
+        `      montant. Un nombre qui n’est PAS affiché le déclare : « nombre non affiché : … ».`,
+    );
+  }
+}
+
+console.log('\n\x1b[1mLA MENTION DES GESTES EN ATTENTE — 1 ET 2\x1b[0m');
+{
+  /*
+     CE QUI EST MESURÉ ICI, ET CE QUI EST MESURÉ AILLEURS.
+
+     Cette phrase d'`odyssee/index.astro` portait un pronom faux — « 1 geste
+     en attente n'a pas pu être reporté. ILS sont gardés » — et trois ternaires
+     à la main dans une seule phrase. Le Pilote a demandé un essai sur 1 et sur
+     2 gestes.
+
+     Ici, deux choses se mesurent sans navigateur : que la phrase ne porte plus
+     de seuil recopié, et que les aides rendent le bon français sur les mots
+     exacts qu'elle emploie. Ce qui ne se mesure PAS ici est la phrase telle
+     qu'elle paraît : elle est composée dans la page, et seul un parcours qui
+     fait apparaître la mention peut la lire. Ce parcours existe — c'est le cas
+     positif de `essais:rejeu:navigateur`, qui sème un pli illisible puis deux
+     et lit le texte affiché — mais il vit sur la branche des temporisations.
+     Les deux branches se complètent ; aucune ne couvre tout seule, et je
+     préfère l'écrire que de laisser croire au contraire.
+  */
+  /*
+     ON CHERCHE DANS LE FICHIER ENTIER, et non dans une fenêtre autour de la
+     phrase. Ma première version découpait quatre cents signes avant
+     « en attente » — mais cette expression paraît plus tôt dans le fichier, et
+     la fenêtre tombait à côté. L'assertion disait « elle ne passe pas par les
+     aides » d'une phrase qui y passait.
+
+     Sur le fichier entier, l'absence est d'ailleurs plus forte : AUCUN seuil
+     recopié sur `restants`, où que ce soit.
+  */
+  const source = readFileSync(
+    new URL('../src/pages/odyssee/index.astro', import.meta.url),
+    'utf8',
+  );
+  v('aucun seuil recopié sur « restants »', /restants > 1 \?/.test(source), false);
+  v('la phrase passe par les aides', /pluriel\(restants, 'geste'\)/.test(source), true);
+  v(
+    'le pronom et son verbe s’accordent par une aide',
+    /accorde\(restants, 'Il est gardé', 'Ils sont gardés'\)/.test(source),
+    true,
+  );
+
+  /* Et les aides rendent bien ce que la phrase attend, sur ses mots. */
+  v('un geste : le nom', pluriel(1, 'geste'), '1 geste');
+  v('deux gestes : le nom', pluriel(2, 'geste'), '2 gestes');
+  v('un geste : le verbe', accorde(1, 'n’a', 'n’ont'), 'n’a');
+  v('deux gestes : le verbe', accorde(2, 'n’a', 'n’ont'), 'n’ont');
+  v('un geste : le participe', accorde(1, 'reporté'), 'reporté');
+  v('deux gestes : le participe', accorde(2, 'reporté'), 'reportés');
+  /*
+     LE PRONOM, qui était la faute visible. « Ils sont gardés » pour un seul
+     geste se lisait dès qu'un seul pli attendait — c'est-à-dire presque
+     toujours, un pli illisible arrivant rarement par paires.
+  */
+  v('un geste : le pronom et son verbe', accorde(1, 'Il est gardé', 'Ils sont gardés'), 'Il est gardé');
+  v('deux gestes : le pronom et son verbe', accorde(2, 'Il est gardé', 'Ils sont gardés'), 'Ils sont gardés');
+  v('un geste : le possessif', accorde(1, 'son', 'leur'), 'son');
+  v('deux gestes : le possessif', accorde(2, 'son', 'leur'), 'leur');
+  v('un geste : le pronom objet', accorde(1, 'le', 'les'), 'le');
+  v('deux gestes : le pronom objet', accorde(2, 'le', 'les'), 'les');
+}
+
+/*
+   SON PROPRE RÉSUMÉ S'ACCORDE, ET IL NE LE FAISAIT PAS. « ✗ 1 échecs » —
+   dans l'essai consacré aux accords, et sous mes yeux pendant tout ce lot.
+   C'est la sortie d'un outil et non un écran, donc le balayage ne la voit
+   pas : il ne lit que `src/`. Raison de plus pour la corriger à la main ici,
+   puisque rien ne le fera à ma place.
+*/
+console.log(
+  echecs === 0
+    ? '\n\u001b[32m✓ tout passe\u001b[0m\n'
+    : `\n\u001b[31m✗ ${pluriel(echecs, 'échec')}\u001b[0m\n`,
+);
+process.exit(echecs === 0 ? 0 : 1);

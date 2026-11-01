@@ -129,6 +129,60 @@ await page.route('**/*', (r) => {
 
 await franchirInitialisation(page, RACINE, MDP);
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES SEIZE TEMPORISATIONS QUI RESTAIENT, ET CE QUI LES REMPLACE
+
+   Le lot du 26 octobre a déjà donné à cet écran son compteur de peintures —
+   `apresLaPeinture`, § 3 de « cadence-des-essais.md ». Restaient seize
+   attentes à l'aveugle, de 400 à 2 500 ms, sur des gestes qui ne repeignent
+   pas la zone entière : un filtre qui masque, un axe qui change, une option
+   qui s'ouvre ou se ferme, une liste qui perd une ligne.
+
+   Chacune a sa post-condition, et elle est toujours CE QUE L'ASSERTION LIT :
+   le compte de la file, l'attribut « data-actif », l'option redevenue
+   atteignable, le texte de l'aperçu. Bornées, et l'expiration est rendue
+   comme un faux.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI_ATTENTE = 30_000;
+
+/** Attend que le nombre d'éléments satisfasse la comparaison voulue. */
+const attendreLeNombre = (selecteur, comparaison, combien) =>
+  page
+    .waitForFunction(
+      ([s, c, n]) => {
+        const vus = document.querySelectorAll(s).length;
+        return c === '=' ? vus === n : c === '<' ? vus < n : vus > n;
+      },
+      [selecteur, comparaison, combien],
+      { timeout: DELAI_ATTENTE },
+    )
+    .catch(() => {});
+
+/** Attend qu'un élément porte cet attribut à cette valeur. */
+const attendreLAttribut = (selecteur, attribut, valeur) =>
+  page
+    .waitForFunction(
+      ([s, a, v]) => document.querySelector(s)?.getAttribute(a) === v,
+      [selecteur, attribut, valeur],
+      { timeout: DELAI_ATTENTE },
+    )
+    .catch(() => {});
+
+/** Attend qu'un texte contienne ce fragment. */
+const attendreUnFragment = (selecteur, fragment) =>
+  page
+    .waitForFunction(
+      ([s, f]) => (document.querySelector(s)?.textContent ?? '').includes(f),
+      [selecteur, fragment],
+      { timeout: DELAI_ATTENTE },
+    )
+    .catch(() => {});
+
+
 async function aller(chemin, selecteur) {
   await page.goto(`${RACINE}${chemin}`, { waitUntil: 'networkidle' });
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
@@ -271,7 +325,8 @@ await page.waitForSelector('[data-recurrence]', { timeout: 20000 });
 
 /* Créer la ligne du loyer, et elle seule. */
 await page.click('[data-recurrence="VIR M DUPONT LOYER"] [data-geste="creer-ligne"]');
-await page.waitForTimeout(2000);
+/* La ligne créée, la récurrence quitte la liste des propositions. */
+await attendreLeNombre('[data-recurrence="VIR M DUPONT LOYER"]', '=', 0);
 {
   /*
      Sans recharger : les quatre loyers viennent d'être appliqués d'office,
@@ -311,8 +366,15 @@ await aller('/odyssee/rapprocher/', '#vue');
     await page.$$eval('[data-a-classer]', (e) => e.length), 16);
 
   const texte = await page.textContent('#coffre-ouvert');
+  /*
+     LE MOT, PAS SA PARENTHÈSE. Ces trois contrôles cherchaient « appliquée(s) »,
+     « opération(s) », « importée(s) » — c'est-à-dire la forme même que le lot 9
+     interdit, et ils ont rougi sur des phrases devenues JUSTES. Ce qu'ils
+     doivent tenir, c'est que l'écran DISE la chose : qu'elle soit appliquée
+     automatiquement, en quelque nombre que ce soit.
+  */
   vrai('les certaines sont annoncées comme appliquées',
-    texte.includes('appliquée(s) automatiquement'), texte.slice(0, 200));
+    /appliquées? automatiquement/.test(texte), texte.slice(0, 200));
   vrai('et le pied dit la ligne qu’elles ont rejointe',
     (await page.textContent('#certaines')).includes('VIR M DUPONT LOYER'),
     (await page.textContent('#certaines')).slice(0, 200));
@@ -325,7 +387,7 @@ console.log('\nUN RAPPROCHEMENT SURVIT AU RECHARGEMENT');
 {
   const avant = await page.$$eval('[data-a-classer]', (e) => e.length);
   await page.click('[data-a-classer] [data-geste="hors-budget"]');
-  await page.waitForTimeout(1200);
+  await attendreLeNombre('[data-a-classer]', '=', avant - 1);
   v('un « hors budget » retire l’opération de la file',
     await page.$$eval('[data-a-classer]', (e) => e.length), avant - 1);
 
@@ -377,7 +439,7 @@ console.log('\nLES ÉCARTS, ET L’ÉCHÉANCE NON ÉCHUE');
     JSON.stringify(lignes));
 
   await page.click('[data-axe="mois"]');
-  await page.waitForTimeout(800);
+  await attendreLAttribut('[data-axe="mois"]', 'data-actif', 'true');
   const mois = await page.$$eval('[data-ecart]', (e) => e.map((x) => x.dataset.ecart));
   vrai('l’axe des mois rend des mois', mois.every((m) => /^\d{4}-\d{2}$/.test(m)),
     JSON.stringify(mois));
@@ -385,7 +447,7 @@ console.log('\nLES ÉCARTS, ET L’ÉCHÉANCE NON ÉCHUE');
     await page.getAttribute('[data-axe="mois"]', 'data-actif'), 'true');
 
   await page.click('[data-axe="categorie"]');
-  await page.waitForTimeout(800);
+  await attendreLAttribut('[data-axe="categorie"]', 'data-actif', 'true');
   vrai('et l’axe des catégories aussi',
     (await page.$$eval('[data-ecart]', (e) => e.length)) > 0);
 }
@@ -401,7 +463,7 @@ console.log('\nLA FILE EST UNIQUE, ET FILTRABLE');
     await page.getAttribute('[data-filtre="tout"]', 'data-actif'), 'true');
 
   await page.click('[data-filtre="a-rapprocher"]');
-  await page.waitForTimeout(400);
+  await attendreLAttribut('[data-filtre="a-rapprocher"]', 'data-actif', 'true');
   v('le filtre se marque',
     await page.getAttribute('[data-filtre="a-rapprocher"]', 'data-actif'), 'true');
   /*
@@ -411,7 +473,7 @@ console.log('\nLA FILE EST UNIQUE, ET FILTRABLE');
   faux('les « à classer » sont masqués',
     await page.locator('[data-a-classer]').first().isVisible().catch(() => false));
   await page.click('[data-filtre="tout"]');
-  await page.waitForTimeout(400);
+  await attendreLAttribut('[data-filtre="tout"]', 'data-actif', 'true');
   vrai('et reviennent',
     await page.locator('[data-a-classer]').first().isVisible().catch(() => false));
 }
@@ -430,7 +492,7 @@ console.log('\nLES VENDEURS INCONNUS, UN PAR LIGNE');
 
   const titre = await page.textContent('[data-inconnu] p');
   vrai('la ligne dit combien d’opérations et combien au total',
-    /\d+ opération\(s\).+€/.test(titre), titre);
+    /\d+ opérations?.+€/.test(titre), titre);
 }
 
 {
@@ -450,7 +512,7 @@ console.log('\nCRÉER LA RÈGLE EN UN GESTE');
   const cible = await page.$$eval('[data-inconnu]', (e) => e[0].dataset.inconnu);
   await page.selectOption(`[data-type-pour="${cible}"]`, 'marche');
   await page.click(`[data-inconnu="${cible}"] [data-geste="creer-regle"]`);
-  await page.waitForTimeout(2500);
+  await attendreLeNombre('[data-inconnu]', '<', avant);
   const apres = await page.$$eval('[data-inconnu]', (e) => e.length);
   vrai('le vendeur quitte la liste des inconnus', apres < avant, `${avant} → ${apres}`);
 }
@@ -499,12 +561,31 @@ console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
      qu'il n'existe pas.
   */
   await page.selectOption('[data-champ-regle="type"]', 'pharmacie');
-  await page.waitForTimeout(600);
+  /*
+     L'OPTION DÉSACTIVÉE EST CE QUE L'ASSERTION LIT : on l'attend donc, bornée.
+     Six cents millisecondes couvraient un recalcul de l'aperçu qui lit les
+     opérations en base.
+  */
+  await page
+    .waitForFunction(
+      () =>
+        document.querySelector('[data-champ-regle="mode"] option[value="auto"]')?.disabled === true,
+      undefined,
+      { timeout: DELAI_ATTENTE },
+    )
+    .catch(() => {});
   const desactive = await page.$eval(
     '[data-champ-regle="mode"] option[value="auto"]', (e) => e.disabled);
   vrai('« Pointer seule » est hors d’atteinte sur un type jamais automatique', desactive);
   await page.selectOption('[data-champ-regle="type"]', 'marche');
-  await page.waitForTimeout(600);
+  await page
+    .waitForFunction(
+      () =>
+        document.querySelector('[data-champ-regle="mode"] option[value="auto"]')?.disabled === false,
+      undefined,
+      { timeout: DELAI_ATTENTE },
+    )
+    .catch(() => {});
   const actif = await page.$eval(
     '[data-champ-regle="mode"] option[value="auto"]', (e) => e.disabled);
   faux('et redevient atteignable sur un type ordinaire', actif);
@@ -516,7 +597,9 @@ console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
   await page.locator('[data-champ-regle="motif"]').blur();
   await page.waitForFunction(
     () => !document.querySelector('[data-defauts-regle]').classList.contains('hidden'),
-    { timeout: 15000 });
+    undefined,
+    { timeout: 15000 },
+  );
   vrai('un motif trop court est refusé',
     (await page.textContent('[data-defauts-regle]')).includes('Allongez'),
     await page.textContent('[data-defauts-regle]'));
@@ -531,7 +614,7 @@ console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
   */
   await page.fill('[data-champ-regle="motif"]', 'MARCHE');
   await page.locator('[data-champ-regle="motif"]').blur();
-  await page.waitForTimeout(800);
+  await attendreUnFragment('[data-apercu-regle]', 'vous les avez pointées vous-même');
   vrai('un motif qui n’attrape que vos propres pointages le dit',
     (await page.textContent('[data-apercu-regle]')).includes('vous les avez pointées vous-même'),
     await page.textContent('[data-apercu-regle]'));
@@ -541,12 +624,14 @@ console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
   await page.locator('[data-champ-regle="motif"]').blur();
   await page.waitForFunction(
     () => document.querySelector('[data-defauts-regle]').classList.contains('hidden'),
-    { timeout: 15000 });
+    undefined,
+    { timeout: 15000 },
+  );
   faux('un motif correct rouvre la création',
     await page.isDisabled('[data-geste="creer-avance"]'));
   const apercu = await page.textContent('[data-apercu-regle]');
   vrai('l’aperçu chiffre ce que la règle reclasserait',
-    /\d+ opération\(s\) déjà importée\(s\)/.test(apercu), apercu);
+    /\d+ opérations? déjà importées?/.test(apercu), apercu);
 }
 
 {
@@ -559,7 +644,12 @@ console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
      que l'aperçu doit dire plutôt que de les reclasser en silence.
   */
   await page.selectOption('[data-champ-regle="comparaison"]', 'contient');
-  await page.waitForTimeout(600);
+  /*
+     L'APERÇU SE REFAIT, et c'est lui que le bouton reflète : « créer et
+     appliquer » annonce le nombre d'opérations qu'il touchera, et ce nombre
+     vient du recalcul. On attend donc que l'aperçu annonce un compte.
+  */
+  await attendreUnFragment('[data-apercu-regle]', 'opération');
   const avantCreation = await page.$$eval('[data-inconnu]', (e) => e.length);
   const bouton = page.locator('[data-geste="creer-et-appliquer"]');
   if (await bouton.isVisible()) {
@@ -569,7 +659,10 @@ console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
   } else {
     await page.click('[data-geste="creer-avance"]');
   }
-  await page.waitForTimeout(2500);
+  /* Le vendeur quitte la liste, et le formulaire avancé se referme : les deux
+     constats qui suivent, et le second est la peinture la plus tardive. */
+  await attendreLeNombre('[data-inconnu]', '<', avantCreation);
+  await attendreLeNombre('[data-avance]', '=', 0);
   const apres = await page.$$eval('[data-inconnu]', (e) => e.length);
   vrai('le vendeur quitte la liste des inconnus', apres < avantCreation,
     `${avantCreation} → ${apres}`);
@@ -606,7 +699,10 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
 
   await page.fill('#chercher-operation', 'PETIT MARCHE');
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-fractionnable]').length > 0, { timeout: 15000 });
+    () => document.querySelectorAll('[data-fractionnable]').length > 0,
+    undefined,
+    { timeout: 15000 },
+  );
   const trouvees = await page.$$eval('[data-fractionnable]', (e) => e.length);
   v('les quatre achats au marché sont trouvés', trouvees, 4);
   vrai('et leur nombre est annoncé',
@@ -618,7 +714,10 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
   */
   await page.fill('#chercher-operation', '43,90');
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-fractionnable]').length === 1, { timeout: 15000 });
+    () => document.querySelectorAll('[data-fractionnable]').length === 1,
+    undefined,
+    { timeout: 15000 },
+  );
   vrai('la recherche par montant trouve la bonne opération',
     (await page.textContent('[data-fractionnable]')).includes('43,90'));
 }
@@ -645,7 +744,9 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
   await page.locator('[data-montant-de-la-part="0"]').blur();
   await page.waitForFunction(
     () => document.querySelector('[data-reste]').textContent.includes('Il reste'),
-    { timeout: 15000 });
+    undefined,
+    { timeout: 15000 },
+  );
   /*
      L'opération fait 43,90 €, donc 21,95 € par part à l'ouverture. Ramener
      la première à 10,00 € laisse 11,95 € — et c'est ce chiffre-là que
@@ -663,13 +764,15 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
   await page.click('[data-part="1"] [data-geste="poser-le-reste"]');
   await page.waitForFunction(
     () => document.querySelector('[data-reste]').textContent.includes('Tout est réparti'),
-    { timeout: 15000 });
+    undefined,
+    { timeout: 15000 },
+  );
   faux('« Le reste ici » rend l’enregistrement possible',
     await page.isDisabled('[data-geste="valider-parts"]'));
 
   // Deux parts sur le même type : refusé, et dit.
   await page.selectOption('[data-type-de-la-part="1"]', 'marche');
-  await page.waitForTimeout(600);
+  await attendreUnFragment('[data-defauts-parts]', 'additionnez');
   vrai('deux parts sur le même type sont refusées',
     (await page.textContent('[data-defauts-parts]')).includes('additionnez'),
     await page.textContent('[data-defauts-parts]'));
@@ -678,11 +781,23 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
 
   // On range la seconde part ailleurs, et on enregistre.
   await page.selectOption('[data-type-de-la-part="1"]', 'travaux-bricolage');
-  await page.waitForTimeout(600);
+  /*
+     LE DÉFAUT S'EFFACE, et c'est la post-condition du choix : le bouton se
+     rouvre dans le même passage. Attendre le bouton lui-même serait attendre
+     l'assertion ; attendre la zone de défauts vidée ne présuppose rien d'elle.
+  */
+  await page
+    .waitForFunction(
+      () => (document.querySelector('[data-defauts-parts]')?.textContent ?? '').trim() === '',
+      undefined,
+      { timeout: DELAI_ATTENTE },
+    )
+    .catch(() => {});
   faux('un type distinct rouvre l’enregistrement',
     await page.isDisabled('[data-geste="valider-parts"]'));
   await page.click('[data-geste="valider-parts"]');
-  await page.waitForTimeout(2500);
+  /* L'éditeur se referme quand les parts sont enregistrées. */
+  await attendreLeNombre('[data-part="1"]', '=', 0);
 }
 
 {
@@ -700,7 +815,10 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
 
   await page.fill('#chercher-operation', '43,90');
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-fractionnable]').length === 1, { timeout: 15000 });
+    () => document.querySelectorAll('[data-fractionnable]').length === 1,
+    undefined,
+    { timeout: 15000 },
+  );
   const etat = await page.textContent('[data-etat-pointage]');
   vrai('l’opération est annoncée fractionnée', etat.includes('Déjà fractionnée en 2 parts'), etat);
   vrai('et les deux parts sont nommées avec leur montant',
@@ -708,10 +826,23 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
 
   // Et l'on peut défaire.
   await page.click('[data-geste="defaire-fractionnement"]');
-  await page.waitForTimeout(2500);
+  /* L'état de l'opération est réécrit : il ne dit plus « fractionnée ». */
+  await page
+    .waitForFunction(
+      () =>
+        !(document.querySelector('[data-etat-pointage]')?.textContent ?? '').includes(
+          'Déjà fractionnée',
+        ),
+      undefined,
+      { timeout: DELAI_ATTENTE },
+    )
+    .catch(() => {});
   await page.fill('#chercher-operation', '43,90');
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-fractionnable]').length === 1, { timeout: 15000 });
+    () => document.querySelectorAll('[data-fractionnable]').length === 1,
+    undefined,
+    { timeout: 15000 },
+  );
   const apres = await page.textContent('[data-etat-pointage]');
   faux('défaire le fractionnement le retire', apres.includes('Déjà fractionnée'));
   vrai('et l’opération reste pointée, pas renvoyée à zéro',
@@ -754,7 +885,11 @@ console.log('\nLE COFFRE GARDE L’ÉCRAN, ET RIEN NE SORT');
 
 {
   await page.click('#fermer-coffre');
-  await page.waitForTimeout(800);
+  /* L'écran du cadenas revient : c'est ce que les deux constats lisent. */
+  await page
+    .locator('#coffre-ferme')
+    .waitFor({ state: 'visible', timeout: DELAI_ATTENTE })
+    .catch(() => {});
   vrai('refermer le coffre referme l’écran', await page.locator('#coffre-ferme').isVisible());
   faux('et rien n’est plus lisible', await page.locator('#coffre-ouvert').isVisible());
 }

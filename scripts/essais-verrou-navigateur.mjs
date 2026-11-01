@@ -13,6 +13,7 @@
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
@@ -51,7 +52,9 @@ const ouvrirLeCoffre = async (p) => {
   if (await p.locator('#mdp-coffre').isVisible().catch(() => false)) {
     await p.fill('#mdp-coffre', MDP);
     await p.click('#ouvrir-coffre');
-    await p.waitForTimeout(1500);
+    /* Le formulaire qui s'en va est la post-condition de l'ouverture, et c'est
+       justement l'indicateur que la fonction rend juste après. */
+    await devientVisible(p, '#mdp-coffre', false, { delai: 20000 });
   }
   return p.evaluate(() => {
     /*
@@ -127,6 +130,13 @@ console.log('\nAU BOUT DU DÉLAI, LE COFFRE SE REFERME POUR DE BON');
      un retour d'onglet, qui est précisément le déclencheur qui compte — celui
      qui rattrape une machine sortie de veille.
   */
+  /*
+     CELLE-CI RESTE, ET ELLE N'EST PAS UNE TEMPORISATION À L'AVEUGLE : c'est le
+     DÉLAI QUE LE SITE S'IMPOSE qu'on laisse passer — trois secondes de verrou
+     automatique. L'objet de la mesure est ce délai lui-même ; le raccourcir
+     mesurerait autre chose, et le remplacer par une post-condition n'aurait
+     aucun sens puisque la condition attendue est précisément qu'il s'écoule.
+  */
   await page.waitForTimeout(4000);
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
@@ -134,9 +144,13 @@ console.log('\nAU BOUT DU DÉLAI, LE COFFRE SE REFERME POUR DE BON');
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await page.waitForTimeout(500);
-
-  verifier('quatre secondes sans geste, et le coffre est refermé', await visible(), true);
+  /* Le retour d'onglet provoque le contrôle : la post-condition est que le
+     formulaire du coffre REPARAISSE, c'est-à-dire que le coffre soit refermé. */
+  verifier(
+    'quatre secondes sans geste, et le coffre est refermé',
+    await devientVisible(page, '#mdp-coffre', true, { delai: 20000 }),
+    true,
+  );
 }
 
 await nav.close();

@@ -61,11 +61,46 @@ async function aller() {
    est encore là. Le ressaisir aveuglément faisait échouer l'essai sur un
    comportement parfaitement correct.
 */
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Six temporisations à
+   l'aveugle, toutes remplacées par ce que l'assertion lit : le bloc du coffre
+   qui s'en va, la zone d'aperçu qui se remplit, l'interrupteur dont le
+   nouvel état est relu après rechargement.
+
+   Les aperçus sont le cas intéressant : la zone est VIDE avant le clic, donc
+   « elle dit quelque chose » est une vraie transition, et l'attendre ne
+   présuppose rien de ce que les assertions cherchent dedans — un « Rien. »,
+   l'absence d'euro, un compte d'opérations.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
+/** Attend que la zone d'un aperçu soit remplie. */
+const attendreLApercu = (lecteur) =>
+  page
+    .waitForFunction(
+      (nom) =>
+        (document.querySelector(`[data-zone-apercu="${nom}"]`)?.textContent ?? '').trim() !== '',
+      lecteur,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
 async function ouvrirSiBesoin() {
   if (!(await page.locator('#pour-les-apercus').isVisible().catch(() => false))) return;
   await page.fill('#mdp-coffre', MDP);
   await page.click('#ouvrir-coffre');
-  await page.waitForTimeout(1500);
+  /* Le bloc du coffre s'en va quand la clé est posée : c'est ce que le
+     constat suivant lit, et c'est écrit après la dérivation. */
+  await page
+    .locator('#pour-les-apercus')
+    .waitFor({ state: 'hidden', timeout: DELAI })
+    .catch(() => {});
 }
 
 await aller();
@@ -116,7 +151,36 @@ await ouvrirSiBesoin();
   faux('le coffre ouvert, le bloc disparaît', await page.locator('#pour-les-apercus').isVisible());
   await page.uncheck('[data-interrupteur="agenda"]');
   await page.check('[data-interrupteur="veille"]');
-  await page.waitForTimeout(1200);
+  /*
+     LES DEUX CHOIX PARTENT EN BASE, et c'est leur relecture après
+     rechargement que les trois constats mesurent. Aucune marque à l'écran ne
+     dit « c'est enregistré » — on interroge donc le magasin jusqu'à ce qu'il
+     porte les deux valeurs voulues.
+  */
+  await page
+    .waitForFunction(
+      () =>
+        new Promise((ok) => {
+          const d = indexedDB.open('revinsp');
+          d.onerror = () => ok(false);
+          d.onsuccess = () => {
+            /* Un seul enregistrement, de clé fixe « consommateurs », et un
+               objet « reglages » qui porte un booléen par lecteur. */
+            const r = d.result
+              .transaction('odysseeConsommateurs')
+              .objectStore('odysseeConsommateurs')
+              .get('consommateurs');
+            r.onsuccess = () => {
+              const reglages = r.result?.reglages ?? {};
+              ok(reglages.agenda === false && reglages.veille === true);
+            };
+            r.onerror = () => ok(false);
+          };
+        }),
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
   await aller();
   await ouvrirSiBesoin();
   const etats = await page.$$eval('[data-interrupteur]', (e) =>
@@ -130,7 +194,7 @@ console.log('\nUN LECTEUR FERMÉ NE REÇOIT RIEN, ET LE MONTRE');
 
 {
   await page.click('[data-apercu="agenda"]');
-  await page.waitForTimeout(400);
+  await attendreLApercu('agenda');
   const texte = await page.textContent('[data-zone-apercu="agenda"]');
   vrai('l’aperçu d’un lecteur fermé dit « Rien »', texte.includes('Rien.'), texte);
   vrai('et dit qu’aucune donnée n’est calculée',
@@ -147,7 +211,7 @@ console.log('\nUN LECTEUR SANS MONTANT N’EN MONTRE AUCUN');
      affiche ce qu'il reçoit réellement, et on y cherche un symbole d'euro.
   */
   await page.click('[data-apercu="habitudes"]');
-  await page.waitForTimeout(400);
+  await attendreLApercu('habitudes');
   const texte = await page.textContent('[data-zone-apercu="habitudes"]');
   faux('aucun euro dans l’aperçu des habitudes', texte.includes('€'));
   vrai('mais il dit quelque chose', texte.length > 30, texte);
@@ -156,14 +220,14 @@ console.log('\nUN LECTEUR SANS MONTANT N’EN MONTRE AUCUN');
       .includes('habitudes'));
 
   await page.click('[data-apercu="veille"]');
-  await page.waitForTimeout(400);
+  await attendreLApercu('veille');
   const veille = await page.textContent('[data-zone-apercu="veille"]');
   faux('aucun euro dans l’aperçu de la veille', veille.includes('€'));
   vrai('et elle annonce qu’elle ne compare pas au budget',
     veille.includes('aucune comparaison au budget'), veille);
 
   await page.click('[data-apercu="quoiMaintenant"]');
-  await page.waitForTimeout(400);
+  await attendreLApercu('quoiMaintenant');
   const quoi = await page.textContent('[data-zone-apercu="quoiMaintenant"]');
   faux('ni dans « Que faire maintenant »', quoi.includes('€'));
   vrai('qui ne dit qu’un nombre', /\d+ opération/.test(quoi), quoi);

@@ -225,6 +225,7 @@ console.log('\nCHANGER DE PÉRIODE RECALCULE');
 await page.click('[data-periode="annee"]');
 await page.waitForFunction(
   () => /^Année \d{4}$/.test(document.getElementById('titre-periode')?.textContent?.trim() ?? ''),
+  undefined,
   { timeout: 60000 },
 );
 {

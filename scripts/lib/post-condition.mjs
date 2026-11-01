@@ -31,6 +31,34 @@
  *
  * Le relevé a lieu avant le geste, le geste ensuite, et l'attente après — cet
  * ordre est tout l'intérêt, et l'inverser ramène le défaut.
+ *
+ * ## Les cinq formes, et laquelle prendre
+ *
+ * - `apresLaPeinture` — la zone compte ses peintures dans `data-peint`. La
+ *   forme la plus sûre, et celle qui demande une marque au site.
+ * - `apresLeRemplacement` — la zone remplace ses enfants. Rien à demander au
+ *   site : on marque l'ancien nœud et l'on attend un nœud sans la marque.
+ * - `apresLeChangementDeTexte` — un texte est réécrit. On relève l'ancien et
+ *   l'on attend qu'il diffère, ce qui reste indépendant de ce qu'on affirme.
+ * - `attendreLeCompte` — une liste atteint un nombre d'éléments.
+ * - `devientVisible` — un élément paraît ou s'en va.
+ *
+ * - `travailFini` — l'écran annonce son travail puis son verdict ; on attend le
+ *   verdict, et non l'annonce.
+ * - `annonceDe` — un état peint sans geste : on attend qu'il soit écrit, et
+ *   l'on rend ce qu'il dit.
+ * - `boutonRendu` — la post-condition d'un geste passé par `unSeulGeste`.
+ * - `attendreEnBase` — l'écriture n'a aucune marque à l'écran, et c'est la
+ *   base elle-même qu'on interroge jusqu'à ce qu'elle réponde.
+ *
+ * ## L'ORDRE DANS LEQUEL ON CHERCHE
+ *
+ * **Avant de sonder la base, regarder si l'écran dit déjà qu'il a fini.** Dix
+ * messages dans six écrans suivent la convention « … en cours… » puis un
+ * verdict : `travailFini` les couvre tous, et il est plus exact qu'un sondage,
+ * puisqu'il rend la main à la seconde où l'écran parle. La base ne se sonde
+ * que lorsque l'écran ne dit rien — une tâche rangée, un rappel retiré, une
+ * migration.
  */
 
 /**
@@ -110,4 +138,456 @@ export async function devientVisible(page, selecteur, visible, { delai = 10000 }
     .waitForSelector(selecteur, { state: visible ? 'visible' : 'hidden', timeout: delai })
     .then(() => true)
     .catch(() => false);
+}
+
+/**
+ * Fait le geste, et attend que la zone ait été REMPLACÉE.
+ *
+ * ## Le motif que cette aide couvre
+ *
+ * Beaucoup d'écrans repeignent une liste entière plutôt qu'une ligne :
+ * `zone.replaceChildren()`, puis les nouveaux enfants. Il n'y a donc aucun
+ * compteur à lire, et la valeur qu'on s'apprête à vérifier est souvent déjà
+ * présente — la ligne que l'essai vient de remplir porte déjà « 42 » avant
+ * que l'écran ne l'ait relue.
+ *
+ * On marque alors le premier enfant AVANT le geste, et l'on attend un premier
+ * enfant SANS la marque. Aucun passage antérieur ne peut avoir rendu cette
+ * condition vraie, puisqu'elle porte sur une marque posée après eux : c'est la
+ * forme du compteur monotone, appliquée à un nœud.
+ *
+ * ## Deux usages, et le second surprend
+ *
+ *     await apresLeRemplacement(page, '#liste', () => page.click('#ajouter'));
+ *
+ * et, sans geste du tout, pour attendre la PROCHAINE peinture — celle qu'un
+ * délai du site déclenchera tout seul, par exemple l'expiration d'un bandeau
+ * d'annulation :
+ *
+ *     await apresLeRemplacement(page, '#liste');
+ *
+ * Ce second usage remplace une temporisation calée sur la durée du délai, et
+ * il est exact plutôt que généreux : il rend la main quand l'écriture a eu
+ * lieu, non six ou huit secondes plus tard.
+ *
+ * ## Ce qu'elle ne sait pas faire
+ *
+ * Une zone qui ne remplace pas ses enfants mais les modifie en place ne
+ * déclenche rien ici : la marque survit, et l'attente expire. Dans ce cas,
+ * `apresLeChangementDeTexte` ou un compteur sur la zone conviennent.
+ *
+ * @param page la page de Playwright
+ * @param zone le conteneur dont les enfants sont remplacés
+ * @param geste ce qui déclenche la peinture — rien, pour attendre la suivante
+ * @param options.delai en millisecondes, 30 000 par défaut
+ */
+export async function apresLeRemplacement(page, zone, geste = null, { delai = 30000 } = {}) {
+  await page.evaluate(
+    (s) => document.querySelector(s)?.firstElementChild?.setAttribute('data-ancien', 'oui'),
+    zone,
+  );
+  if (geste) await geste();
+  await page
+    .waitForFunction(
+      (s) => {
+        const premier = document.querySelector(s)?.firstElementChild;
+        return Boolean(premier) && !premier.hasAttribute('data-ancien');
+      },
+      zone,
+      { timeout: delai },
+    )
+    .catch(() => {});
+}
+
+/**
+ * Fait le geste, et attend que le texte de l'élément ait CHANGÉ.
+ *
+ * ## Pourquoi « changé » et non « contient ceci »
+ *
+ * Le motif est partout : on choisit une option, et un paragraphe explique ce
+ * que cette option fait. Attendre que le paragraphe contienne la phrase
+ * attendue reviendrait à attendre l'assertion elle-même — bornée, donc
+ * honnête, mais elle n'apprend plus rien quand elle passe.
+ *
+ * Attendre un texte DIFFÉRENT de celui d'avant est indépendant de ce qu'on
+ * affirme : la valeur de départ est relevée avant le geste, et aucun passage
+ * antérieur ne peut l'avoir rendue différente d'elle-même.
+ *
+ * ## Les deux limites
+ *
+ * Un geste qui réécrit le même texte — choisir l'option déjà choisie — n'est
+ * pas détectable ainsi, et l'attente expire. C'est voulu : un essai qui refait
+ * deux fois le même choix mesure autre chose que ce qu'il annonce.
+ *
+ * Et surtout : **un écran qui ANNONCE son travail avant de le faire change
+ * deux fois de texte**, et le premier changement n'est pas le bon. « Ouverture
+ * du fichier… », puis le verdict ; « Fusion en cours… », puis le compte. Dans
+ * ce cas, `apresLeChangementDeTexte` rend la main sur l'annonce, et c'est
+ * `travailFini` qu'il faut prendre.
+ *
+ * @param page la page de Playwright
+ * @param cible un sélecteur, ou un localisateur de Playwright
+ * @param geste ce qui déclenche le changement
+ * @param options.delai en millisecondes, 30 000 par défaut
+ * @returns vrai si le texte a changé dans le délai
+ */
+export async function apresLeChangementDeTexte(page, cible, geste, { delai = 30000 } = {}) {
+  /*
+     La cible est un SÉLECTEUR ou un localisateur. Le second est souvent le
+     seul possible : « le premier paragraphe du second repli de cette ligne »
+     s'écrit en localisateurs chaînés et n'a pas d'équivalent CSS honnête.
+  */
+  const lire =
+    typeof cible === 'string'
+      ? () => page.textContent(cible).catch(() => null)
+      : () => cible.textContent().catch(() => null);
+
+  const avant = await lire();
+  await geste();
+  const fin = Date.now() + delai;
+  for (;;) {
+    if ((await lire()) !== avant) return true;
+    if (Date.now() > fin) return false;
+    await page.waitForTimeout(50);
+  }
+}
+
+/**
+ * Attend que le nombre d'éléments atteigne ce compte.
+ *
+ * Le motif le plus simple du lot : on enregistre une fiche, et la liste en
+ * porte une de plus. L'attente est bornée et son expiration est rendue comme
+ * un faux, donc l'assertion qui suit garde son sens — ce qui disparaît, c'est
+ * seulement l'exigence que l'écriture et la relecture tiennent en mille deux
+ * cents millisecondes.
+ *
+ * @returns vrai si le compte a été atteint dans le délai
+ */
+export function attendreLeCompte(page, selecteur, combien, { delai = 30000 } = {}) {
+  return page
+    .waitForFunction(
+      ([s, n]) => document.querySelectorAll(s).length === n,
+      [selecteur, combien],
+      { timeout: delai },
+    )
+    .then(() => true)
+    .catch(() => false);
+}
+
+/**
+ * Attend que les animations de l'élément soient TERMINÉES.
+ *
+ * ## Quand il la faut
+ *
+ * Dès qu'une assertion lit une GÉOMÉTRIE — « le bandeau est au-dessus de la
+ * barre du bas », « la section est dans l'écran » — l'apparition de l'élément
+ * ne suffit pas : il peut encore être en train de monter. Mesuré sur le
+ * bandeau d'annulation, qui porte `animation: boite-monte` : son bas passe de
+ * 708 à 691 puis à 684 px en cent cinquante millisecondes. Lu dès qu'il est
+ * visible, il est encore vingt-quatre pixels trop bas, et l'assertion tombe —
+ * sur du code sain.
+ *
+ * C'est la même famille que `scrollend` pour une ancre : une animation se
+ * lit par sa FIN, jamais par une durée supposée.
+ *
+ * ## Comment
+ *
+ * `Element.getAnimations()` rend les animations en cours, chacune avec sa
+ * promesse `finished`. Une animation infinie ne finirait jamais : le délai
+ * borne l'attente, et son expiration ne fait pas échouer l'essai — l'assertion
+ * qui suit s'en charge, et dira ce qu'elle a vu.
+ */
+export async function apresLesAnimations(page, selecteur, { delai = 5000 } = {}) {
+  await Promise.race([
+    page.evaluate(
+      (s) => {
+        const e = document.querySelector(s);
+        if (!e) return null;
+        return Promise.all(e.getAnimations().map((a) => a.finished.catch(() => null)));
+      },
+      selecteur,
+    ),
+    new Promise((ok) => setTimeout(ok, delai)),
+  ]).catch(() => {});
+}
+
+/**
+ * INTERROGE LA BASE JUSQU'À CE QU'ELLE RÉPONDE CE QU'ON ATTEND.
+ *
+ * ## Pourquoi cette forme existe dans le module partagé
+ *
+ * Certaines écritures n'ont AUCUNE marque à l'écran : une tâche rangée, un
+ * rappel retiré du centre, une prise pointée depuis un autre écran, un
+ * réglage enregistré sans annonce. Il n'y a alors rien à attendre dans le
+ * DOM — mais la base est elle-même la post-condition, et on peut l'y
+ * interroger.
+ *
+ * L'idiome est né dans `essais-niveau-navigateur.mjs` le 26 octobre, puis
+ * recopié dans deux autres essais. Il est ici pour que les conversions
+ * suivantes n'en écrivent pas une quatrième version — et parce que deux
+ * agents l'ont voulu le même jour.
+ *
+ * **Les trois copies locales restent pour l'instant**, et c'est dit plutôt
+ * que caché : chacune est déjà mesurée dans son essai, et les remplacer
+ * demanderait de repasser ces essais sans rien corriger. Elles convergeront
+ * quand leurs fichiers seront rouverts.
+ *
+ * ## L'usage
+ *
+ *     const tout = await attendreEnBase(page, 'odysseeTaches', (t) => t.length >= 1);
+ *
+ * `estSatisfait` reçoit le contenu entier du magasin. Le relevé est fait par
+ * `getAll`, donc sur une base ouverte sans version : un magasin absent fait
+ * lever, et l'appel rend `null` plutôt que de faire tomber l'essai sur une
+ * panne illisible.
+ *
+ * @returns le contenu du magasin dès qu'il satisfait la condition, ou `null`
+ *   si le délai expire — l'assertion qui suit dira ce qu'elle a vu.
+ */
+export async function attendreEnBase(page, magasin, estSatisfait, { delai = 30000 } = {}) {
+  const lire = () =>
+    page
+      .evaluate(
+        (nom) =>
+          new Promise((ok, rate) => {
+            const demande = indexedDB.open('revinsp');
+            demande.onerror = () => rate(demande.error);
+            demande.onsuccess = () => {
+              const base = demande.result;
+              /*
+                 ON REFERME LA CONNEXION, et ce n'est pas une politesse.
+
+                 Une connexion ouverte BLOQUE un changement de version : quand
+                 l'application migre son schéma, son « upgradeneeded » attend
+                 que toutes les autres connexions soient closes. Un sondage qui
+                 en ouvre une toutes les cent millisecondes et ne les referme
+                 jamais empêche donc la migration qu'il est censé attendre.
+
+                 Mesuré sur `essais:migration` : la version d'avant passait,
+                 la mienne échouait — les cartes n'étaient jamais migrées, donc
+                 jamais dues, donc aucune session de flashcards à démarrer. Le
+                 défaut n'était pas dans l'attente mais dans ce qu'elle laissait
+                 derrière elle.
+              */
+              const fermer = () => {
+                try {
+                  base.close();
+                } catch {
+                  /* Déjà close : rien à faire. */
+                }
+              };
+              try {
+                const r = base.transaction(nom).objectStore(nom).getAll();
+                r.onsuccess = () => {
+                  fermer();
+                  ok(r.result);
+                };
+                r.onerror = () => {
+                  fermer();
+                  rate(r.error);
+                };
+              } catch (erreur) {
+                fermer();
+                rate(erreur);
+              }
+            };
+          }),
+        magasin,
+      )
+      .catch(() => null);
+
+  const fin = Date.now() + delai;
+  for (;;) {
+    const contenu = await lire();
+    if (contenu !== null && estSatisfait(contenu)) return contenu;
+    if (Date.now() > fin) return null;
+    /*
+       LE PAS D'UN SONDAGE N'EST PAS UNE TEMPORISATION À L'AVEUGLE, et la
+       distinction est celle du § 4 de « cadence-des-essais.md ».
+
+       Une temporisation à l'aveugle parie sur une durée : elle rend la main
+       qu'il se soit passé quelque chose ou non. Une attente bouclée et bornée
+       relève, attend un pas, relit, et ne rend la main que lorsque la
+       condition est vraie — ou lorsque la borne est atteinte, ce qui est rendu
+       comme un faux. Les cent millisecondes ne sont pas le temps qu'on croit
+       nécessaire : c'est l'intervalle entre deux lectures.
+
+       `relever-temporisations.mjs` ne les compte donc pas, et `--bornes` ne
+       les cherche pas : ni l'un ni l'autre ne regarde ce module.
+    */
+    await page.waitForTimeout(100);
+  }
+}
+
+/**
+ * ATTEND LE VERDICT D'UN ÉCRAN QUI ANNONCE SON TRAVAIL.
+ *
+ * ## La convention qu'elle suit
+ *
+ * Dix messages dans six écrans de Cyclades — appareils, apparier, progression,
+ * statistiques, stockage, veille — écrivent d'abord « … en cours… », puis leur
+ * verdict. « Fusion en cours… » puis le compte des doublons ; « Compression et
+ * chiffrement en cours… » puis le nom du fichier ; « Calcul en cours… » puis
+ * les courbes.
+ *
+ * Attendre un texte non vide rend donc la main sur l'ANNONCE, c'est-à-dire
+ * avant le travail. Attendre le motif du succès laisse un refus consommer la
+ * borne entière, puis lire un écran dont on ne sait rien.
+ *
+ * On attend donc : **non vide, et ne disant plus « en cours »**. Cette aide ne
+ * présume ni du refus ni de la réussite — c'est l'assertion qui tranche, et
+ * c'est bien son travail.
+ *
+ * @param page la page de Playwright
+ * @param zone le sélecteur de la zone de message
+ * @param options.delai en millisecondes, 30 000 par défaut
+ * @returns le texte du verdict, ou ce qu'on a trouvé à l'expiration
+ */
+export async function travailFini(page, zone, { delai = 30000 } = {}) {
+  await page
+    .waitForFunction(
+      (sel) => {
+        const texte = (document.querySelector(sel)?.textContent ?? '').trim();
+        return texte !== '' && !/en cours/i.test(texte);
+      },
+      zone,
+      { timeout: delai },
+    )
+    .catch(() => {});
+  return ((await page.textContent(zone).catch(() => null)) ?? '').trim();
+}
+
+/**
+ * ATTEND QU'UN ÉTAT SOIT ÉCRIT, ET REND CE QU'IL DIT.
+ *
+ * ## Pourquoi une chaîne vide doit faire expirer l'attente
+ *
+ * L'aide vient de `essais-effacement-navigateur`, avec sa raison : une zone de
+ * message part vide, et la lire tout de suite donne « » — que l'assertion
+ * suivante interprétera comme elle peut, souvent en passant. L'attente porte
+ * donc sur « non vide », et son expiration rend ce qu'elle a trouvé, pour que
+ * l'assertion le dise plutôt que de se taire.
+ *
+ * ## Quand la prendre, et quand prendre `travailFini`
+ *
+ * Celle-ci est pour un état peint SANS GESTE — un décompte que l'écran écrit
+ * en arrivant, une annonce de contexte. Dès que l'écran annonce son travail
+ * avant de le faire, c'est `travailFini` qu'il faut.
+ */
+export async function annonceDe(page, selecteur, { delai = 30000 } = {}) {
+  await page
+    .waitForFunction(
+      (sel) => (document.querySelector(sel)?.textContent ?? '').trim().length > 0,
+      selecteur,
+      { timeout: delai },
+    )
+    .catch(() => {});
+  return ((await page.textContent(selecteur).catch(() => null)) ?? '').trim();
+}
+
+/**
+ * ATTEND QU'UN GESTE PASSÉ PAR `unSeulGeste` SOIT TERMINÉ.
+ *
+ * ## Ce qu'elle lit, et pourquoi ce n'est pas vrai d'avance
+ *
+ * `src/lib/geste.ts` désactive le bouton AVANT d'appeler l'action, et le rend
+ * dans son `finally`, donc après. Appelée juste après le clic, cette aide ne
+ * peut donc pas être satisfaite par l'état de repos : Playwright ne rend la
+ * main qu'une fois l'événement distribué, et le gestionnaire a déjà désactivé
+ * le bouton à ce moment-là.
+ *
+ * Elle vaut pour les trente et un gestes du site qui passent par là, et elle
+ * dit ce que rien d'autre ne dit : que l'ACTION est finie, qu'elle ait abouti
+ * ou non. Ce que l'action a écrit, c'est aux autres aides de l'attendre.
+ *
+ * ## Les deux cas où elle ne convient pas
+ *
+ * Un contrôle qui n'est pas un `<button>` — `unSeulGeste` ne touche alors
+ * aucun bouton, et rien ne change. Et un bouton déjà désactivé avant le geste :
+ * le `finally` le remet désactivé, et l'attente expire. Dans ce dernier cas,
+ * c'est le message de l'écran qu'il faut attendre.
+ *
+ * @returns vrai si le bouton a été rendu dans le délai
+ */
+export function boutonRendu(page, selecteur, { delai = 30000 } = {}) {
+  return page
+    .waitForFunction(
+      (sel) => {
+        const bouton = document.querySelector(sel);
+        return bouton !== null && bouton.disabled === false;
+      },
+      selecteur,
+      { timeout: delai },
+    )
+    .then(() => true)
+    .catch(() => false);
+}
+
+/**
+ * RELIT JUSQU'À CE QUE LA VALEUR AIT CESSÉ DE CHANGER, ET REND LA DERNIÈRE.
+ *
+ * ## Ce que cette forme est, et ce qu'elle n'est pas
+ *
+ * C'est une attente bornée **par relecture** : lire, laisser passer un pas,
+ * relire, et rendre la main dès que deux lectures coïncident. Ce n'est donc
+ * pas une durée pariée — elle s'abrège quand l'écran est prompt et s'allonge
+ * quand il traîne —, mais ce n'est pas non plus une post-condition exacte :
+ * elle ne sait pas CE QU'ELLE ATTEND, seulement que cela ne bouge plus.
+ *
+ * **Elle vient donc en dernier**, après les quatre questions de l'ordre de
+ * recherche : ce que l'assertion lit, sinon la marque du geste, sinon le
+ * verdict de l'écran, sinon la base. Quand l'une des quatre répond, c'est
+ * elle qu'il faut.
+ *
+ * ## Les deux cas où elle vaut MIEUX qu'une post-condition exacte
+ *
+ * Le premier : **ce qu'on affirme est une absence.** « La tâche est là et
+ * elle n'est pas doublée » ne se garde pas en attendant qu'elle soit là —
+ * cela rendrait la main au premier exemplaire et masquerait le second,
+ * qu'une synchronisation ajoute un instant plus tard.
+ *
+ * Le second : **la valeur se pose en deux temps.** Un compteur peint d'abord
+ * une estimation puis le nombre exact ; un défilement restauré passe par
+ * zéro avant sa position. Attendre « ce n'est plus vide » rend la main au
+ * premier temps, et c'est le second qui compte.
+ *
+ * ## Le pas vit du côté de l'essai, et c'est voulu
+ *
+ * Le pas est un `setTimeout` de Node et non un `page.waitForTimeout` : c'est
+ * une cadence de relecture, pas une attente sur l'écran. Écrit dans la page,
+ * il serait compté par `relever-temporisations.mjs` comme une attente à
+ * l'aveugle, ce qu'il n'est pas.
+ *
+ * ## Sa limite, et elle est réelle
+ *
+ * Une valeur qui n'a pas encore COMMENCÉ à changer est stable elle aussi :
+ * deux lectures prises avant que le geste n'ait pris effet coïncident, et
+ * l'aide rend la valeur d'avant. C'est le premier piège, sous une autre
+ * forme. Quand le geste a une marque, on l'attend d'abord, et l'on se sert
+ * de cette aide ensuite pour la valeur qui se pose en deux temps.
+ *
+ * ## Pourquoi elle ne prend pas la page
+ *
+ * Les dix autres aides reçoivent `page` en premier argument. Celle-ci non,
+ * et c'est délibéré : elle ne touche jamais à la page, elle rappelle la
+ * fonction qu'on lui donne. Garder le paramètre pour la symétrie ferait
+ * croire qu'elle sait lire l'écran, et une lecture de base lui convient tout
+ * autant — c'est même son usage le plus fréquent.
+ *
+ * @param lire une fonction sans argument qui rend la valeur à surveiller
+ * @param options.pas le pas de relecture en millisecondes, 150 par défaut
+ * @param options.delai la borne au-delà de laquelle on rend la dernière
+ *   lecture quoi qu'il arrive, 30 000 par défaut
+ * @returns la dernière valeur lue
+ */
+export async function quandCelaSeFixe(lire, { pas = 150, delai = 30000 } = {}) {
+  let precedent = JSON.stringify(await lire());
+  const limite = Date.now() + delai;
+  while (Date.now() < limite) {
+    await new Promise((fini) => setTimeout(fini, pas));
+    const maintenant = JSON.stringify(await lire());
+    if (maintenant === precedent) break;
+    precedent = maintenant;
+  }
+  return precedent === undefined ? undefined : JSON.parse(precedent);
 }

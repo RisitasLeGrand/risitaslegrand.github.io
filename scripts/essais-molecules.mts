@@ -36,6 +36,12 @@ import {
   controlerLiaisonAuThesaurus,
   interactionsDeLaFiche,
 } from '../src/lib/odyssee/molecules';
+import {
+  CLASSES_CONNUES,
+  IDENTIFIANTS_DE_CLASSE,
+  classeDeclaree,
+} from '../src/lib/odyssee/classes-de-molecules';
+import { CLASSES_DU_CYCLE } from '../src/lib/notifications/filtre-cycle';
 
 let rouges = 0;
 const v = (quoi: string, obtenu: unknown, attendu: unknown) => {
@@ -482,6 +488,105 @@ v(
   INTERACTIONS_NON_RELIEES.includes('ne signifie pas l’absence de risque'),
   true,
 );
+
+console.log('\n\x1b[1mLA CLASSE PHARMACOLOGIQUE : UN VOCABULAIRE CLOS, ET SA SOURCE\x1b[0m\n');
+{
+  const SOURCE = 'Thésaurus de l’ANSM, p. 17.';
+  v(
+    'une classe connue, avec sa source, passe',
+    controlerRegistre([entree({ classe: 'androgenes', classeSource: SOURCE })]),
+    [],
+  );
+  /*
+     LE CONTRÔLE QUI SÉPARE UNE CLASSE D'UNE CATÉGORIE. Le champ `categorie`
+     est refusé depuis le prompt 25, et il le reste — un essai plus haut le
+     vérifie encore. Ce qui rend `classe` admissible n'est pas une exception
+     de faveur : c'est que son vocabulaire est CLOS, et qu'une valeur hors
+     vocabulaire est refusée exactement comme une catégorie l'était.
+  */
+  v(
+    'une classe hors vocabulaire est refusée',
+    controlerRegistre([entree({ classe: 'nootropique', classeSource: SOURCE })]).length,
+    1,
+  );
+  v(
+    'et le refus nomme les valeurs admises',
+    controlerRegistre([entree({ classe: 'nootropique', classeSource: SOURCE })])[0]?.includes(
+      'androgenes',
+    ),
+    true,
+  );
+  /*
+     L'EXIGENCE DE SOURCE fait tout le travail : une classe sans document n'a
+     pas d'autorité, et le registre redeviendrait une liste de rangements.
+     L'inscription seule ne prouve rien.
+  */
+  v('une classe sans source est refusée', controlerRegistre([entree({ classe: 'androgenes' })]).length, 1);
+  v(
+    'une source vide ne vaut pas une source',
+    controlerRegistre([entree({ classe: 'androgenes', classeSource: '   ' })]).length,
+    1,
+  );
+  v(
+    'une source SANS classe est refusée aussi',
+    controlerRegistre([entree({ classeSource: SOURCE })]).length,
+    1,
+  );
+  /*
+     ABSENTE SE LIT « NON CLASSÉE », et c'est l'état des cinq molécules du
+     catalogue au 31 octobre. Si ce contrôle rougissait, le registre réel
+     deviendrait inconstructible du jour au lendemain.
+  */
+  v('absente, elle ne gêne rien', controlerRegistre([entree({ classe: null })]), []);
+  v(
+    'absente et nulle des deux côtés non plus',
+    controlerRegistre([entree({ classe: null, classeSource: null })]),
+    [],
+  );
+}
+
+console.log('\n\x1b[1mLES DEUX LISTES DE CLASSES CONCORDENT, DANS LES DEUX SENS\x1b[0m\n');
+{
+  /*
+     `filtre-cycle.ts` est l'autorité sur la sensibilité du cycle, et
+     `classes-de-molecules.ts` en garde une COPIE dans son champ `duCycle`.
+     Une copie non gardée dérive — c'est la leçon des étiquettes de magasins,
+     où une étiquette restée derrière un magasin disparu satisfaisait la
+     couverture sans rien dire de juste.
+
+     Les deux sens comptent. Une classe du cycle absente du vocabulaire ne
+     pourrait jamais être écrite dans le registre, donc jamais écartée : le
+     filtre protégerait sur le papier. Et une classe marquée « du cycle » que
+     le filtre ignore ferait écarter un rappel pour rien.
+  */
+  v(
+    'toute classe du cycle est dans le vocabulaire',
+    CLASSES_DU_CYCLE.filter((c) => !IDENTIFIANTS_DE_CLASSE.includes(c)),
+    [],
+  );
+  v(
+    'toute classe marquée « du cycle » est connue du filtre',
+    CLASSES_CONNUES.filter((c) => c.duCycle && !CLASSES_DU_CYCLE.includes(c.id)).map((c) => c.id),
+    [],
+  );
+  v(
+    'et toute classe hors cycle est bien absente de la liste du filtre',
+    CLASSES_CONNUES.filter((c) => !c.duCycle && CLASSES_DU_CYCLE.includes(c.id)).map((c) => c.id),
+    [],
+  );
+  v(
+    'chaque classe déclarée dit quel document la nomme',
+    CLASSES_CONNUES.filter((c) => c.source.trim().length < 20).map((c) => c.id),
+    [],
+  );
+  v(
+    'le vocabulaire ne porte aucun doublon',
+    new Set(IDENTIFIANTS_DE_CLASSE).size,
+    IDENTIFIANTS_DE_CLASSE.length,
+  );
+  v('une classe inconnue ne se déclare pas', classeDeclaree('nootropique'), null);
+  v('et une connue se retrouve', classeDeclaree('androgenes')?.libelle, 'androgènes');
+}
 
 if (rouges > 0) {
   console.log(`\n\x1b[31m${rouges} essai(s) en échec.\x1b[0m`);

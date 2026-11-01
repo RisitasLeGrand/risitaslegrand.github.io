@@ -59,6 +59,7 @@
  * un meilleur bien-être. »
  */
 
+import { accorde, pluriel } from '../noyau/accords';
 import {
   controlerPopulation,
   populationNonLue,
@@ -450,7 +451,8 @@ export function controlerEchelles(echelles: readonly Echelle[] = ECHELLES): stri
     const deduits = e.paliers.filter((p) => p.deduit);
     if (deduits.length && !/déduit/i.test(e.origineDesPaliers ?? '')) {
       problemes.push(
-        `« ${e.id} » porte ${deduits.length} étiquette(s) déduite(s) — ` +
+        `« ${e.id} » porte ${pluriel(deduits.length, 'étiquette')} ` +
+          `${accorde(deduits.length, 'déduite')} — ` +
           `${deduits.map((p) => `« ${p.etiquette} »`).join(', ')} — sans que ` +
           'son origine ne le dise. Une étiquette de Cyclades présentée comme celle du manuel ' +
           'est une attribution fausse à la source.',
