@@ -864,9 +864,9 @@ comme `parametres.astro` le fait avec `data-monte`. C'est une quinzaine
 d'écrans, donc une proposition au pilote et non une initiative : elle
 toucherait des fichiers qui ne sont pas de ce chantier.
 
-## 7. Deux règles du 1er novembre, tirées de huit méprises en une nuit
+## 7. Trois règles du 1er novembre, tirées de huit méprises en une nuit
 
-Les deux sont venues de la même nuit, et chacune a coûté plusieurs fois le
+Les trois sont venues de la même nuit, et chacune a coûté plusieurs fois le
 même temps avant d'être nommée. Elles ne portent pas sur ce qu'un essai
 mesure, mais sur ce qu'il RAPPORTE.
 
@@ -946,6 +946,34 @@ posé avant les cinq autres — « les jours semés tombent-ils dans la période
 l'export ? » — transforme quatre croix de conséquence en une croix de cause.
 C'est la forme d'échec la plus coûteuse qu'un essai puisse avoir : une cause à
 cinq lignes de la première croix, et rien qui l'y renvoie.
+
+### 7.3 Pour un essai instable, rapporter la DISTRIBUTION, pas le verdict
+
+Un essai qui tombait une fois sur deux rend quatre verts d'affilée une fois sur
+seize. « Vert après le correctif » n'est donc pas une mesure sur un essai
+instable : c'est un tirage, annoncé comme un résultat.
+
+La règle : quand on corrige un essai dont on sait l'instabilité — parce qu'on
+l'a mesurée, ou parce que quelqu'un l'a signalée —, on dit **combien de courses
+sur combien**, et on dit le chiffre d'avant à côté. « 4 sur 4, là où il donnait
+2 sur 4 » se discute ; « vert » ne se discute pas, et c'est précisément le
+problème.
+
+**Et ce qui rend un tel chiffre crédible n'est pas son compte, mais son accord
+avec le diagnostic.** Quatre verts d'affilée après un correctif pris au hasard
+ne valent rien ; les mêmes quatre après un correctif qui traite la cause
+NOMMÉE par la sonde valent beaucoup — non parce qu'ils sont quatre, mais parce
+que la cause nommée et la cause traitée sont la même. Le 1er novembre, le
+constructeur avait montré les treize cases décochées à l'expiration et la
+phrase « Choisissez au moins un domaine. » ; le correctif faisait venir le
+verdict après la peinture. C'est cet accord qu'il faut rapporter, et le compte
+seulement pour dire qu'on n'a pas cessé de regarder.
+
+**Le cas où la règle mord le plus** est celui où l'on n'a QUE des verts. Un
+essai réparé qui passe huit fois sur huit reste un essai dont on ignore la
+borne : on sait qu'il n'a pas échoué en huit courses, pas qu'il ne peut plus
+échouer. Dire « 8 sur 8 » laisse la question ouverte, et c'est exact. Dire
+« corrigé » la ferme, et c'est faux.
 
 ## 8. L'attente déguisée, et l'invariant qui la rend inoffensive
 
