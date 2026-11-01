@@ -438,8 +438,27 @@ console.log('\nLES ÉCARTS, ET L’ÉCHÉANCE NON ÉCHUE');
     lignes.every((t) => t.includes('prévu') && t.includes('réel') && t.includes('écart')),
     JSON.stringify(lignes));
 
-  await page.click('[data-axe="mois"]');
-  await attendreLAttribut('[data-axe="mois"]', 'data-actif', 'true');
+  /*
+     ON ATTEND LA PEINTURE DE LA LISTE, ET NON LA MARQUE DU BOUTON.
+
+     Cette attente portait sur « data-actif » du BOUTON d'axe, puis l'assertion
+     lisait la liste « [data-ecart] » — deux éléments différents. Et le
+     gestionnaire pose l'attribut AVANT de lancer la peinture, sans l'attendre
+     (« void peindreLesEcarts() ») : l'attente rendait donc la main alors que
+     la peinture venait à peine de commencer, et l'assertion lisait parfois les
+     valeurs de l'axe PRÉCÉDENT.
+
+     Mesuré avant la correction : quatre courses sur main, deux vertes et deux
+     rouges, sur DEUX assertions différentes. Un rouge qui change d'assertion
+     d'une course à l'autre ne désigne pas un défaut du code — il désigne une
+     attente. Et il ne se corrige pas en allongeant un délai : il n'y en avait
+     pas ici, seulement une post-condition qui portait sur le mauvais élément.
+
+     « data-actif » n'est pas perdu pour autant : il reste ASSERTÉ deux lignes
+     plus bas, ce qui est sa place. L'attendre puis l'affirmer aurait été la
+     tautologie que la doctrine interdit.
+  */
+  await apresLaPeinture(page, '#ecarts', () => page.click('[data-axe="mois"]'));
   const mois = await page.$$eval('[data-ecart]', (e) => e.map((x) => x.dataset.ecart));
   vrai('l’axe des mois rend des mois', mois.every((m) => /^\d{4}-\d{2}$/.test(m)),
     JSON.stringify(mois));
@@ -795,7 +814,18 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
     .catch(() => {});
   faux('un type distinct rouvre l’enregistrement',
     await page.isDisabled('[data-geste="valider-parts"]'));
-  await page.click('[data-geste="valider-parts"]');
+  /*
+     MÊME FAUTE, MÊME REMÈDE. L'essai attendait que l'ÉDITEUR se referme, puis
+     la section suivante lisait « [data-categorie-pointee] » — que la
+     validation repeint, mais dont rien n'attendait la peinture. C'est la
+     seconde des deux assertions qui tombaient au hasard des courses.
+
+     Les deux attentes coexistent, et chacune porte sur ce qu'elle garde : la
+     peinture des catégories, puis la fermeture de l'éditeur.
+  */
+  await apresLaPeinture(page, '#categories-pointees', () =>
+    page.click('[data-geste="valider-parts"]'),
+  );
   /* L'éditeur se referme quand les parts sont enregistrées. */
   await attendreLeNombre('[data-part="1"]', '=', 0);
 }

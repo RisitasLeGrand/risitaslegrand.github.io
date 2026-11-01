@@ -286,6 +286,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 </Base>
 
 <script>
+  import { enPeignant } from '../../lib/peinture';
   import { defilerVers } from '../../lib/defilement';
   import { iconeDuGabarit } from '../../lib/icone-gabarit';
   import { jourISO } from '../../lib/db';
@@ -1115,7 +1116,29 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
   /* ── Les écarts ────────────────────────────────────────────────────────── */
 
+  /*
+     LA MARQUE DE FIN DE PEINTURE, et le défaut précis qu'elle ferme.
+
+     « essais:rapprocher-ecran » cliquait l'axe des mois, attendait l'attribut
+     « data-actif » du BOUTON, puis lisait la liste « [data-ecart] ». Le bouton
+     et la liste sont deux éléments différents : rien ne garantissait que la
+     liste fût repeinte quand le bouton s'était marqué. C'est le troisième
+     piège de « docs/cyclades/cadence-des-essais.md » — attendre un élément et
+     en lire un AUTRE.
+
+     Mesuré : quatre courses sur main, deux vertes et deux rouges, sur deux
+     assertions différentes. Un rouge qui change d'assertion d'une course à
+     l'autre ne désigne pas un défaut du code : il désigne une attente.
+
+     L'enveloppe est MINCE et le travail reste dans la fonction suivante, pour
+     que le « finally » soit court — c'est la forme que l'écran des finances
+     avait déjà trouvée.
+  */
   async function peindreLesEcarts() {
+    await enPeignant($('ecarts'), peindreVraimentLesEcarts);
+  }
+
+  async function peindreVraimentLesEcarts() {
     const { lignes, occ, etat } = await rassembler();
     const parLigne = ecartsParLigne(lignes, occ, etat.retenus, TOLERANCE_PAR_DEFAUT, aujourdHui);
 
@@ -2101,7 +2124,17 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
   /* ── Les catégories pointées ───────────────────────────────────────────── */
 
+  /*
+     MÊME MARQUE, MÊME RAISON. « le logement apparaît, depuis la part de
+     bricolage » lisait « [data-categorie-pointee] » sans attendre que cette
+     liste-là soit peinte. C'est la seconde des deux assertions qui tombaient
+     au hasard des courses.
+  */
   async function peindreLesCategoriesPointees() {
+    await enPeignant($('categories-pointees'), peindreVraimentLesCategoriesPointees);
+  }
+
+  async function peindreVraimentLesCategoriesPointees() {
     const [operations, lignes, pointages, modifications] = await Promise.all([
       toutesLesOperations(), toutesLesLignes(), tousLesPointages(), lireLesModifications(),
     ]);
