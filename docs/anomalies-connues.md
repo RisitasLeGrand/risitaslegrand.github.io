@@ -272,9 +272,55 @@ trait à six rouges, et qui ne mesuraient rien du tout. C'est le piège que le
 constructeur avait signalé pour les arbres détachés, et il se produit aussi
 chez soi.
 
-La règle : **un seul passage de navigateur à la fois.** Avant d'en lancer un,
-vérifier qu'aucun autre ne tourne — et devant un code 2, chercher le mot de
-passe avant de chercher un défaut.
+La règle, arrêtée par le pilote le 1er novembre : **jamais deux passages du
+protocole de mot de passe en même temps dans la même copie de travail.** On
+attend la fin de l'un avant de lancer l'autre. Avant d'en lancer un, vérifier
+qu'aucun autre ne tourne.
+
+Et le corollaire, qui porte sur le VERDICT et non sur la conduite : **un code 2
+« mot de passe absent » compte NON MESURÉ, jamais rouge.** La distinction n'est
+pas de la finesse de langage. Un rouge se range dans ce tableau, se cherche, et
+finit par recevoir une explication ; un « non mesuré » se REJOUE. Compter ces
+six codes comme six rouges aurait produit six entrées à expliquer, chacune
+appuyée sur une mesure qui n'avait pas eu lieu — et le tableau des anomalies
+connues se serait rempli de causes inventées pour des défauts inexistants.
+C'est la même règle que pour l'analyseur qui ne lit rien : l'absence de mesure
+n'est pas un résultat.
+
+### Une section d'essai ajoutée APRÈS la sortie du fichier ne tourne jamais
+
+Le 1er novembre, une section de cinquante assertions a été ajoutée à la fin de
+`scripts/essais-veridical.mts`. Le fichier se termine par
+`process.exit(echecs ? 1 : 0)` : tout ce qui vient après est du texte mort. Le
+fichier a rendu **code 0**, comme avant, et la nouvelle section n'avait pas
+imprimé une ligne.
+
+**Le code 0 était vrai et il ne voulait rien dire.** Les assertions d'avant
+passaient toutes ; les nouvelles n'existaient pas. Sans le réflexe de relire la
+SORTIE et non seulement le code, le lot entier aurait été poussé avec sa garde
+principale inerte — et le sabotage l'aurait confirmé vert, puisque le sabotage
+n'aurait rien eu à mettre en défaut.
+
+Ce qui l'a dit : chercher dans la sortie le titre de la section ajoutée, qui
+n'y était pas. La règle : **après avoir ajouté des assertions, compter celles
+qui s'impriment**, et pas seulement lire le code de sortie. Un essai ajouté
+mais non exécuté est la forme la plus discrète de l'essai désactivé.
+
+### Un essai inscrit dans `package.json` mais pas au socle ne tourne jamais
+
+Le même jour, `essais:dimensions-l5` existait dans `package.json` depuis sa
+création et n'était pas dans la liste de `scripts/batterie.mjs`. Il n'avait donc
+jamais tourné au socle — et il portait un rouge : un `toFixed` affiché dans
+`src/`, que `essais:accords` refuse et qui aurait fait rougir le socle entier.
+
+Les deux faits comptent ensemble. L'essai absent du socle ne protégeait rien, ET
+il cachait un défaut qu'un autre essai du socle aurait attrapé. Un essai qu'on
+croit avoir est pire qu'un essai qu'on sait ne pas avoir, parce qu'on cesse de
+regarder ce qu'il couvre.
+
+La règle : **un essai écrit s'inscrit au socle dans le même lot.** La commande
+`npm run essais:x` n'est pas une mesure du dépôt : seule la liste de
+`batterie.mjs` dit ce qui tourne.
 
 ### Le périmètre d'une mesure doit suivre celui du changement
 

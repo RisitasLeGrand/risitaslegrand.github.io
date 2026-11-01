@@ -84,6 +84,23 @@ export type Statut = 'jamais' | 'en-cours' | 'converge';
 export interface EtatEscalier {
   /** Écart courant entre le bon candidat et le leurre, en z. */
   delta: number;
+  /**
+   * LE PLUS PETIT ÉCART QUE CET ESCALIER A LE DROIT DE DEMANDER, en z.
+   *
+   * Requis, et non facultatif avec `REGLAGES.deltaMinimum` par défaut. Un
+   * défaut serait exactement l'exclusion non gardée que ce chantier a déjà
+   * payée deux fois : un appelant qui l'oublie mesurerait une dimension
+   * discrète au plancher global de 2 %, en silence, en présentant deux
+   * stimulus identiques. Requis, le compilateur nomme chaque site.
+   *
+   * Sa valeur vient de `plancherReel(dimension)` — le plus grossier du
+   * plancher de la procédure et du grain mesuré sur le rendu. Elle n'est
+   * JAMAIS relue d'un magasin : le plancher est une propriété de la dimension,
+   * pas de l'historique de la personne. Un plancher stocké survivrait à un
+   * changement du nombre de niveaux et vaudrait alors pour une dimension qui
+   * n'existe plus.
+   */
+  plancher: number;
   /** Bonnes réponses consécutives depuis le dernier changement d'écart. */
   bonnesDeSuite: number;
   /** Écarts relevés à chaque inversion, en z, dans l'ordre. */
@@ -184,6 +201,71 @@ export function departPour(exercice: string, seuilDeReference: number | null): n
 }
 
 /**
+ * LE PLANCHER EST-IL UN PLANCHER ? On refuse plutôt que de le remplacer.
+ *
+ * Trois refus, et chacun fermerait une panne muette :
+ *
+ * - **non fini** : un plancher `NaN` rendrait tous les `Math.max` égaux à
+ *   `NaN`, l'escalier descendrait sans borne et le seuil serait `NaN` —
+ *   affiché, un `NaN` ne rougit pas, il s'affiche.
+ * - **sous le plancher global** : la procédure ne sait pas encadrer un seuil
+ *   sous 2 × `deltaMinimum`. Un plancher plus bas serait une permission de
+ *   mesurer ce qui ne se mesure pas.
+ * - **au-dessus de l'écart maximum** : l'escalier n'aurait aucune place pour
+ *   se mouvoir, les trois bonnes réponses ne resserreraient rien, et il
+ *   rendrait un seuil égal à son départ sans avoir rien mesuré. Une dimension
+ *   dans ce cas est à écarter — ce que dit `raisonDInaptitude` — et non à
+ *   mesurer quand même.
+ *
+ * Lever est ici le bon comportement, et c'est l'inverse de la règle usuelle du
+ * chantier : un analyseur cassé doit rendre zéro plutôt que lever, mais un
+ * plancher inadmissible n'est pas une absence de mesure, c'est une mesure qui
+ * se croit valide. La remplacer en silence par le plancher global est
+ * précisément ce qu'on veut rendre impossible.
+ */
+export function verifierLePlancher(plancher: number): void {
+  if (!Number.isFinite(plancher)) {
+    throw new Error(
+      `Plancher d’escalier non fini : ${plancher}. Il vient de ` +
+        '« plancherReel(dimension) », qui ne rend jamais cela : la valeur a été ' +
+        'calculée ailleurs, ou relue d’un magasin — ce qui est interdit.',
+    );
+  }
+  if (plancher < REGLAGES.deltaMinimum) {
+    throw new Error(
+      `Plancher d’escalier à ${plancher}, sous la borne basse de l’escalier ` +
+        `${REGLAGES.deltaMinimum}. Un plancher plus bas que le mouvement lui-même ne ` +
+        'borne rien : il serait une permission de descendre sans limite.',
+    );
+  }
+  if (plancher > REGLAGES.deltaMaximum) {
+    throw new Error(
+      `Plancher d’escalier à ${plancher}, au-dessus de l’écart maximum ` +
+        `${REGLAGES.deltaMaximum}. L’escalier n’aurait aucune place pour se mouvoir : ` +
+        'il rendrait son départ comme seuil. Cette dimension est à écarter, pas à mesurer.',
+    );
+  }
+}
+
+/**
+ * L'ESCALIER EST-IL ARRIVÉ AU PLUS FIN QUE CETTE DIMENSION MONTRE ?
+ *
+ * Vrai quand un resserrement de plus ne descendrait plus. On compare au
+ * plancher et non à `deltaMinimum`, et c'est tout l'objet du lot : sur une
+ * dimension discrète, l'escalier bute sur le grain AVANT d'avoir trouvé le
+ * seuil de la personne. Dire alors « vous ne faites pas mieux » attribuerait à
+ * la personne une limite de l'appareil — la phrase à montrer est celle de
+ * `phraseDuPlusFin`, qui le dit dans l'autre sens.
+ *
+ * La comparaison porte sur le resserrement À VENIR, non sur l'écart courant :
+ * un escalier posé pile au plancher n'y est pas encore coincé — il peut encore
+ * s'élargir —, mais il ne peut plus descendre, et c'est cela qu'il faut dire.
+ */
+export function estAuPlusFin(etat: EtatEscalier): boolean {
+  return etat.delta * REGLAGES.facteurResserre < etat.plancher;
+}
+
+/**
  * Un escalier neuf, parti de l'écart donné — ou du départ général.
  *
  * L'écart est ramené dans les bornes de l'escalier, et non seulement dans
@@ -192,9 +274,11 @@ export function departPour(exercice: string, seuilDeReference: number | null): n
  * escalier hors bornes. Le premier `repondre` l'y ramènerait de toute façon,
  * en silence et une réponse trop tard.
  */
-export function escalierNeuf(depart: number = REGLAGES.departDelta): EtatEscalier {
+export function escalierNeuf(depart: number, plancher: number): EtatEscalier {
+  verifierLePlancher(plancher);
   return {
-    delta: Math.min(REGLAGES.deltaMaximum, Math.max(REGLAGES.deltaMinimum, depart)),
+    delta: Math.min(REGLAGES.deltaMaximum, Math.max(plancher, depart)),
+    plancher,
     bonnesDeSuite: 0,
     inversions: [],
     derniereDirection: null,
@@ -211,6 +295,7 @@ export function escalierNeuf(depart: number = REGLAGES.departDelta): EtatEscalie
  * c'est lui qui encadre le seuil.
  */
 export function repondre(etat: EtatEscalier, juste: boolean): EtatEscalier {
+  verifierLePlancher(etat.plancher);
   const suivant: EtatEscalier = {
     ...etat,
     inversions: [...etat.inversions],
@@ -226,7 +311,7 @@ export function repondre(etat: EtatEscalier, juste: boolean): EtatEscalier {
     suivant.bonnesDeSuite = 0;
     if (etat.derniereDirection === 'elargit') suivant.inversions.push(etat.delta);
     suivant.derniereDirection = 'resserre';
-    suivant.delta = Math.max(REGLAGES.deltaMinimum, etat.delta * REGLAGES.facteurResserre);
+    suivant.delta = Math.max(etat.plancher, etat.delta * REGLAGES.facteurResserre);
     return suivant;
   }
 
@@ -291,6 +376,31 @@ export const INTITULES_STATUT: Record<Statut, string> = {
  * Volontairement structurelle et non importée de `db.ts` : l'escalier ne doit
  * rien savoir du magasin, et la reprise se contrôle alors sans base.
  */
+/**
+ * UN ESCALIER TEL QU'IL DORT DANS LE MAGASIN : son plancher y est FACULTATIF.
+ *
+ * L'invariant n'est pas « le plancher n'est jamais écrit » — un état gardé en
+ * mémoire finit dans le magasin, et une règle qui demande de l'en retirer
+ * avant chaque écriture serait oubliée un jour. L'invariant est **le plancher
+ * n'est jamais CRU à la lecture** : `reprendreUnSeuil` le repose d'après la
+ * dimension, qu'il soit écrit ou non, et la valeur stockée ne sert jamais.
+ *
+ * Cette formulation-là, le code la fait respecter tout seul. L'autre reposait
+ * sur la vigilance de chaque appelant, ce qui n'est pas une garde.
+ */
+export type EscalierStocke = Omit<EtatEscalier, 'plancher'> & { plancher?: number };
+
+/** Une ligne telle qu'elle dort dans le magasin. */
+export interface SeuilStocke {
+  escalier: EscalierStocke;
+  seuil: number | null;
+  statut: Statut;
+  echelle?: 'pas' | 'z';
+  regle?: '2-down' | '3-down';
+  ancienneMesure?: number | null;
+}
+
+/** La même, relue : son escalier porte son plancher. */
 export interface SeuilRepris {
   escalier: EtatEscalier;
   seuil: number | null;
@@ -333,10 +443,42 @@ export interface SeuilRepris {
  * `echelle: 'z'` et `regle: '3-down'`, et ressort inchangée. Sans cette
  * propriété, deux lectures successives diviseraient deux fois par 119.
  */
-export function reprendreUnSeuil(ligne: SeuilRepris, pasParEtendue: number): SeuilRepris {
+export function reprendreUnSeuil(
+  ligne: SeuilStocke,
+  pasParEtendue: number,
+  plancher: number,
+): SeuilRepris {
+  verifierLePlancher(plancher);
   const enPas = ligne.echelle !== 'z';
   const ancienneRegle = ligne.regle !== '3-down';
-  if (!enPas && !ancienneRegle) return ligne;
+  /*
+     LE PLANCHER NE SE RELIT PAS DU MAGASIN, il est recalculé à chaque lecture.
+
+     Une ligne déjà reprise ressort donc inchangée SAUF son plancher, qui est
+     reposé. C'est voulu, et c'est ce qui préserve l'idempotence utile : deux
+     lectures successives donnent le même objet, et une dimension dont le
+     nombre de niveaux a changé depuis l'écriture ne traîne pas un plancher
+     périmé. Un plancher stocké CRU serait une mesure du passé appliquée au
+     présent — la faute exacte que « PAS_HISTORIQUE » a coûtée ailleurs. Écrit,
+     il est inoffensif ; relu comme vrai, il ne l'est pas.
+  */
+  if (!enPas && !ancienneRegle) {
+    /*
+       La condition PROUVE que le plancher est déjà posé et qu'il est le bon :
+       la ligne est donc déjà une ligne reprise, et c'est le seul endroit où
+       elle ressort à l'identique — ce que l'essai d'idempotence vérifie par
+       identité d'objet, et non par égalité de contenu.
+    */
+    if (ligne.escalier.plancher === plancher) return ligne as SeuilRepris;
+    return {
+      ...ligne,
+      escalier: {
+        ...ligne.escalier,
+        plancher,
+        delta: Math.max(plancher, ligne.escalier.delta),
+      },
+    };
+  }
 
   /* La conversion : un écart en pas devient une part de l'étendue. */
   const enZ = (valeur: number): number => (enPas ? valeur / pasParEtendue : valeur);
@@ -349,7 +491,7 @@ export function reprendreUnSeuil(ligne: SeuilRepris, pasParEtendue: number): Seu
   */
   if (ancienneRegle) {
     return {
-      escalier: escalierNeuf(),
+      escalier: escalierNeuf(REGLAGES.departDelta, plancher),
       seuil: null,
       statut: 'jamais',
       echelle: 'z',
@@ -363,7 +505,16 @@ export function reprendreUnSeuil(ligne: SeuilRepris, pasParEtendue: number): Seu
     ...ligne,
     escalier: {
       ...ligne.escalier,
-      delta: enZ(ligne.escalier.delta),
+      plancher,
+      /*
+         L'écart COURANT est relevé au plancher s'il est passé dessous ; les
+         INVERSIONS ne sont pas réécrites. Une inversion est une mesure déjà
+         prise, et la remonter inventerait un rebroussement qui n'a pas eu
+         lieu. Si elle a été relevée sous le grain de la dimension, c'est le
+         seuil entier qui est sans objet, et c'est au tableau de bord de le
+         dire — pas à une conversion d'unité de le maquiller.
+      */
+      delta: Math.max(plancher, enZ(ligne.escalier.delta)),
       inversions: ligne.escalier.inversions.map(enZ),
     },
     seuil: ligne.seuil === null ? null : enZ(ligne.seuil),

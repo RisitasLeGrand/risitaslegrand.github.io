@@ -36,6 +36,7 @@
   import { gagnerXp, xpVeridical } from '../../../lib/gamification';
   import { debloquer, disponible } from '../audio';
   import { NOMS_FAMILLES, dimensionParId, type Famille } from '../dimensions';
+  import { plancherReel } from '../grain-reel';
   import {
     departPour,
     escalierNeuf,
@@ -273,7 +274,17 @@
         vers: arete.vers.id,
         horsFamille: arete.de.famille !== arete.vers.famille,
         transmodale: arete.transmodale,
-        escalier: escalierNeuf(departPour(enJeu.tache, reference)),
+        /*
+           LE PLANCHER VIENT DE « VERS », et il est posé ici parce que c'est le
+           seul endroit du composant où un escalier naît. Les lignes relues du
+           magasin le portent déjà : `tousLesSeuilsVeridical` les fait passer
+           par `reprendreUnSeuil`, qui le repose à chaque lecture.
+
+           C'est « vers » et non « de » : dans `tirerEssai`, l'écart n'est
+           présenté que sur la dimension d'arrivée — la référence est tirée de
+           « de » au même pas, sans écart à discriminer.
+        */
+        escalier: escalierNeuf(departPour(enJeu.tache, reference), plancherReel(arete.vers)),
         seuil: null,
         statut: 'jamais' as const,
         majLe: new Date().toISOString(),

@@ -15,7 +15,8 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 */
 import { signalerEcriture } from './sync/signal-ecriture';
 import { PAS_HISTORIQUE } from '../features/veridical-mapping/dimensions';
-import { reprendreUnSeuil } from '../features/veridical-mapping/escalier';
+import { reprendreUnSeuil, type EscalierStocke } from '../features/veridical-mapping/escalier';
+import { plancherDeLArete } from '../features/veridical-mapping/grain-reel';
 import { clefNormalisee, seuilsRelus } from '../features/veridical-mapping/hub';
 /*
    Imports de **types seulement** : « noyau/revisions.ts » importe « fsrsNeuf »
@@ -364,14 +365,14 @@ export interface SeuilVeridical {
   horsFamille: boolean;
   /** Les deux dimensions n'ont pas la même modalité : vision ↔ audition. */
   transmodale: boolean;
-  escalier: {
-    delta: number;
-    bonnesDeSuite: number;
-    inversions: number[];
-    derniereDirection: 'resserre' | 'elargit' | null;
-    essais: number;
-    reussis: number;
-  };
+  /**
+   * L'escalier, avec son plancher FACULTATIF.
+   *
+   * Le plancher peut s'y trouver — un état gardé en mémoire finit écrit — et
+   * il n'est jamais cru : `reprendreUnSeuil` le repose d'après la dimension à
+   * chaque lecture. Voir `EscalierStocke`, qui porte cet invariant.
+   */
+  escalier: EscalierStocke;
   /**
    * Seuil **en z**, part de l'étendue de la dimension, de 0 à 1. Null tant
    * qu'il manque des inversions.
@@ -2622,7 +2623,16 @@ export async function tousLesSeuilsVeridical(): Promise<SeuilVeridical[]> {
          par elle rendrait un seuil huit fois trop fin, dans les bornes, sans
          rien lever.
       */
-      ...reprendreUnSeuil(ligne, PAS_HISTORIQUE - 1),
+      /*
+         LE PLANCHER VIENT DE LA DIMENSION D'ARRIVÉE, ET IL EST RECALCULÉ ICI.
+
+         Il n'est pas stocké, parce qu'il est une propriété de la dimension et
+         non de l'historique : stocké, il survivrait à un changement du nombre
+         de niveaux. Voir `plancherDeLArete`, qui dit pourquoi « vers » seul
+         commande — c'est la seule des deux dimensions sur laquelle un écart
+         est présenté.
+      */
+      ...reprendreUnSeuil(ligne, PAS_HISTORIQUE - 1, plancherDeLArete(ligne.vers)),
     })),
   );
 }

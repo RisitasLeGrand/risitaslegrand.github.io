@@ -521,6 +521,16 @@ const SOCLE = [
      seconde.
   */
   ['essais:veridical', 'les dimensions, l’escalier contre un observateur simulé, et le diviseur du passé'],
+  /*
+     LES DEUX ESSAIS DU PLANCHER PAR DIMENSION, INSCRITS LE 1ER NOVEMBRE.
+
+     « essais:dimensions-l5 » existait dans package.json sans être au socle : il
+     ne tournait donc jamais, et il portait un rouge — un « toFixed » affiché
+     que « essais:accords » refuse. Un essai hors socle est un essai qu'on croit
+     avoir. Les deux sont ici parce que ce lot a changé le noyau qu'ils mesurent.
+  */
+  ['essais:dimensions-l5', 'le grain, le plancher réel, l’écart montré, et les deux critères de refus'],
+  ['essais:fiche-dimensions', 'les trente-deux discrètes déclarées concordent avec la fiche de référence'],
 ];
 
 /**

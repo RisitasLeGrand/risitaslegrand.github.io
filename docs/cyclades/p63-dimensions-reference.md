@@ -132,6 +132,29 @@ le programme d'extraction. Les deux concordent, grain par grain. En cas de
 doute, ce sont les tableaux par groupe qui font foi — un résumé se périme, une
 colonne extraite non.*
 
+**Et cette relecture n'est plus à la main.** `essais:fiche-dimensions`, au
+socle depuis le 1er novembre, lit cette fiche et en compare trois choses :
+
+- les trente-deux lignes discrètes contre `dimensions-discretes.ts`, **dans les
+  deux sens** — une dimension de la fiche absente du code n'a pas de plancher,
+  une dimension du code absente de la fiche est inventée, et ce sont deux
+  fautes différentes ;
+- chaque grain contre sa règle — `1/n` si la colonne « éch. » porte `circ`,
+  `1/(n−1)` sinon, et strictement plus grossier que cette règle sur une
+  logarithmique, ce que l'étoile signale ;
+- ce résumé-ci contre les colonnes, grain par grain, ce qui est exactement ce
+  que le paragraphe ci-dessus promettait de faire à la main.
+
+Si la forme de la fiche change — une colonne déplacée, un tableau renommé —
+l'essai **refuse** avec le code 2 au lieu de passer au vert. Un analyseur qui ne
+lit plus rien ne trouve aucune discordance, et aucune discordance est ce que
+rend une fiche juste.
+
+La circularité n'a pas de colonne propre : elle est portée par « éch. », dont la
+valeur `circ` la déclare. L'essai assied cette équivalence plutôt que de la
+laisser à la lecture — une convention qui n'est écrite nulle part est une
+convention qui se perd.
+
 **Aucune des 123 déclarations n'annonce son nombre de niveaux.** Il est lisible,
 mais il est déduit — de `STEP(n, circulaire)`, qui rend n niveaux dans les deux
 cas, ou de l'étendue entière d'une plage arrondie. Les colonnes « niveaux » et

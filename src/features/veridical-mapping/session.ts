@@ -273,7 +273,19 @@ export function chargeAdmise(arete: Arete, charge: number): number {
  * **Si l'on voulait un jour des dimensions vraiment continues**, c'est cette
  * fonction-ci qui changerait, et rien dans la mesure n'en dépend.
  */
-const ecartEnPasDuZ = (z: number): number => Math.max(1, pasDuZ(z));
+/**
+ * L'ÉCART EN PAS QU'UN DELTA EN Z DEMANDE — exporté pour être éprouvé.
+ *
+ * Le `Math.max(1, …)` garantit qu'un écart est toujours d'au moins un pas, ce
+ * qui suffit sur une dimension CONTINUE : un pas y change toujours la valeur.
+ * Sur une dimension discrète il ne suffit pas, et c'est tout l'objet du
+ * plancher par dimension : un pas peut y rendre la même valeur.
+ *
+ * Exporté pour que l'essai mesure le chemin réel d'un essai — cette fonction,
+ * puis `borner`, puis `stimulus` — au lieu de refaire le calcul à côté. Une
+ * assertion qui recalcule ce qu'elle vérifie ne vérifie rien.
+ */
+export const ecartEnPasDuZ = (z: number): number => Math.max(1, pasDuZ(z));
 
 export function tirerEssai(
   arete: Arete,

@@ -111,6 +111,14 @@ export interface TraitsDeL5 {
 export type DimensionL5 = TraitsDeL5 & {
   id: string;
   niveaux?: number;
+  /**
+   * La dimension REBOUCLE-T-ELLE ? Ajouté par A, et le grain en dépend.
+   *
+   * Même nom et même sens que dans son registre, pour qu'une dimension puisse
+   * porter les deux types sans traduction. Voir `grainDe` juste dessous : ce
+   * champ n'est pas un ornement, il change le grain d'un facteur n/(n−1).
+   */
+  circulaire?: boolean;
 };
 
 /* ── LE GRAIN, ET CE QU'IL AUTORISE ───────────────────────────────────── */
@@ -131,7 +139,27 @@ export function grainDe(d: DimensionL5): number {
         'au-dessous il n’y a rien à discriminer, et la mesure n’aurait pas d’objet.',
     );
   }
-  return 1 / (d.niveaux - 1);
+  /*
+     CORRECTION D'A, MESURÉE : une dimension qui reboucle n'a pas ce grain-là.
+
+     `STEP(n, circulaire)` de la référence rend `round(z*n) % n` quand la
+     dimension reboucle, et `round(z*(n-1))` sinon. Les deux atteignent n
+     niveaux, mais le pas n'est pas le même : 1/n d'un côté, 1/(n−1) de
+     l'autre. Sur une circulaire à sept niveaux — « note_name », « weekday » —
+     la seconde formule annonce 16,7 % là où le rendu montre 14,3 %, soit 17 %
+     de trop. Vingt-quatre des cent vingt-trois dimensions de la fiche de
+     référence rebouclent.
+
+     La direction de l'erreur était prudente — un grain surestimé donne un
+     plancher trop haut, donc jamais deux stimulus identiques. Mais c'est
+     `ecartMontre` qui en souffre : il ramenait la demande sur une grille que
+     le rendu n'emploie pas, et l'écart ENREGISTRÉ est celui qui devient le
+     seuil d'une personne.
+
+     Aucun des verdicts de l'essai de ce fichier ne bascule : vérifié sur les
+     sept parlées, circulaires comprises, elles restent toutes écartées.
+  */
+  return d.circulaire ? 1 / d.niveaux : 1 / (d.niveaux - 1);
 }
 
 /**
@@ -162,32 +190,82 @@ export function ecartMontre(d: DimensionL5, ecartDemande: number): number {
 }
 
 /**
- * LA DIMENSION EST-ELLE MESURABLE PAR CETTE PROCÉDURE, ET SINON POURQUOI.
+ * LA DIMENSION SORT-ELLE DE L'ESCALIER, ET SINON POURQUOI.
  *
- * Rend `null` quand elle l'est, et sinon la phrase à écrire. Le pilote demande
- * que les dimensions écartées le soient « avec leur raison écrite » : la raison
- * est donc produite ici, à côté du critère, et non rédigée à la main ailleurs —
- * deux sources finiraient par ne plus dire la même chose.
+ * Rend `null` quand l'escalier peut l'encadrer, et sinon la phrase à écrire.
+ * La raison est produite ici, à côté du critère, et non rédigée à la main
+ * ailleurs — deux sources finiraient par ne plus dire la même chose.
  *
  * Le critère : il faut que l'escalier puisse présenter des écarts DE PART ET
  * D'AUTRE du seuil, ce qui demande au moins trois écarts distincts non nuls
  * sous le départ. Avec un départ à 0,18, un grain de 0,0909 n'en offre que
  * deux — 0,0909 et 0,1818 —, et un grain de 0,25 aucun.
+ *
+ * ## CETTE FONCTION S'APPELAIT « raisonDInaptitude », ET LE NOM ÉTAIT FAUX
+ *
+ * Renommée le 1er novembre, sur décision du pilote : « on ne rejette que les
+ * dimensions de moins de 3 niveaux ». Le critère mesuré ici reste exact — un
+ * escalier n'encadre pas un seuil sur sept niveaux —, mais il ne dit pas
+ * qu'une dimension est inapte : il dit qu'elle ne se mesure pas PAR ESCALIER.
+ * Sept dimensions parlées tombent dedans, et elles se mesurent par
+ * IDENTIFICATION, au lot L6.
+ *
+ * Le nom d'une fonction qui rend un verdict EST le verdict. Sous l'ancien nom,
+ * sept dimensions auraient quitté le chantier au motif d'une mesure qui ne
+ * disait pas cela. Aucune assertion n'a changé : elles portent toutes sur la
+ * même frontière, et elles l'appellent maintenant par son nom.
  */
 export const ECARTS_REQUIS = 3;
 
-export function raisonDInaptitude(d: DimensionL5, departDelta = 0.18): string | null {
+export function horsEscalier(d: DimensionL5, departDelta = 0.18): string | null {
   const grain = grainDe(d);
   const disponibles = Math.floor(departDelta / grain);
   if (disponibles >= ECARTS_REQUIS) return null;
-  const pct = (x: number) => `${(100 * x).toFixed(1).replace('.', ',')} %`;
+  /*
+     « Intl » ET NON « toFixed », et ce n'est pas une préférence de style.
+
+     `essais:accords` refuse tout `toFixed` affiché dans « src/ » : il écrit un
+     point décimal et colle le signe, là où le français veut une virgule et une
+     espace insécable. Ce pourcentage-ci part dans une phrase montrée, donc il
+     passe par « Intl ». Mesuré : le noyau portait un `toFixed` ici, et
+     `essais:accords` — qui est au socle — rougissait.
+  */
+  const pct = (x: number) =>
+    new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 }).format(x);
+  const ecarts = disponibles === 1 ? 'un écart présentable' : `${disponibles} écarts présentables`;
   return (
-    `« ${d.id} » n’est pas mesurable par cet escalier : ${d.niveaux} niveaux ` +
-    `donnent un grain de ${pct(grain)}, donc ${disponibles} écart(s) présentable(s) ` +
+    `« ${d.id} » ne se mesure pas par escalier : ${d.niveaux} niveaux ` +
+    `donnent un grain de ${pct(grain)}, donc ${ecarts} ` +
     `sous le départ de ${pct(departDelta)}, là où il en faut ${ECARTS_REQUIS} pour ` +
     `encadrer un seuil. Mesurée quand même, elle rendrait un chiffre : la personne ` +
     `répondrait au hasard devant deux stimulus trop proches pour différer, et ` +
-    `l’escalier lirait ses erreurs comme un seuil.`
+    `l’escalier lirait ses erreurs comme un seuil. Elle se mesure par ` +
+    `identification, où le nombre de niveaux est un atout et non un obstacle.`
+  );
+}
+
+/**
+ * LA DIMENSION EST-ELLE MESURABLE DU TOUT, ET SINON POURQUOI.
+ *
+ * Le seul critère de REJET, décidé par le pilote le 1er novembre : moins de
+ * trois niveaux. En dessous, il n'y a pas de quoi présenter un écart de part
+ * et d'autre d'un seuil, et aucune tâche n'y changerait rien — deux niveaux
+ * n'offrent qu'un seul écart non nul, et une dimension à un niveau ne montre
+ * rien.
+ *
+ * **Deux fonctions, et c'est le point.** Celle-ci rejette ; `horsEscalier`
+ * oriente. Les confondre revenait à rejeter sept dimensions parfaitement
+ * mesurables parce qu'une procédure sur deux ne leur convient pas.
+ */
+export const NIVEAUX_REQUIS = 3;
+
+export function raisonDInaptitude(d: DimensionL5): string | null {
+  if (d.niveaux === undefined || d.niveaux >= NIVEAUX_REQUIS) return null;
+  return (
+    `« ${d.id} » n’est pas mesurable : ${d.niveaux} niveaux. Il en faut au moins ` +
+    `${NIVEAUX_REQUIS} pour présenter un écart de part et d’autre d’un seuil. ` +
+    `Aucune tâche n’y changerait rien : à deux niveaux il n’existe qu’un seul ` +
+    `écart non nul, et il n’y a donc pas de seuil à chercher.`
   );
 }
 

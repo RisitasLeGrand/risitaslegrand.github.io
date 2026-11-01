@@ -40,9 +40,24 @@ import {
   superposer,
 } from '../src/features/veridical-mapping/stimulus';
 import { readFileSync } from 'node:fs';
+/**
+ * LE PLANCHER D'UNE DIMENSION CONTINUE, écrit une fois pour tous les essais.
+ *
+ * `escalierNeuf` demande son plancher, et il n'a pas de défaut : un défaut
+ * serait l'exclusion non gardée que ce chantier a déjà payée. Les essais qui
+ * n'éprouvent pas le plancher lui-même passent donc celui d'une dimension
+ * continue, et ils le passent sous un nom qui dit lequel — « 0.02 » semé dans
+ * trente appels ne se relirait plus.
+ *
+ * Il vaut `REGLAGES.deltaMinimum`, et c'est MESURÉ, non supposé :
+ * `plancherReel` rend 0,02 pour chacune des sept dimensions vivantes, dont le
+ * pire grain vaut 0,001. La section « PLANCHER PAR DIMENSION » l'assied.
+ */
 import {
   DEPART_MAXIMUM,
   PLANCHER_MESURABLE,
+  estAuPlusFin,
+  verifierLePlancher,
   DEPART_MINIMUM,
   RATIO_DE_DEPART,
   REGLAGES,
@@ -56,16 +71,62 @@ import {
   type EtatEscalier,
 } from '../src/features/veridical-mapping/escalier';
 import {
+  desaccordDeNiveaux,
+  grainMesure,
+  phraseDuPlusFin,
+  plancherDeLArete,
+  plancherReel,
+} from '../src/features/veridical-mapping/grain-reel';
+import { grainDe } from '../src/features/veridical-mapping/dimensions-l5';
+import {
   REGLAGES_PAR_DEFAUT,
+  ecartEnPasDuZ,
   tirerEssai,
   vivierDAretes,
 } from '../src/features/veridical-mapping/session';
+
+const PLANCHER_CONTINU = REGLAGES.deltaMinimum;
 
 let echecs = 0;
 function verifier(titre: string, obtenu: unknown, attendu: unknown) {
   const ok = JSON.stringify(obtenu) === JSON.stringify(attendu);
   if (!ok) echecs += 1;
   console.log(`${ok ? '  ✓' : '  ✗'} ${titre}${ok ? '' : `\n      obtenu ${JSON.stringify(obtenu)} · attendu ${JSON.stringify(attendu)}`}`);
+}
+
+/**
+ * ÉGALITÉ DE FLOTTANTS, à la tolérance près — et la tolérance est dite.
+ *
+ * 1/7 ne s'écrit pas en binaire. Comparer un grain mesuré à une fraction par
+ * `===` rougirait sur le dernier bit, ce qui serait un faux rouge ; comparer à
+ * 10⁻³ laisserait passer l'écart de 17 % entre 1/7 et 1/6, ce qui serait un
+ * faux vert. La tolérance est donc à 10⁻⁹ : assez large pour le dernier bit,
+ * mille fois trop serrée pour une erreur de règle.
+ */
+function proche(titre: string, obtenu: number, attendu: number, tolerance = 1e-9) {
+  const ok = Number.isFinite(obtenu) && Math.abs(obtenu - attendu) <= tolerance;
+  if (!ok) echecs += 1;
+  console.log(`${ok ? '  ✓' : '  ✗'} ${titre}${ok ? '' : `\n      obtenu ${obtenu} · attendu ${attendu} à ${tolerance} près`}`);
+}
+
+/**
+ * CETTE FONCTION LÈVE-T-ELLE ? — et elle doit lever pour la bonne raison.
+ *
+ * Un essai qui se contente de « ça lève » passerait sur une faute de frappe
+ * dans l'appel : une variable inconnue lève aussi. On exige donc un message
+ * NON VIDE, ce qui ne prouve pas la cause mais écarte l'erreur de syntaxe
+ * silencieuse, et on imprime le message pour qu'il soit relu.
+ */
+function leve(titre: string, fonction: () => unknown) {
+  let message: string | null = null;
+  try {
+    fonction();
+  } catch (erreur) {
+    message = erreur instanceof Error ? erreur.message : String(erreur);
+  }
+  const ok = message !== null && message.length > 20;
+  if (!ok) echecs += 1;
+  console.log(`${ok ? '  ✓' : '  ✗'} ${titre}${ok ? '' : `\n      rien n’a été levé, ou le message est vide`}`);
 }
 
 console.log('\nDIMENSIONS — plages et régularité des pas');
@@ -131,7 +192,7 @@ verifier('arbre métathétique : 2 paires', arbreCouvrant('metathetique', () => 
 
 console.log('\nESCALIER — mécanique');
 {
-  let etat = escalierNeuf();
+  let etat = escalierNeuf(REGLAGES.departDelta, PLANCHER_CONTINU);
   verifier('écart de départ', etat.delta, REGLAGES.departDelta);
   etat = repondre(etat, true);
   verifier('une seule bonne réponse ne resserre pas', etat.delta, REGLAGES.departDelta);
@@ -170,7 +231,7 @@ console.log('\nESCALIER — mécanique');
   verifier('une inversion relevée', etat.inversions.length, 1);
   verifier('pas de seuil avant quatre inversions', seuil(etat), null);
   verifier('statut en cours', statut(etat), 'en-cours');
-  verifier('statut initial', statut(escalierNeuf()), 'jamais');
+  verifier('statut initial', statut(escalierNeuf(REGLAGES.departDelta, PLANCHER_CONTINU)), 'jamais');
 }
 
 console.log('\nESCALIER — retrouve-t-il un seuil connu ?');
@@ -216,7 +277,7 @@ for (const seuilVrai of [3, 8, 20].map(zDuPasHistorique)) {
   let convergences = 0;
   for (let graine = 1; graine <= 60; graine += 1) {
     const hasard = generateur(graine * 7919 + seuilVrai);
-    let etat: EtatEscalier = escalierNeuf();
+    let etat: EtatEscalier = escalierNeuf(REGLAGES.departDelta, PLANCHER_CONTINU);
     for (let essai = 0; essai < 160; essai += 1) {
       etat = repondre(etat, observateur(etat.delta, seuilVrai, hasard));
     }
@@ -335,14 +396,14 @@ console.log('\nREPRISE D’UNE MESURE ÉCRITE AVANT LE 1er NOVEMBRE');
     statut: 'converge' as const,
   };
 
-  const reprise = reprendreUnSeuil(ancienne, ETENDUE);
+  const reprise = reprendreUnSeuil(ancienne, ETENDUE, PLANCHER_CONTINU);
   /*
      LA RÈGLE A CHANGÉ, DONC L'ESCALIER REPART. C'est la décision du pilote, et
      c'est le contrôle qui compte : poursuivre un escalier 2-down sous les
      règles du 3-down rendrait un seuil qui ne mesure ni les 70,7 % de l'un ni
      les 79,4 % de l'autre, et rien ne lèverait.
   */
-  verifier('l’escalier repart de zéro', reprise.escalier, escalierNeuf());
+  verifier('l’escalier repart de zéro', reprise.escalier, escalierNeuf(REGLAGES.departDelta, PLANCHER_CONTINU));
   verifier('le seuil courant est effacé', reprise.seuil, null);
   verifier('et le statut revient à « jamais »', reprise.statut, 'jamais');
   /* L'ancienne mesure est GARDÉE, convertie, et n'alimente plus aucun calcul. */
@@ -359,7 +420,7 @@ console.log('\nREPRISE D’UNE MESURE ÉCRITE AVANT LE 1er NOVEMBRE');
      identité d'objet, ce qui est plus fort qu'une comparaison de valeurs :
      la fonction ne doit pas même reconstruire la ligne.
   */
-  verifier('une ligne déjà reprise ressort inchangée', reprendreUnSeuil(reprise, ETENDUE) === reprise, true);
+  verifier('une ligne déjà reprise ressort inchangée', reprendreUnSeuil(reprise, ETENDUE, PLANCHER_CONTINU) === reprise, true);
 
   /*
      L'INVARIANT QUI PROTÈGE L'ESCALIER EN COURS, et c'est le plus important de
@@ -376,7 +437,7 @@ console.log('\nREPRISE D’UNE MESURE ÉCRITE AVANT LE 1er NOVEMBRE');
      comportement dépend bien des marqueurs, et non du hasard.
   */
   const ligneNeuve = {
-    escalier: { ...escalierNeuf(), delta: 0.14, essais: 7, reussis: 5 },
+    escalier: { ...escalierNeuf(REGLAGES.departDelta, PLANCHER_CONTINU), delta: 0.14, essais: 7, reussis: 5 },
     seuil: null,
     statut: 'en-cours' as const,
     echelle: 'z' as const,
@@ -384,12 +445,12 @@ console.log('\nREPRISE D’UNE MESURE ÉCRITE AVANT LE 1er NOVEMBRE');
   };
   verifier(
     'une ligne neuve, marqueurs compris, traverse la lecture sans être touchée',
-    reprendreUnSeuil(ligneNeuve, ETENDUE) === ligneNeuve,
+    reprendreUnSeuil(ligneNeuve, ETENDUE, PLANCHER_CONTINU) === ligneNeuve,
     true,
   );
   verifier(
     'contre-exemple : la même sans marqueurs est remise à zéro',
-    reprendreUnSeuil({ ...ligneNeuve, echelle: undefined, regle: undefined }, ETENDUE).escalier.essais,
+    reprendreUnSeuil({ ...ligneNeuve, echelle: undefined, regle: undefined }, ETENDUE, PLANCHER_CONTINU).escalier.essais,
     0,
   );
 
@@ -400,7 +461,7 @@ console.log('\nREPRISE D’UNE MESURE ÉCRITE AVANT LE 1er NOVEMBRE');
      perdre : l'escalier continue.
   */
   const memeRegleEnPas = { ...ancienne, regle: '3-down' as const };
-  const convertie = reprendreUnSeuil(memeRegleEnPas, ETENDUE);
+  const convertie = reprendreUnSeuil(memeRegleEnPas, ETENDUE, PLANCHER_CONTINU);
   verifier('l’escalier n’est PAS remis à zéro', convertie.escalier.essais, 140);
   verifier(
     'le delta est converti',
@@ -1092,9 +1153,9 @@ console.log('\nDÉPART — la règle, et ses refus');
   verifier('le départ ne touche pas la borne basse de l’escalier',
     DEPART_MINIMUM > REGLAGES.deltaMinimum, true);
   verifier('un départ hors bornes est ramené',
-    escalierNeuf(9).delta, REGLAGES.deltaMaximum);
-  verifier('et par le bas aussi', escalierNeuf(0.0001).delta, REGLAGES.deltaMinimum);
-  verifier('sans argument, le départ général', escalierNeuf().delta, REGLAGES.departDelta);
+    escalierNeuf(9, PLANCHER_CONTINU).delta, REGLAGES.deltaMaximum);
+  verifier('et par le bas aussi', escalierNeuf(0.0001, PLANCHER_CONTINU).delta, REGLAGES.deltaMinimum);
+  verifier('sans argument, le départ général', escalierNeuf(REGLAGES.departDelta, PLANCHER_CONTINU).delta, REGLAGES.departDelta);
 }
 
 console.log('\nDÉPART — il épargne des essais SANS déplacer le seuil');
@@ -1119,7 +1180,7 @@ console.log('\nDÉPART — il épargne des essais SANS déplacer le seuil');
     const essaisJusquAuSeuil: number[] = [];
     for (let graine = 1; graine <= 60; graine += 1) {
       const hasard = generateur(graine * 7919 + Math.round(depart * 1000));
-      let etat: EtatEscalier = escalierNeuf(depart);
+      let etat: EtatEscalier = escalierNeuf(depart, PLANCHER_CONTINU);
       let vu = 0;
       for (let essai = 0; essai < 200; essai += 1) {
         etat = repondre(etat, observateur(etat.delta, seuilVrai, hasard));
@@ -1178,17 +1239,34 @@ console.log('\nDÉPART — il épargne des essais SANS déplacer le seuil');
      Tout ce qui précède éprouve `departPour` et `escalierNeuf`, qui sont purs.
      Mais la règle ne sert à rien si l'écran crée ses escaliers sans elle, et
      ce site-là est dans un composant : aucune des assertions ci-dessus ne
-     rougirait si le composant appelait « escalierNeuf() » tout court. Le site
-     se garde donc dans la source, comme le diviseur du passé.
+     rougirait si le composant appelait « escalierNeuf » avec le départ général
+     et le plancher global. Le site se garde donc dans la source, comme le
+     diviseur du passé — et il se garde maintenant SUR DEUX POINTS : la règle
+     de départ, et le plancher de la dimension d'arrivée.
   */
   const ecran = lireSource('src/features/veridical-mapping/composants/VeridicalMapping.svelte');
   const creations = ecran.split('\n').filter((l) => l.includes('escalier: escalierNeuf('));
   verifier('l’écran crée son escalier en un seul endroit', creations.length, 1);
   verifier('et il y applique la règle de départ',
     (creations[0] ?? '').includes('departPour('), true);
-  // CONTRE-ÉPREUVE DU PRÉDICAT : la forme fautive est bien reconnue comme telle.
-  verifier('le prédicat distingue la forme sans règle',
-    'escalier: escalierNeuf(),'.includes('departPour('), false);
+  /*
+     ET LE PLANCHER DE LA DIMENSION, qui est l'objet du lot.
+
+     Sans cette ligne, le composant pourrait poser « escalierNeuf(depart,
+     REGLAGES.deltaMinimum) » : le type serait satisfait, l'escalier
+     fonctionnerait, et il descendrait sous le grain d'une dimension discrète
+     en présentant deux stimulus identiques. C'est exactement la panne que ce
+     lot ferme, et aucune assertion sur des fonctions pures ne la voit.
+  */
+  verifier('et il y applique le plancher de la dimension d’arrivée',
+    (creations[0] ?? '').includes('plancherReel(arete.vers)'), true);
+  // CONTRE-ÉPREUVE DU PRÉDICAT : les deux formes fautives sont reconnues.
+  verifier('le prédicat distingue la forme sans règle de départ',
+    'escalier: escalierNeuf(REGLAGES.departDelta, plancherReel(arete.vers)),'
+      .includes('departPour('), false);
+  verifier('et la forme au plancher global',
+    'escalier: escalierNeuf(departPour(enJeu.tache, reference), REGLAGES.deltaMinimum),'
+      .includes('plancherReel(arete.vers)'), false);
 }
 
 
@@ -1282,6 +1360,267 @@ console.log('\nPLANCHER DIT — le chiffre suit le réglage');
   */
   verifier('le cas éprouvé est bien sous le plancher',
     zDuPasHistorique(3) < plancher, true);
+}
+
+
+
+
+/* ── LE PLANCHER PAR DIMENSION ─────────────────────────────────────────── */
+
+console.log('\nPLANCHER PAR DIMENSION — deux stimulus au plancher doivent DIFFÉRER');
+{
+  /*
+     L'ASSERTION QUI TIENT TOUT LE LOT, ET POURQUOI C'EST CELLE-LÀ.
+
+     Le noyau du lot calcule un grain, puis un plancher, puis un écart montré.
+     Trois fonctions arithmétiques, et une batterie qui les éprouve l'une par
+     l'autre resterait verte avec un grain faux : c'est la garde qui se mesure
+     à elle-même, payée trois fois sur ce chantier.
+
+     L'assertion ci-dessous ne recalcule aucun grain. Elle prend le plancher
+     tel que le code le rend, le fait passer par le chemin RÉEL d'un essai —
+     `ecartEnPasDuZ`, puis `borner`, puis `stimulus` —, et demande la seule
+     chose qui importe à la personne devant l'écran : **les deux candidats
+     diffèrent-ils ?** Si le grain est mal calculé, le plancher est trop bas,
+     l'écart demandé tombe sous le grain, et les deux stimulus se confondent.
+     Elle rougit alors sans rien savoir du calcul qu'elle met en défaut.
+
+     Elle balaie TOUTE la plage, et non une position. Sur une échelle
+     logarithmique le grain est le plus grossier en bas : une assertion au
+     milieu de la plage passerait sur la dimension la plus fautive.
+
+     La plage balayée est celle que `tirerEssai` tire réellement : pour une
+     dimension non circulaire, `marge = ecart` tient la référence à au moins un
+     écart de chaque bord, sans quoi `borner` ramènerait le leurre SUR la
+     référence — deux stimulus identiques, par troncature et non par grain.
+     Reprendre cette marge n'affaiblit pas l'assertion : c'est le chemin vrai.
+  */
+  const zDuPasEssai = (pas: number) => pas / (PAS - 1);
+
+  /** Une dimension d'essai, discrète, bâtie sur une règle de niveaux. */
+  function fixture(
+    id: string,
+    valeur: (pas: number) => number,
+    circulaire = false,
+  ): Dimension {
+    return {
+      id,
+      canonique: `essai.${id}`,
+      attribut: 'taillePx',
+      nom: id,
+      famille: 'prothetique',
+      modalite: 'visuelle',
+      resume: 'Dimension d’essai.',
+      unite: '',
+      circulaire,
+      valeur,
+    };
+  }
+
+  /* Les cas de la fiche de référence, rebâtis comme dimensions mesurables. */
+  const PALIERS = fixture('paliers5', (p) => Math.round(zDuPasEssai(p) * 4));
+  const CIRC7 = fixture('circ7', (p) => Math.round(zDuPasEssai(p) * 7) % 7, true);
+  const LETTRES = fixture('lettres26', (p) => Math.round(zDuPasEssai(p) * 25));
+  /*
+     LE CAS LOGARITHMIQUE, celui qui défait un grain unique déclaré.
+
+     Quinze valeurs entières réparties géométriquement de 1 à 32, comme
+     « audition.event_count ». Le grain y est le plus grossier en bas de la
+     plage : les premières valeurs sont 1, 1, 2, 2… et il faut traverser une
+     large part de la grille avant que le nombre change.
+  */
+  const EVENEMENTS = fixture('evenements15', (p) =>
+    Math.round(Math.exp(Math.log(1) + zDuPasEssai(p) * (Math.log(32) - Math.log(1)))),
+  );
+
+  const MESURES: [Dimension, string][] = [
+    [PALIERS, 'cinq paliers'],
+    [CIRC7, 'sept niveaux, circulaire'],
+    [LETTRES, 'vingt-six niveaux'],
+    [EVENEMENTS, 'quinze valeurs, échelle logarithmique'],
+  ];
+
+  for (const [d, dit] of MESURES) {
+    const mesure = grainMesure(d);
+    const plancher = plancherReel(d);
+    const ecart = ecartEnPasDuZ(plancher);
+    const marge = d.circulaire ? 0 : ecart;
+
+    verifier(`${dit} — le rendu est bien discret`, mesure.discrete, true);
+
+    let identiques = 0;
+    let premierFautif = -1;
+    for (let pas = marge; pas < PAS - marge; pas += 1) {
+      for (const sens of [-1, 1]) {
+        const pasLeurre = borner(d, pas + sens * ecart);
+        const a = stimulus(d, pas).taillePx;
+        const b = stimulus(d, pasLeurre).taillePx;
+        if (a === b) {
+          identiques += 1;
+          if (premierFautif < 0) premierFautif = pas;
+        }
+      }
+    }
+    verifier(
+      `${dit} — au plancher de ${plancher.toFixed(4)}, aucun couple identique sur la plage` +
+        (identiques > 0 ? ` (premier au pas ${premierFautif})` : ''),
+      identiques,
+      0,
+    );
+  }
+
+  /*
+     LA CONTRE-ÉPREUVE, sans laquelle l'assertion ci-dessus ne vaut rien.
+
+     Au plancher GLOBAL — celui d'avant ce lot —, les mêmes dimensions
+     présentent-elles des couples identiques ? Si la réponse était « non », le
+     plancher par dimension ne protégerait de rien et tout ce lot serait
+     décoratif. On mesure donc le défaut qu'on prétend fermer.
+  */
+  for (const [d, dit] of MESURES) {
+    const ecart = ecartEnPasDuZ(REGLAGES.deltaMinimum);
+    const marge = d.circulaire ? 0 : ecart;
+    let identiques = 0;
+    for (let pas = marge; pas < PAS - marge; pas += 1) {
+      for (const sens of [-1, 1]) {
+        if (stimulus(d, pas).taillePx === stimulus(d, borner(d, pas + sens * ecart)).taillePx) {
+          identiques += 1;
+        }
+      }
+    }
+    verifier(`${dit} — au plancher global, le défaut EXISTE`, identiques > 0, true);
+  }
+
+  /*
+     LE GRAIN MESURÉ CONTRE LA RÈGLE DÉCLARÉE — et l'écart entre les deux est
+     une propriété de la GRILLE, non une erreur.
+
+     La règle déclarative donne 1/(n−1), un réel. Les paliers, eux, changent à
+     des pas ENTIERS de la grille de 1 001 points. Sur vingt-six niveaux,
+     1 000/25 vaut 40 pile, mais les arrondis placent un palier à 41 pas : le
+     pire grain mesuré vaut 0,041 et non 0,040. Sur sept niveaux circulaires,
+     1 000/7 vaut 142,86, et le pire palier en fait 144.
+
+     Le mesuré est donc toujours ÉGAL OU PLUS GROSSIER que le déclaré, et c'est
+     la direction protectrice : le plancher qui en sort ne descend jamais sous
+     ce que le rendu montre. On assied cette inégalité plutôt que l'égalité —
+     exiger 1/(n−1) au milliardième serait exiger du rendu qu'il ignore sa
+     propre grille.
+  */
+  proche('cinq paliers : grain 1/4, que la grille rend exactement',
+    grainMesure(PALIERS).pire, 0.25);
+  verifier('vingt-six niveaux : le mesuré est égal ou plus grossier que 1/25',
+    grainMesure(LETTRES).pire >= 0.04, true);
+  verifier('et il n’en est pas loin', grainMesure(LETTRES).pire < 0.045, true);
+  console.log(`    vingt-six niveaux : ${grainMesure(LETTRES).pire} mesuré, 0,04 déclaré`);
+  /*
+     LE CAS CIRCULAIRE, ET LE CHIFFRE QUI SÉPARE LES DEUX RÈGLES.
+
+     Sept niveaux circulaires : le rendu montre 1/7 ≈ 0,1429. La règle
+     non circulaire aurait annoncé 1/6 ≈ 0,1667, soit 17 % de trop. C'est le
+     contrôle croisé entre la déclaration et le rendu, et il porte sur le seul
+     chiffre où les deux règles diffèrent.
+  */
+  verifier('sept niveaux circulaires : le mesuré est égal ou plus grossier que 1/7',
+    grainMesure(CIRC7).pire >= 1 / 7, true);
+  verifier('et il reste sous 1/6, donc du bon côté de la frontière',
+    grainMesure(CIRC7).pire < 1 / 6, true);
+  console.log(`    sept circulaires : ${grainMesure(CIRC7).pire} mesuré, ${(1 / 7).toFixed(4)} contre ${(1 / 6).toFixed(4)}`);
+  /*
+     LE PALIER DE LA COUTURE, mesuré pour lui-même.
+
+     Sans le rebouclage, le pire palier mesuré valait 0,072 — la moitié. Cette
+     ligne-ci est la contre-épreuve du correctif : elle rougirait si le cercle
+     se remettait à se mesurer en deux morceaux.
+  */
+  verifier('le palier de la couture est compté entier, non par moitiés',
+    grainMesure(CIRC7).pire > 0.1, true);
+  proche('grainDe le dit aussi, pour une circulaire déclarée',
+    grainDe({ id: 'circ7', niveaux: 7, circulaire: true }), 1 / 7);
+  proche('et autrement pour la même sans rebouclage',
+    grainDe({ id: 'lin7', niveaux: 7 }), 1 / 6);
+
+  /*
+     LE CAS LOGARITHMIQUE : le grain unique déclaré est FAUX, et de beaucoup.
+
+     Quinze valeurs : la règle déclarative annonce 1/14 ≈ 0,0714. Le rendu
+     montre un pire grain bien plus grossier, parce que les valeurs sont
+     serrées en haut de la plage et étalées en bas. C'est le cas qui défait la
+     garde arithmétique : `ecartMontre` rendrait 0,0714, non nul donc
+     rassurant, là où rien sous le pire grain ne change quoi que ce soit.
+  */
+  const pireLog = grainMesure(EVENEMENTS).pire;
+  verifier('quinze valeurs log : le pire grain dépasse 1/14 déclaré',
+    pireLog > 1.5 / 14, true);
+  console.log(`    pire grain mesuré : ${pireLog.toFixed(4)} contre ${(1 / 14).toFixed(4)} déclaré`);
+
+  /* Le registre vivant : continu, et son plancher est celui d'avant le lot. */
+  for (const d of DIMENSIONS) {
+    verifier(`« ${d.id} » est continue`, grainMesure(d).discrete, false);
+    proche(`« ${d.id} » : plancher inchangé`, plancherReel(d), REGLAGES.deltaMinimum);
+  }
+
+  /* Le plancher d'une dimension inconnue, et celui d'une arête nommée. */
+  proche('une dimension inconnue rend le plancher de la procédure',
+    plancherDeLArete('dimension-qui-n-existe-pas'), REGLAGES.deltaMinimum);
+  proche('une arête nommée rend celui de sa dimension d’arrivée',
+    plancherDeLArete('intensite'), plancherReel(DIMENSIONS[2]));
+
+  /* Les trois refus du plancher. */
+  leve('un plancher non fini est refusé', () => verifierLePlancher(Number.NaN));
+  leve('un plancher sous la borne basse est refusé', () => verifierLePlancher(0.001));
+  leve('un plancher au-dessus de l’écart maximum est refusé', () => verifierLePlancher(0.9));
+  verifier('et le plancher d’une continue est admis',
+    (() => { verifierLePlancher(REGLAGES.deltaMinimum); return true; })(), true);
+
+  /* Une dimension qui ne change jamais, et une qui rend n’importe quoi. */
+  leve('une dimension constante est refusée', () =>
+    grainMesure(fixture('constante', () => 42)));
+  leve('une dimension non finie est refusée', () =>
+    grainMesure(fixture('infinie', (p) => (p === 500 ? Number.NaN : p))));
+
+  /*
+     « AU PLUS FIN » : le prédicat porte sur le resserrement À VENIR.
+
+     Un escalier posé pile au plancher n'y est pas coincé — il peut encore
+     s'élargir. Ce qu'il ne peut plus, c'est descendre, et c'est cela que la
+     phrase doit dire.
+  */
+  const auPlancher = escalierNeuf(0.25, 0.25);
+  verifier('un escalier au plancher ne peut plus descendre', estAuPlusFin(auPlancher), true);
+  verifier('un escalier bien au-dessus peut encore descendre',
+    estAuPlusFin(escalierNeuf(0.4, 0.04)), false);
+  /* Et le resserrement ne passe PAS sous le plancher, trois bonnes de suite. */
+  let serre = escalierNeuf(0.3, 0.25);
+  for (let i = 0; i < 9; i += 1) serre = repondre(serre, true);
+  verifier('neuf bonnes réponses ne descendent pas sous le plancher',
+    serre.delta >= 0.25, true);
+
+  /*
+     LA PHRASE MONTRÉE, et ce qu'elle refuse de dire.
+
+     Sur une dimension discrète, elle attribue la limite à la DIMENSION. Dire
+     « vous ne faites pas mieux » là où il faut dire « cette dimension ne
+     montre pas plus fin » attribuerait à la personne une limite de l'appareil.
+  */
+  const phraseDiscrete = phraseDuPlusFin(PALIERS);
+  verifier('la phrase d’une discrète nomme la dimension',
+    phraseDiscrete.includes('pas la vôtre'), true);
+  verifier('et elle donne le nombre de valeurs',
+    phraseDiscrete.includes('5 valeurs distinctes'), true);
+  verifier('celle d’une continue parle de la mesure, pas de la dimension',
+    phraseDuPlusFin(DIMENSIONS[0]).includes('cette mesure sache encadrer'), true);
+  verifier('aucune des deux ne porte de « (s) »',
+    /\(s\)/.test(phraseDiscrete + phraseDuPlusFin(DIMENSIONS[0])), false);
+
+  /* Le contrôle croisé entre une déclaration et le rendu. */
+  verifier('une déclaration juste ne dit rien', desaccordDeNiveaux(PALIERS, 5), null);
+  verifier('une déclaration fausse est nommée',
+    (desaccordDeNiveaux(PALIERS, 6) ?? '').includes('6 niveaux et son rendu en montre 5'), true);
+  verifier('une discrète sans déclaration n’est pas mesurable',
+    (desaccordDeNiveaux(PALIERS, undefined) ?? '').includes('n’est pas mesurable'), true);
+  verifier('une continue sans déclaration est normale',
+    desaccordDeNiveaux(DIMENSIONS[0], undefined), null);
 }
 
 

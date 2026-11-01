@@ -22,6 +22,8 @@ import {
   manquentLeGrisNeutre,
   nombresSansDureeFixe,
   plancherDe,
+  NIVEAUX_REQUIS,
+  horsEscalier,
   raisonDInaptitude,
   type DimensionL5,
 } from '../src/features/veridical-mapping/dimensions-l5';
@@ -105,23 +107,46 @@ proche('et sur une dimension continue, rien ne change', ecartMontre(d('continue'
 
 console.log('\n\x1b[1mLE REFUS, ET SA RAISON ÉCRITE\x1b[0m\n');
 for (const n of [3, 5, 12]) {
-  const raison = raisonDInaptitude(d(`n${n}`, n));
+  const raison = horsEscalier(d(`n${n}`, n));
   vrai(`${n} niveaux : la dimension est écartée`, raison !== null);
   vrai(`  et la raison nomme le grain et le compte d’écarts`, /grain de .* écart/.test(raison ?? ''));
 }
 for (const n of [26, 51, 101]) {
-  v(`${n} niveaux : la dimension est admise`, raisonDInaptitude(d(`n${n}`, n)), null);
+  v(`${n} niveaux : la dimension est admise`, horsEscalier(d(`n${n}`, n)), null);
 }
-v('une dimension continue est admise', raisonDInaptitude(d('continue')), null);
+v('une dimension continue est admise', horsEscalier(d('continue')), null);
 /*
    LA BORNE EXACTE, et non « ça marche à 26 ». Avec un départ à 0,18 et trois
    écarts requis, le grain doit valoir au plus 0,06 — donc niveaux - 1 ≥ 17,
    soit dix-huit niveaux. On éprouve les deux côtés de la frontière, parce
    qu'un contrôle qui ne teste qu'un côté ne tient pas la borne.
 */
-vrai('la frontière est à dix-huit niveaux : dix-sept est refusé', raisonDInaptitude(d('x', 17)) !== null);
-v('et dix-huit est admis', raisonDInaptitude(d('x', 18)), null);
+vrai('la frontière est à dix-huit niveaux : dix-sept est refusé', horsEscalier(d('x', 17)) !== null);
+v('et dix-huit est admis', horsEscalier(d('x', 18)), null);
 v('trois écarts sont requis', ECARTS_REQUIS, 3);
+
+/*
+   ET LE SEUL CRITÈRE DE REJET, qui n'est pas celui-là.
+
+   Ajouté par A le 1er novembre, sur décision du pilote : « on ne rejette que
+   les dimensions de moins de 3 niveaux ». Les assertions ci-dessus portent sur
+   la frontière de l'ESCALIER, qui oriente vers l'identification ; celles-ci
+   portent sur le rejet, qui est définitif. Les deux côtés de la frontière sont
+   éprouvés, parce qu'un critère qui ne refuserait rien aurait le même air
+   qu'un critère juste.
+*/
+vrai('deux niveaux : la dimension est rejetée', raisonDInaptitude(d('x', 2)) !== null);
+vrai('  et la raison dit qu’aucune tâche n’y changerait rien',
+  /Aucune tâche n’y changerait rien/.test(raisonDInaptitude(d('x', 2)) ?? ''));
+v('trois niveaux : plus de rejet', raisonDInaptitude(d('x', 3)), null);
+v('sept niveaux non plus, même hors escalier', raisonDInaptitude(d('x', 7)), null);
+vrai('mais sept niveaux sortent bien de l’escalier', horsEscalier(d('x', 7)) !== null);
+v('une continue n’est jamais rejetée', raisonDInaptitude(d('continue')), null);
+v('trois niveaux requis', NIVEAUX_REQUIS, 3);
+vrai('la phrase du hors-escalier oriente vers l’identification',
+  /identification/.test(horsEscalier(d('x', 7)) ?? ''));
+vrai('et aucune des deux phrases ne porte de « (s) »',
+  !/\(s\)/.test((horsEscalier(d('x', 7)) ?? '') + (raisonDInaptitude(d('x', 2)) ?? '')));
 
 console.log('\n\x1b[1mUN COMPTE DE NIVEAUX IMPOSSIBLE FAIT LEVER\x1b[0m\n');
 /*
@@ -242,17 +267,17 @@ const PARLEES: [string, number][] = [
 for (const [nom, niveaux] of PARLEES) {
   vrai(
     `« ${nom} » (${niveaux} niveaux) n’est pas mesurable par cet escalier`,
-    raisonDInaptitude(d(nom, niveaux)) !== null,
+    horsEscalier(d(nom, niveaux)) !== null,
   );
 }
 /* Les deux lectures ambiguës, pour que le verdict n'en dépende pas. */
-vrai('« compass_point » reste refusée même à seize niveaux', raisonDInaptitude(d('compass_point', 16)) !== null);
-vrai('« note_name » reste refusée même à douze niveaux', raisonDInaptitude(d('note_name', 12)) !== null);
+vrai('« compass_point » reste refusée même à seize niveaux', horsEscalier(d('compass_point', 16)) !== null);
+vrai('« note_name » reste refusée même à douze niveaux', horsEscalier(d('note_name', 12)) !== null);
 /*
    ET LA SEULE QUI PASSE, qui donne sa valeur aux six refus : sans elle, un
    critère qui refuserait TOUT aurait le même air.
 */
-v('« letter » (26 niveaux) est admise, tout juste au plancher', raisonDInaptitude(d('letter', 26)), null);
+v('« letter » (26 niveaux) est admise, tout juste au plancher', horsEscalier(d('letter', 26)), null);
 proche('et son grain vaut exactement le plancher de la procédure', grainDe(d('letter', 26)), PLANCHER_MESURABLE);
 
 console.log(
