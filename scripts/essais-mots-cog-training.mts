@@ -164,7 +164,44 @@ function texteVisible(source: string): string[] {
        les retours à la ligne sont préservés pour que les numéros de ligne
        restent justes — un essai qui désigne la mauvaise ligne ne sert à rien.
     */
-    .replace(/class="[^"]*"/g, (bloc) => bloc.replace(/[^\n]/g, ' '))
+    /*
+       LES ATTRIBUTS QUI N'ATTEIGNENT PERSONNE SONT NEUTRALISÉS, et ce bloc a
+       remplacé un retrait de balises qui ne voyait que les balises d'UNE LIGNE.
+
+       Le motif d'origine — `<\/?[a-zA-Z][^>]*>` — exige le chevron ouvrant et
+       le chevron fermant sur la même ligne. Une balise de composant écrite sur
+       plusieurs lignes, comme elles le sont toutes ici, n'était donc pas
+       retirée : ses attributs passaient pour du texte visible. D'où trois
+       croix sur `id="seuil-montee"`, `id="seuil-descente"` et leur voisin —
+       un identifiant que personne ne lit, ni à l'œil ni à l'oreille.
+
+       Ce n'est pas la mesure qu'on vide, c'est l'extraction qu'on rend
+       conforme à la règle que cet essai s'est donnée en tête de fichier :
+       « il lit le TEXTE VISIBLE des composants ».
+
+       Les attributs gardés sont ceux qu'un être humain reçoit : ce qu'il voit
+       (`title`, `alt`, `placeholder`) et ce qu'il entend (`aria-label`, et
+       `libelle`/`nom`, les deux props par lesquelles ce dépôt passe un nom
+       accessible à un composant). Du jargon dans ceux-là est un vrai défaut :
+       qui écoute n'a QUE cela.
+    */
+    /*
+       L'ATTRIBUT EST RECONNU DEPUIS SON DÉBUT, et c'est un sabotage qui l'a
+       imposé. Mon premier motif s'ancrait sur `\b` : refusé sur `aria-label`,
+       le moteur réessayait une position plus loin, trouvait `label="…"` — la
+       frontière de mot tombe après le trait d'union — et le neutralisait. Du
+       jargon dans un `aria-label` passait donc inaperçu, c'est-à-dire que ma
+       correction VIDAIT la mesure là où elle comptait le plus : qui écoute n'a
+       que ce nom.
+
+       L'espace qui précède est donc capturé et rendu : un attribut ne peut
+       commencer qu'après une espace ou le chevron ouvrant, jamais au milieu
+       d'un autre nom.
+    */
+    .replace(
+      /(^|\s)(?!aria-label=|title=|alt=|placeholder=|libelle=|nom=)[a-zA-Z_:][\w:.-]*="[^"]*"/g,
+      (bloc) => bloc.replace(/[^\n]/g, ' '),
+    )
     .split('\n')
     .map((ligne) => ligne.replace(/<\/?[a-zA-Z][^>]*>/g, ' '));
 }

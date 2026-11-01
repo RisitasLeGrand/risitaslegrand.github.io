@@ -1063,7 +1063,7 @@
             min={BORNES.interference.min}
             max={BORNES.interference.max}
             pas={BORNES.interference.pas}
-            libelle="le taux d’interférence"
+            libelle="le taux de répétitions presque justes"
             classe="accent-indigo-600"
             bind:value={reglages.interference}
           />
@@ -1218,7 +1218,7 @@
                 min={BORNES_PROGRESSION.seuilMontee.min}
                 max={BORNES_PROGRESSION.seuilMontee.max}
                 pas={BORNES_PROGRESSION.seuilMontee.pas}
-                libelle="le seuil de montée"
+                libelle="le pourcentage requis pour monter"
                 classe="accent-emerald-600"
                 bind:value={reglages.progression.seuilMontee}
               />
@@ -1244,7 +1244,7 @@
                 min={BORNES_PROGRESSION.seuilDescente.min}
                 max={BORNES_PROGRESSION.seuilDescente.max}
                 pas={BORNES_PROGRESSION.seuilDescente.pas}
-                libelle="le seuil de descente"
+                libelle="le pourcentage sous lequel on descend"
                 classe="accent-amber-600"
                 bind:value={reglages.progression.seuilDescente}
               />
