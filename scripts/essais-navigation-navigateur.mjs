@@ -40,6 +40,16 @@ import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { BRANCHES } from '../src/lib/branches.ts';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
+/*
+   LE PLAFOND D'UNE ATTENTE, nommé une fois.
+
+   Cinq secondes : assez pour une animation de fermeture sur une machine
+   chargée, assez court pour qu'un essai bloqué le dise dans la minute. Ce
+   n'est pas un délai qu'on subit — « waitFor » rend la main dès que l'état
+   est atteint — mais la limite au-delà de laquelle on considère que l'état
+   ne viendra pas.
+*/
+const DELAI = 5000;
 const MDP = motDePasseEssais();
 
 let rouges = 0;
@@ -209,9 +219,36 @@ console.log('\n\x1b[1mN1 — SUR TÉLÉPHONE, LA BARRE DU BAS\x1b[0m\n');
       .filter((c) => !dansLaFeuille.includes(c)),
     [],
   );
+  /*
+     ON ATTEND LA FERMETURE, ON NE L'ESCOMPTE PAS APRÈS 200 ms.
+
+     Le relevé des temporisations classait ces trois lignes dans la seule
+     catégorie dangereuse : une temporisation suivie d'une attente d'ABSENCE
+     seule dans son bloc. Les deux défauts qu'elle portait :
+
+     - 200 ms était un pari. Trop court, l'essai rougit sur une fermeture qui
+       a bien eu lieu ; assez long, il ne mesure plus la fermeture mais le
+       délai. Dans les deux cas le chiffre ne dit rien de la feuille.
+     - et « isVisible » rend faux pour un élément qui n'a JAMAIS été là. Si le
+       sélecteur changeait, ou si la feuille ne s'était pas ouverte, cette
+       ligne resterait verte en affirmant qu'une touche a refermé quelque
+       chose qui n'était pas ouvert.
+
+     « waitFor({ state: 'hidden' }) » règle le premier : il rend la main dès
+     que la feuille est cachée, et lève — donc rouge, et nommé — si elle ne
+     l'est pas au bout du délai. La prémisse règle le second : on vérifie
+     qu'elle était ouverte juste avant d'appuyer.
+  */
+  v('prémisse : la feuille est bien ouverte avant la touche',
+    await page.locator('#feuille-plus').isVisible(), true);
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(200);
-  v('la touche d’échappement la referme', await page.locator('#feuille-plus').isVisible(), false);
+  let refermee = true;
+  try {
+    await page.locator('#feuille-plus').waitFor({ state: 'hidden', timeout: DELAI });
+  } catch {
+    refermee = false;
+  }
+  v('la touche d’échappement la referme', refermee, true);
   await contexte.close();
 }
 
