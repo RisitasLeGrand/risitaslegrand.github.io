@@ -135,6 +135,31 @@ import { bornesAuMauvaisRang } from './lib/bornes-de-waitforfunction.mjs';
 const LECTURE =
   /isVisible|textContent|innerText|innerHTML|getAttribute|\$\$eval|\$eval|\.count\(\)|evaluate\(|verifier\(|verifierPresque\(|inputValue|checkVisibility/;
 
+/*
+   LES MOTIFS SONT DÉCLARÉS ICI, AU-DESSUS DU BALAYAGE PRINCIPAL, et non
+   près du mode qui les a introduits. Un « const » ne se hisse pas : laissés
+   plus bas, ils faisaient lever le balayage des temporisations, qui tourne
+   au chargement du module et s'en sert désormais pour classer ses sites.
+*/
+const ATTENTE =
+  /\b(waitForSelector|devientVisible|annonceDe|attendreLeCompte|travailFini|boutonRendu|apresLaPeinture|apresLeChangementDeTexte|apresLesAnimations|apresLeRemplacement)\s*\(/;
+
+const LECTURE_SELECTEUR =
+  /\b(locator|textContent|innerText|isVisible|getAttribute|inputValue|\$\$eval|\$eval)\s*\(/;
+
+const LITTERAUX = /'([^'\n]{0,160})'|"([^"\n]{0,160})"|`([^`\n]{0,160})`/g;
+
+const FORME_DE_SELECTEUR =
+  /^(?:[#.[]|(?:button|input|section|div|li|ul|ol|table|tr|td|th|span|a|h[1-6]|dialog|form|select|textarea|details|summary|p|nav|main|header|footer|canvas|svg|label|option|fieldset|progress|meter|img|body|html)\b)/;
+
+const MUETTE = /\bfaux\(|,\s*false\s*[),]|===\s*false|,\s*0\s*[),]|toBe\(false\)|toHaveCount\(0\)/;
+
+const CRIE = /isEnabled\(/;
+
+const CRI_PAR_AIDE = /\b(?:v|verifier|verifierPresque)\(/;
+
+const GESTE = /\b(?:click|fill|goto|reload|setInputFiles|press|uncheck|selectOption|dispatchEvent|setChecked)\s*\(/;
+
 const args = process.argv.slice(2);
 const iFenetre = args.indexOf('--fenetre');
 const FENETRE = iFenetre === -1 ? 12 : Number(args[iFenetre + 1]);
@@ -159,6 +184,9 @@ const essais = readdirSync('scripts')
 
 let total = 0;
 let avecLecture = 0;
+let ralentissent = 0;
+let muettesGardees = 0;
+const dangereuses = [];
 const parFichier = new Map();
 const sites = [];
 
@@ -172,6 +200,31 @@ for (const f of essais) {
     avecLecture += 1;
     parFichier.set(f, (parFichier.get(f) ?? 0) + 1);
     sites.push({ fichier: f, ligne: i + 1, code: l.trim().slice(0, 72) });
+
+    /*
+       ET LE RANG DE CHACUNE, qui est ce qui sert à prioriser.
+
+       « 208 temporisations avec une lecture derrière » se lit comme 208
+       risques, et ce n'est pas vrai. Une temporisation ne peut faire VERDIR un
+       essai à tort que si la lecture qui la suit attend une absence et qu'aucun
+       cri ne l'encadre dans son bloc — le même critère que « --deguisees », et
+       pour la même raison : les aides d'assertion comptent au lieu de lever.
+       Les autres ralentissent la batterie, ce qui se corrige sans précaution
+       et sans urgence.
+    */
+    let fin = i + 1;
+    while (fin < lignes.length && fin < i + 1 + FENETRE && !GESTE.test(lignes[fin]) && !ATTENTE.test(lignes[fin])) {
+      fin += 1;
+    }
+    let muette = 0;
+    for (let k = i + 1; k < fin; k += 1) {
+      if (!LECTURE.test(lignes[k])) continue;
+      const e = assertionDe(lignes, k);
+      if (MUETTE.test(e) && !CRIE.test(e)) { muette = k + 1; break; }
+    }
+    if (!muette) { ralentissent += 1; return; }
+    if (crieEntre(lignes, i + 1, fin)) { muettesGardees += 1; return; }
+    dangereuses.push({ fichier: f, ligne: i + 1, muette, code: lignes[muette - 1].trim().slice(0, 72) });
   });
 }
 
@@ -231,24 +284,16 @@ function amortissements(racine) {
 
 /* ── Les attentes déguisées ───────────────────────────────────────────── */
 
-const ATTENTE =
-  /\b(waitForSelector|devientVisible|annonceDe|attendreLeCompte|travailFini|boutonRendu|apresLaPeinture|apresLeChangementDeTexte|apresLesAnimations|apresLeRemplacement)\s*\(/;
-const LECTURE_SELECTEUR =
-  /\b(locator|textContent|innerText|isVisible|getAttribute|inputValue|\$\$eval|\$eval)\s*\(/;
 
 /* Chaque littéral est lu PAR SON PROPRE délimiteur : voir le gonflage n° 2. */
-const LITTERAUX = /'([^'\n]{0,160})'|"([^"\n]{0,160})"|`([^`\n]{0,160})`/g;
 
 /* La forme d'un sélecteur, pour ne pas prendre un intitulé : gonflage n° 1. */
-const FORME_DE_SELECTEUR =
-  /^(?:[#.[]|(?:button|input|section|div|li|ul|ol|table|tr|td|th|span|a|h[1-6]|dialog|form|select|textarea|details|summary|p|nav|main|header|footer|canvas|svg|label|option|fieldset|progress|meter|img|body|html)\b)/;
 
 /*
    L'ASSERTION MUETTE : celle qui verdit si la course est perdue, parce que ce
    qu'elle exige est une absence — et qu'une page pas encore peinte n'affiche
    rien. C'est le seul des deux versants qui ne se signale jamais.
 */
-const MUETTE = /\bfaux\(|,\s*false\s*[),]|===\s*false|,\s*0\s*[),]|toBe\(false\)|toHaveCount\(0\)/;
 
 /*
    ET L'EXCEPTION QUI REND LE CRI. `faux(…isEnabled())` a la forme d'une
@@ -267,7 +312,6 @@ const MUETTE = /\bfaux\(|,\s*false\s*[),]|===\s*false|,\s*0\s*[),]|toBe\(false\)
    traite que ce cas-ci, où le défaut du navigateur le dit. Il SUR-COMPTE donc
    encore un peu, et il vaut mieux qu'il sur-compte.
 */
-const CRIE = /isEnabled\(/;
 
 /**
  * L'assertion ENTIÈRE à laquelle la ligne appartient, et rien de plus.
@@ -372,7 +416,6 @@ function seTiennent(a, b) {
  * saisie, une navigation, une autre attente — parce qu'au-delà, ce n'est plus
  * la même peinture et le cri ne prouve plus rien d'ici.
  */
-const GESTE = /\b(?:click|fill|goto|reload|setInputFiles|press|uncheck|selectOption|dispatchEvent|setChecked)\s*\(/;
 
 function crieDansLeBloc(lignes, attente, i) {
   /* En amont : de l'attente la plus haute jusqu'à la muette. */
@@ -403,7 +446,6 @@ function crieDansLeBloc(lignes, attente, i) {
    reste du motif, et c'est le bon côté pour l'être : une garde manquée
    gonfle le chiffre, une garde inventée le creuse.
 */
-const CRI_PAR_AIDE = /\b(?:v|verifier|verifierPresque)\(/;
 
 function crieEntre(lignes, depuis, jusqua) {
   for (let k = depuis; k < jusqua; k += 1) {
@@ -692,6 +734,15 @@ if (POUR) {
   console.log(`\nFenêtre de ${FENETRE} lignes.\n`);
   console.log(`  ${total} temporisations dans ${essais.length} essais`);
   console.log(`  ${avecLecture} avec une lecture derrière, dans ${parFichier.size} essais\n`);
+  console.log(`  Et ce que ces ${avecLecture} valent, par rang, car le total se lit mal :\n`);
+  console.log(`    ${ralentissent} ne sont suivies d’aucune absence → elles RALENTISSENT, rien de plus`);
+  console.log(`    ${muettesGardees} suivies d’une absence qu’un cri encadre → sans objet, sans danger`);
+  console.log(`    ${dangereuses.length} suivies d’une absence SEULE dans son bloc → peuvent verdir à tort\n`);
+  for (const d of dangereuses) {
+    console.log(`      scripts/${d.fichier}  tempo l.${d.ligne} → absence l.${d.muette}`);
+    console.log(`          ${d.code}`);
+  }
+  if (dangereuses.length) console.log('');
   console.log('Les essais les plus chargés :\n');
   for (const [f, n] of [...parFichier].sort((a, b) => b[1] - a[1]).slice(0, 15)) {
     console.log(`  ${String(n).padStart(3)}  ${f}`);

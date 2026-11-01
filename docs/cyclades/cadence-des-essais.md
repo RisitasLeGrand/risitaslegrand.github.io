@@ -1044,6 +1044,106 @@ a rendu la première et épargné la seconde. Ses trois codes de sortie ont ét�
 éprouvés par `--dans`. Un refus qu'on n'a jamais vu partir n'est pas un refus,
 c'est une intention.
 
+## 9. Les 208 temporisations ne sont pas 208 risques
+
+Le même critère, appliqué aux temporisations à l'aveugle du § 4, change
+entièrement la façon de les attaquer. Sur les 206 qui ont une lecture derrière
+elles :
+
+| | |
+|---|---|
+| **198** | ne sont suivies d'aucune absence → elles **ralentissent** la batterie, rien de plus. Se retirent sans précaution, sans urgence. |
+| **7** | suivies d'une absence qu'un cri encadre → sans objet, sans danger. |
+| **1** | suivies d'une absence **seule** dans son bloc. |
+
+Et ce « 1 » est un faux positif du critère, vérifié à la main :
+`essais-navigation-navigateur.mjs:214` presse Échap puis exige que
+`#feuille-plus` soit invisible. L'absence attendue n'est PAS l'état d'avant —
+la feuille était ouverte —, donc une lecture trop tôt rend `true` et
+**rougit**. Le relevé ne sait pas, en général, si une absence était déjà vraie
+avant le geste ; il sur-compte, et il ne faut pas l'ajuster sur ce cas-ci,
+car ce serait régler la mesure sur la réponse.
+
+**Le chantier des temporisations n'était donc pas un chantier de 208 sites.**
+C'étaient 3 assertions à réparer et 198 lenteurs à ranger quand l'occasion
+vient. Les trois, traitées le 1er novembre :
+
+### 9.1 La tautologie : `essais-centre-m14.mjs`
+
+On clique DANS le panneau, on attend 400 ms, on vérifie qu'il est encore
+ouvert. Il l'était déjà avant le clic : **l'état attendu est l'état d'avant le
+geste**. Une attente plus longue ne corrige rien — elle rend l'assertion plus
+lente à être fausse.
+
+À mettre au crédit de la forme d'origine : la **livraison** du clic était bien
+prouvée, car `page.click` lève si le sélecteur ne résout pas. Ce qui manquait
+est le **traitement**.
+
+Remède, faute de post-condition positive — un clic correctement ignoré ne
+laisse aucune trace : un **négatif borné, dont la borne est mesurée**. On fait
+d'abord fermer et rouvrir le panneau par son bouton, ce qui établit
+bruyamment que la fermeture est observable et ce qu'elle coûte (53 à 60 ms
+ici). On attend ensuite la fermeture après le clic intérieur, borne à
+1500 ms, et l'on exige qu'elle ne vienne pas.
+
+Le sabotage qui sépare les deux formes n'est pas « le clic referme » — les
+deux le voient. C'est **une fermeture qui arrive à 800 ms** : au-delà des
+400 ms que lisait l'ancienne, en deçà des 1500 ms que borne la nouvelle. La
+nouvelle rougit, l'ancienne aurait verdi.
+
+### 9.2 La mesure qui se croit double : `essais-theme-menus.mjs`
+
+L'essai passe `data-theme` à `clair` puis `sombre` et vérifie à chaque fois
+qu'aucun menu n'est hors palette. Mais **la palette admise et les surfaces
+mesurées sortent du même document** : elles s'accordent donc toujours entre
+elles, y compris sur le mauvais thème. Si la bascule ne prend pas, l'essai
+mesure deux fois `clair` et annonce deux thèmes, en vert.
+
+Sabotage : on empêche la bascule vers `sombre`. **Les deux assertions « aucun
+menu hors palette » restent vertes.** L'essai passait un thème entièrement
+cassé.
+
+Remède : garder la palette résolue par thème et exiger, après la boucle, que
+les deux diffèrent. Ce que cette ligne interdit n'est pas une couleur fausse,
+c'est **une mesure qui se croit double**.
+
+**Et la leçon sur les 400 ms, qui va contre ce qu'on attendrait.** Je les
+avais prises pour une négligence et remplacées par deux trames — ce qui
+mesurait en pleine transition et rendait quatre rouges. `global.css` pose sur
+`:root` une transition de `--duree-moyenne` (200 ms) sur `background-color` et
+`color`. Changer le thème ne repeint pas : cela **lance une animation**. Les
+400 ms étaient un pari juste, à deux fois la durée réelle ; c'est la forme qui
+manquait, pas le chiffre. La post-condition exacte se demande au navigateur —
+`getAnimations({ subtree: true })`, toutes finies — après deux trames, car on
+ne peut pas attendre la fin de ce qui n'a pas commencé.
+
+### 9.3 La post-condition qui manque AU SITE : `essais-pastille-revue.mjs`
+
+Celle-ci ne se répare pas dans l'essai, et il faut le dire plutôt que de
+l'habiller. La pastille est peinte par :
+
+```js
+if (await revueASignaler()) pastille.classList.replace('hidden', 'inline-flex');
+```
+
+Quand la réponse est « non », **ce passage ne fait rien**. L'absence qu'on lit
+est exactement ce qu'on lirait s'il n'avait pas encore tourné, et aucune
+attente, même juste, ne distingue les deux. Le commentaire d'origine annonçait
+que « le témoin de synchronisation, peint dans le même passage, sert de
+repère » : c'est faux — il est peint par un autre `quandDeverrouille`, pour une
+autre fonction, et il n'était de toute façon pas attendu.
+
+Le remède exact est la **marque de fin de peinture** posée sur le conteneur de
+la pastille, décidée après la bascule. Elle attend la fusion de
+`claude/b-marque-peinture`.
+
+Entre-temps, l'absence est encadrée par deux mesures bruyantes au lieu d'une :
+la section 2 montre que la pastille sait s'allumer, et une section 4 nouvelle
+qu'elle **se rallume quand la donnée revient** — ce qui prouve que la chaîne
+tourne encore à ce moment de l'essai, et mesure au passage que l'extinction
+est réversible, ce que rien ne vérifiait. La sonde reste faible et son
+intitulé le dit.
+
 ## Ce qui reste hors d'atteinte ici
 
 ### La visibilité et le focus d'une page ne se pilotent pas (26 octobre, lot 0.8)
