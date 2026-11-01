@@ -157,6 +157,13 @@ const sauvegarde = await fabriquerUneSauvegarde(nav, {
   const issue = await restaurerDepuis(page, {
     racine: RACINE,
     chemin: sauvegarde,
+    /*
+       B-7 — « s'ajoute », parce que c'est ce que cet essai décrit : un appareil
+       neuf qui restaure une sauvegarde pour la lire, sans prétendre remplacer
+       celui qui l'a écrite. La branche qui reprendrait l'identité est éprouvée
+       ailleurs, par l'essai qui en a fait son objet.
+    */
+    role: 's-ajoute',
     motDePasseDuSite: MDP,
     /*
        LE MOT DE PASSE DU FICHIER, et c'est le point qui compte :
