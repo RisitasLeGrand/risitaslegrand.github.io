@@ -597,7 +597,26 @@ await lots[0].click();
 await repondreALaBoite(a.page, 'Annuler cette synchronisation');
 await a.page.waitForSelector('#message-annulation:not(.hidden)', { timeout: 60000 });
 const messageAnnulation = await a.page.textContent('#message-annulation');
-vrai('l’annulation dit ce qu’elle a retiré', messageAnnulation.includes('retirées'));
+/*
+   L'ACCORD, ET NON LE PLURIEL SEUL — même famille que les deux motifs corrigés
+   en 63a45aee, et c'est la troisième fois que ce lot me la fait rencontrer.
+
+   L'essai attendait le littéral « retirées ». L'écran accorde désormais :
+   « Annulée : 1 opération et 0 révision retirée », au singulier quand le total
+   vaut un. L'essai rougissait donc sur une phrase DEVENUE correcte — et il
+   rougissait sur main avant ma branche, mesuré en mettant mes changements de
+   côté.
+
+   Le motif accepte les deux accords et exige toujours ce que ce contrôle
+   garde : les DEUX comptes nommés, et le fait qu'ils ont été retirés. Il ne
+   peut pas passer sur une phrase tronquée ni sur une chaîne vide, et c'est
+   précisément ce qu'une annulation doit dire — ce qu'elle a défait, avec des
+   nombres.
+*/
+vrai(
+  'l’annulation dit ce qu’elle a retiré',
+  /\d+ opérations? et \d+ révisions? retirées?/.test(messageAnnulation),
+);
 
 /* L'état vide est nommé, et il reste visible : c'est ce qui permet au message
    d'annulation de rester lisible après avoir annulé la dernière
