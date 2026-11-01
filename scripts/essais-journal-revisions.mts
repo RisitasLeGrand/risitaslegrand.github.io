@@ -52,6 +52,28 @@ const JOUR = 86_400_000;
 const APPAREIL = 'AAAA1111';
 
 /**
+ * L'HORLOGE D'UNE ENTRÉE FABRIQUÉE, de la forme que le programme produit.
+ *
+ * Les quatre fabrications de cet essai omettaient « hlc » et « lot », que
+ * « Journalisable » exige toutes deux. Elles éprouvaient donc des entrées que
+ * le programme NE PEUT PAS produire, et rien ne le disait : tsx retire les
+ * types sans les vérifier, et « scripts/ » n'est pas couvert par le typage du
+ * dépôt.
+ *
+ * **Et il faut dire ce que cela ne coûtait PAS**, parce que je l'ai d'abord
+ * cru plus grave. « hlc » est la clé primaire de « comparerJournalisables »,
+ * et j'ai supposé que les assertions d'ordre — « l'ordre de lecture ne change
+ * rien » — passaient par la retombée sur l'identifiant faute d'horloge.
+ * Vérifié : « recalculer » trie par « id » seul et ne consulte jamais « hlc ».
+ * Aucune de ces assertions n'était donc verte pour une mauvaise raison. Le
+ * défaut est une entrée mal formée, pas un faux vert.
+ */
+function hlcDe(instantMs: number, rang = 0): string {
+  return `${String(instantMs).padStart(15, '0')}-${rang.toString(36).toUpperCase().padStart(4, '0')}`;
+}
+
+
+/**
  * Révise une carte comme le site le fait, en gardant les deux versions : l'état
  * tenu au fil de l'eau, et le journal qui devra le reproduire.
  */
@@ -72,6 +94,8 @@ function parcourir(graine: number, combien: number, depart = Date.parse('2024-01
       matiere: 'Économie',
       le: new Date(instant).toISOString(),
       appareil: APPAREIL,
+      hlc: hlcDe(instant, i),
+      lot: SANS_LOT,
       note,
     });
     carte = noter(carte, note, new Date(instant));
@@ -107,7 +131,33 @@ console.log('\nSocle des cartes antérieures au journal');
 {
   // Une carte comme il en existe aujourd'hui : un état, aucune histoire.
   const { carte: ancienne } = parcourir(7, 12);
-  const socle = socleDe(ancienne, fabriqueUlid()(), APPAREIL);
+  /*
+     LE QUATRIÈME ARGUMENT MANQUAIT, et l'essai tournait quand même.
+
+     « socleDe » en demande quatre — carte, identifiant, appareil, horloge —
+     et n'en recevait que trois : « hlc » valait « undefined ». Le socle
+     éprouvé ici était donc un objet que le programme NE PEUT PAS produire ;
+     le seul appel réel, dans « db.ts », fabrique toujours son horloge.
+
+     Rien ne le disait : tsx retire les types sans les vérifier, et
+     « scripts/ » n'est pas couvert par le typage du dépôt — relevé le
+     1er novembre, 352 fichiers de « src/ » examinés et zéro de « scripts/ ».
+     L'assertion qui suit était donc verte sur une entrée malformée, ce qui ne
+     dit rien de l'entrée réelle : c'est vrai dans les deux sens, une
+     assertion peut aussi bien être fausse sur l'objet bancal et juste sur le
+     bon.
+
+     L'horloge est construite comme « db.ts » la construit, et non inventée :
+     les millisecondes de la dernière révision, complétées à quinze chiffres,
+     puis un compteur en base 36. Une forme différente de celle que la
+     migration produit ferait éprouver un second objet imaginaire.
+  */
+  const msDuSocle = Date.parse(
+    ancienne.derniereRevision ?? ancienne.fsrs.last_review ?? ancienne.fsrs.due,
+  );
+  const hlcDuSocle = `${String(Number.isFinite(msDuSocle) ? msDuSocle : 0).padStart(15, '0')}-0000`;
+  const socle = socleDe(ancienne, fabriqueUlid()(), APPAREIL, hlcDuSocle);
+  v('le socle porte une horloge, comme la migration en pose une', socle.hlc, hlcDuSocle);
   const reprise = recalculerCarte([socle]);
   v('le socle seul rend l’état repris', reprise, ancienne);
 
@@ -126,6 +176,8 @@ console.log('\nSocle des cartes antérieures au journal');
       matiere: ancienne.matiere,
       le: new Date(instant).toISOString(),
       appareil: APPAREIL,
+      hlc: hlcDe(instant),
+      lot: SANS_LOT,
       note,
     });
     attendue = noter(attendue, note, new Date(instant));
@@ -160,6 +212,8 @@ console.log('\nSocle des cartes antérieures au journal');
     matiere: ancienne.matiere,
     le: '2025-05-01T09:00:00.000Z',
     appareil: 'ZZZZ9999',
+    hlc: hlcDe(Date.parse('2025-05-01T09:00:00.000Z')),
+    lot: SANS_LOT,
     note: 'correct',
   };
   const avecAnterieure = recalculerCarte([avantLeSocle, socle]);
@@ -190,6 +244,8 @@ console.log('\nSocle des cartes antérieures au journal');
         matiere: 'Finances publiques',
         le: '2025-07-01T09:00:00.000Z',
         appareil: APPAREIL,
+        hlc: hlcDe(Date.parse('2025-07-01T09:00:00.000Z')),
+        lot: SANS_LOT,
         note: 'correct',
       },
     ],
@@ -199,6 +255,84 @@ console.log('\nSocle des cartes antérieures au journal');
     'f2',
     'Finances publiques',
   ]);
+}
+
+/* ── CE QUI ORDONNE LE REJEU, et ce qui ne l'ordonne pas ─────────────────── */
+
+console.log('\nCe qui ordonne le rejeu d’un journal de révisions');
+{
+  /*
+     UNE DISTINCTION QUI N'ÉTAIT ÉCRITE NULLE PART, et que j'ai failli prendre
+     pour un défaut.
+
+     Les entrées de ce journal sont « Journalisable » : elles portent une
+     horloge, et « comparerJournalisables » — éprouvé dans la section
+     suivante — départage d'abord par elle. Il est donc naturel de supposer
+     que le rejeu suit le même ordre.
+
+     IL NE LE SUIT PAS. « recalculer » trie par identifiant SEUL. C'est
+     cohérent — un ULID est chronologique, et le rejeu est local, là où
+     l'horloge sert à fusionner entre appareils — mais rien ne le disait, et
+     deux ordres dans un même fichier sont deux occasions de se tromper.
+
+     Les deux entrées ci-dessous se contredisent exprès : l'identifiant met A
+     en premier, l'horloge met B. Ce que l'on relève est donc UNE DÉCISION,
+     pas une coïncidence, et l'assertion rougira le jour où le rejeu passera à
+     « comparerJournalisables » — ce qui est une bonne nouvelle à recevoir
+     d'un essai plutôt que d'une carte mal recalculée.
+  */
+  const commun = {
+    genre: 'notation' as const,
+    carteId: 'c9',
+    ficheId: 'f9',
+    matiere: 'Économie',
+    appareil: APPAREIL,
+    lot: SANS_LOT,
+  };
+  /* A : identifiant le plus petit, horloge la PLUS GRANDE. */
+  const aa: EntreeRevision = {
+    ...commun,
+    id: '00000000000000000000000001',
+    hlc: hlcDe(Date.parse('2030-01-01T00:00:00.000Z')),
+    le: '2025-01-01T09:00:00.000Z',
+    note: 'oublie',
+  };
+  /* B : identifiant le plus grand, horloge la plus petite. */
+  const bb: EntreeRevision = {
+    ...commun,
+    id: '00000000000000000000000002',
+    hlc: hlcDe(Date.parse('2020-01-01T00:00:00.000Z')),
+    le: '2025-02-01T09:00:00.000Z',
+    note: 'facile',
+  };
+
+  vrai('prémisse : l’identifiant et l’horloge se contredisent bien',
+    aa.id < bb.id && aa.hlc > bb.hlc);
+
+  const parLIdentifiant = recalculerCarte([aa, bb]);
+  const dansLAutreSens = recalculerCarte([bb, aa]);
+  v('le rejeu ne dépend pas de l’ordre du tableau', dansLAutreSens, parLIdentifiant);
+
+  /*
+     Et voici la décision elle-même : la dernière note appliquée est celle de
+     l'entrée au PLUS GRAND IDENTIFIANT, donc « facile ». Si le rejeu suivait
+     l'horloge, ce serait « oublie », et l'intervalle serait tout autre.
+  */
+  const commeSiLHorloge = recalculerCarte([bb]);
+  const commeSiLIdentifiant = recalculerCarte([aa]);
+  vrai('prémisse : les deux notes ne mènent pas au même état',
+    commeSiLHorloge?.fsrs.scheduled_days !== commeSiLIdentifiant?.fsrs.scheduled_days);
+  /*
+     LA PREMIÈRE RÉDACTION DE CE CONTRÔLE COMPARAIT « recalculerCarte([aa, bb]) »
+     À LUI-MÊME. Elle était verte et ne pouvait pas être autre chose : une
+     assertion qui confronte une valeur à elle-même ne mesure rien, quelle que
+     soit la conviction de celui qui l'écrit. Les deux qui suivent se
+     confrontent à l'ordre CONCURRENT, qui est ce qu'il fallait écarter.
+  */
+  vrai('le rejeu suit l’IDENTIFIANT : la dernière appliquée est B',
+    parLIdentifiant?.derniereRevision === bb.le);
+  vrai('et NON l’horloge, qui aurait mis A en dernier',
+    parLIdentifiant?.derniereRevision !== aa.le);
 }
 
 /* ── L'ordre total des opérations ────────────────────────────────────────── */

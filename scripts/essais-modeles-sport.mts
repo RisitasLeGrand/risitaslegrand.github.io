@@ -119,7 +119,23 @@ const MUSCLE_PAR_LIBELLE: Record<string, string> = Object.fromEntries(
 const modeles: ModeleDuDossier[] = [];
 {
   let courant: ModeleDuDossier | null = null;
-  let section: 'fiche' | 'seance' | 'cibles' | null = null;
+  /*
+     « exercices » MANQUAIT À CETTE UNION, et la branche qui le lit existe
+     trente lignes plus bas.
+
+     À l'exécution rien ne s'en ressentait : tsx retire les types, l'affectation
+     passait, et la branche analyse bien ses 146 exercices. Mais TypeScript,
+     lui, tenait « section === 'exercices' » pour impossible — donc pour du
+     code mort. Un nettoyage guidé par le type, ou un outil qui signale les
+     branches mortes, aurait retiré l'analyse des exercices en croyant
+     supprimer du vide, et l'essai aurait continué de dire « transcription
+     conforme » sur un tableau qu'il ne lit plus.
+
+     J'ai d'abord rapporté ce cas comme un faux vert avéré. Il ne l'est pas :
+     la branche tourne, vérifié en lançant l'essai. C'est un piège posé, pas
+     un piège refermé.
+  */
+  let section: 'fiche' | 'seance' | 'cibles' | 'exercices' | null = null;
   let commence = false;
 
   for (let i = 0; i < lignes.length; i += 1) {
