@@ -96,7 +96,71 @@ mots vides — suffirait au repêchage. Le test deviendrait
 `mots.some((m) => m.includes(mot))`, qui garde la sémantique du `includes`
 actuel.
 
-### b. Ce qu'il faut mesurer avant d'écrire cette proposition
+### b. Les mesures manquantes, FAITES — et elles ont corrigé la proposition
+
+Le document s'arrêtait ici en nommant trois mesures à faire. Elles sont faites,
+sur les 429 fiches de `content/`, et la première a démoli l'esquisse ci-dessus.
+
+#### La proposition naïve ne gagnait que 2,9 fois
+
+| forme | poids | rapport |
+| --- | --- | --- |
+| le texte servi aujourd'hui | 8 335 Ko | — |
+| ensembles de mots PAR FICHE | 2 876 Ko | 2,9 × |
+| **index INVERSÉ, mot → fiches** | **1 311 Ko** | **6,4 ×** |
+
+Les ensembles par fiche répètent chaque mot autant de fois qu'il paraît de
+fiches. L'index inversé le dit une fois : 24 908 mots pour 265 149 couples. Mon
+estimation de « l'ordre du mégaoctet » pour la forme par fiche était fausse d'un
+facteur trois, et c'est exactement l'erreur que ce document reproche au nom de
+la tâche.
+
+Économie mesurée : **7 025 Ko sur 8 335**, et 40 % des mots ne paraissent que
+dans UNE fiche — ce sont les plus discriminants pour un rattachement, donc ceux
+qu'il faut garder.
+
+#### Un index de mots entiers perdrait 19 % des accords
+
+Le test actuel est `texte.includes(mot)`, qui attrape un mot À L'INTÉRIEUR d'un
+autre. Mesuré sur 632 mots d'épreuve — le vocabulaire des titres de fiches,
+faute d'avoir les vraies actualités hors ligne, et c'est dit plutôt que caché :
+46 663 accords trouvés par les deux méthodes, **10 974 trouvés seulement par la
+sous-chaîne**, soit 19 %. Exemple typique : `corrige` dans `corriger`, une
+variante morphologique.
+
+Un index de mots entiers aurait donc changé ce que la personne voit. La
+condition « rien de visible » n'était PAS remplie.
+
+#### La forme qui garde les deux, et sa vérification
+
+Pour un mot cherché, réunir les listes de tous les mots du VOCABULAIRE qui le
+contiennent. Le raisonnement : tout accord de sous-chaîne dans le texte a lieu à
+l'intérieur d'un mot entier, et ce mot est au vocabulaire.
+
+**Ce raisonnement était faux, et la mesure l'a dit.** Une divergence sur 632 :
+le mot `nouvel`, 158 fiches manquantes. Cause : `nouvel` est une sous-chaîne de
+`nouvelle`, qui est un MOT VIDE — donc exclu du vocabulaire alors qu'il est
+présent dans le texte.
+
+Remède : les mots vides entrent au vocabulaire de l'index, tout en restant
+exclus du SCORE. Vérifié : **zéro divergence sur 632 mots**, les deux méthodes
+rendent exactement le même ensemble. Le poids ci-dessus (1 311 Ko) les inclut
+déjà.
+
+#### Ce qui reste non mesuré, et je ne le compte pas comme acquis
+
+**Combien d'actualités restent sans rattachement** dans le contenu réel. Les
+actualités ne sont pas dans `content/` — elles viennent d'un flux —, donc je ne
+peux pas le mesurer hors ligne. Cela ne change pas la décision, puisque le gain
+est acquis dès qu'un seul écran charge l'index ; cela change seulement combien
+de personnes en profitent.
+
+Et les 632 mots d'épreuve sont le vocabulaire des TITRES, non de vraies
+actualités. L'équivalence vérifiée porte sur eux ; elle est démontrable en
+général, mais sa démonstration vient d'être prise en défaut une fois, donc je
+la donne pour vérifiée sur cet échantillon et non pour prouvée.
+
+### c. Ce qu'il faudrait encore mesurer si l'on va plus loin
 
 - **le poids réel du second index.** Estimé, non mesuré : quelques centaines de
   mots par fiche, soit de l'ordre du mégaoctet avant chiffrement. Un index
