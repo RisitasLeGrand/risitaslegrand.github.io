@@ -249,6 +249,21 @@ console.log('\n\x1b[1m1. UNE SAUVEGARDE PLUS RÉCENTE EST REFUSÉE, ET RIEN N’
       const e = document.getElementById('message-cyclades');
       if (e) e.textContent = '';
     });
+    /*
+       B-7 — ON RÉPOND À LA QUESTION DU RÔLE AVANT D'APPLIQUER.
+
+       L'écran demande si cet appareil remplace celui de la sauvegarde ou s'y
+       ajoute, et il REFUSE d'appliquer sans réponse. Cet essai est né avant
+       cette question : il cliquait « appliquer » et attendait la boîte de
+       confirmation, qui ne s'ouvrait donc jamais — expiration sur « Remplacer »,
+       sans croix et sans erreur de page.
+
+       « s'ajoute », parce que cet essai n'éprouve pas l'identité mais la
+       politique du `.schema` : c'est la branche qui ne touche pas à l'identité
+       de l'appareil, donc celle qui laisse l'objet de l'essai seul en cause. Le
+       choix est écrit plutôt que subi.
+    */
+    await page.check('#role-ajoute');
     await appliquer.click();
     await repondreALaConfirmation();
     await travailFini('#message-cyclades');
@@ -333,6 +348,9 @@ console.log('\n\x1b[1m2. UNE SAUVEGARDE PLUS ANCIENNE TRAVERSE LES PALIERS\x1b[0
       const e = document.getElementById('message-cyclades');
       if (e) e.textContent = '';
     });
+    /* Même question de rôle, même branche, et pour la même raison qu'au premier
+       site : voir le commentaire là-haut. */
+    await page.check('#role-ajoute');
     await appliquer.click();
     await repondreALaConfirmation();
     await travailFini('#message-cyclades');
