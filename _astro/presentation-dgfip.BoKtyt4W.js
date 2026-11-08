@@ -1,0 +1,1 @@
+var e=`copie`,t=`cyclades.dgfip.presentation`,n=e=>e===`copie`||e===`une-a-la-fois`;function r(){try{if(typeof localStorage>`u`)return e;let r=localStorage.getItem(t);return n(r)?r:e}catch{return e}}function i(e){try{if(typeof localStorage>`u`)return;localStorage.setItem(t,e)}catch{}}export{r as n,i as r,e as t};

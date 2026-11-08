@@ -1,0 +1,1 @@
+function e(){return`g77f2f15b · 2026-11-08`}export{e as t};

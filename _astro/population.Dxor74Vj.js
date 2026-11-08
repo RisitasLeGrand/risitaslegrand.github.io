@@ -1,0 +1,1 @@
+var e=e=>({declaree:!1,pourquoi:e});export{e as t};

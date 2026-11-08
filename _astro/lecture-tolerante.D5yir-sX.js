@@ -1,0 +1,1 @@
+async function e(e,t){let n=await Promise.allSettled(e.map(e=>t(e))),r=[],i=0;for(let e of n)e.status===`fulfilled`?r.push(e.value):i+=1;return{lues:r,isolees:i}}async function t(t,n){return(await e(t,n)).lues}export{t};

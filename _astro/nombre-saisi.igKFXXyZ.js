@@ -1,0 +1,1 @@
+var e=/[\s  ]/g;function t(t){let n=t.replace(e,``).replace(`,`,`.`);return n===``||!/^[+-]?(\d+(\.\d+)?|\.\d+)$/.test(n)?null:Number(n)}function n(e){let n=t(e);return n!==null&&Number.isInteger(n)?n:null}function r(e){let n=t(e.value);if(n===null)return null;let r=t(e.dataset.min??``),i=t(e.dataset.max??``);return r!==null&&n<r||i!==null&&n>i?null:n}export{n,r as t};

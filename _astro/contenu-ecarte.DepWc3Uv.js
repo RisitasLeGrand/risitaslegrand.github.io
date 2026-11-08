@@ -1,0 +1,1 @@
+var e=`Cas pratique`,t=`méthodologie`;function n(e){return(e.tags??[]).includes(t)}export{t as n,n as r,e as t};

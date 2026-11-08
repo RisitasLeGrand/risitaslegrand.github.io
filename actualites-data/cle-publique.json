@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "empreinte": "a947a80fa6b151fc",
+  "jwk": {
+    "key_ops": [
+      "encrypt"
+    ],
+    "ext": true,
+    "alg": "RSA-OAEP-256",
+    "kty": "RSA",
+    "n": "ilgemRo_6wJ1ASNUoCSdbiAy4-yAY0_XaS6xrTe93mfOcHlkhQ7nbVeaOIehwaDL3o_eR9b0XyBNC04Dv6Kx8NJSK9OTb_-6ygfYpqgDQWdbz6p0K1UOsWyTgwRoSuSWBd8Dl38GHk5YOIOjWKByWUnvjccigJEF_eD9czsPTFe7zTm5Mg5b0JqvU709KJZWRv9P_PLI7CB3h4NhC0r8iW9DIsE4lEji1NKsxgwN1WQdJDQbpJIdEAaFKbNzD2x3rX5P2gFgP_GkJz-PM79CIj4oXTSOazwQ_KFhOSrOkyqZpCkWAnB3JDQQWstmH2mqtTwTAIcIwGROClDnzztfpT3-Tpx8DxG5snh2TxSKIMbVW4JPx-UhGvxRV7EbZmCMl4_ir-4Yb9Kf2HxYe64gMYAhRxnmyOt9IPy5eXqpfpYiV896Ej6akUNHIYTZCinLyYwFCMSTpe4KXEWreV_W4yCuMaa-0ifCeXBqcfJ60194CSufbuMWEvLku3O0Bvwv",
+    "e": "AQAB"
+  }
+}

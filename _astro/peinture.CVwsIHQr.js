@@ -1,0 +1,1 @@
+var e=0;function t(t){e+=1,t instanceof HTMLElement&&(t.dataset.peint=String(e))}async function n(e,n){e instanceof HTMLElement&&e.setAttribute(`aria-busy`,`true`);try{return await n()}finally{e instanceof HTMLElement&&e.removeAttribute(`aria-busy`),t(e)}}export{n as t};

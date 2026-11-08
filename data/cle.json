@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "version": "879c6f7f58c4",
+  "kdf": "PBKDF2-SHA256",
+  "iterations": 600000,
+  "sel": "bKCy6RG7zG9LVMpY1+6Gjg==",
+  "chiffrement": "AES-GCM",
+  "temoin": {
+    "iv": "ExzjsqJSBPutA22/",
+    "ct": "2TV/AlF/rUP1ACbF9FCahUOq/aH2PRFdY/R10rsCrFHqc8njmU3rVJcfXY2VZ99JQM1k+ucSGuJRA5Bt1b1xGdU="
+  }
+}

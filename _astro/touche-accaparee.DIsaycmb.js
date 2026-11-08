@@ -1,0 +1,1 @@
+var e=new Set([`BUTTON`,`A`,`SELECT`,`TEXTAREA`]);function t(t,n){if(!(t instanceof HTMLElement))return!1;if(t.isContentEditable||e.has(t.tagName))return!0;if(t.tagName===`INPUT`){let e=(t.getAttribute(`type`)??`text`).toLowerCase();return e===`checkbox`||e===`radio`?n===` `:e!==`range`}return!1}export{t};

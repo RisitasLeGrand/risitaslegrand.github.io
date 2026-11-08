@@ -1,0 +1,1 @@
+var e=`revinsp.serie-xp`;function t(){try{return localStorage.getItem(e)!==`masquees`}catch{return!0}}function n(t){try{localStorage.setItem(e,t?`affichees`:`masquees`)}catch{}}export{t as n,n as t};

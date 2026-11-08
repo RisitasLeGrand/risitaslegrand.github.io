@@ -1,0 +1,1 @@
+var e=e=>e>=2;function t(t,n,r=`${n}s`){return`${t} ${e(t)?r:n}`}function n(t,n,r=`${n}s`){return e(t)?r:n}function r(e,t=0){return e.toLocaleString(`fr-FR`,{minimumFractionDigits:t,maximumFractionDigits:t})}export{r as n,t as r,n as t};
